@@ -1,0 +1,20 @@
+import 'package:flutter/material.dart';
+
+class CareVerifiedBadge extends StatelessWidget {
+  const CareVerifiedBadge({super.key, this.size = 18});
+  final double size;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Verified Highlander Care',
+    child: SizedBox.square(
+      dimension: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(Icons.verified, size: size, color: const Color(0xFFC92922)),
+          Icon(Icons.check, size: size * .6, color: Colors.white),
+        ],
+      ),
+    ),
+  );
+}

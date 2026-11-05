@@ -1,0 +1,105 @@
+import 'package:flutter/foundation.dart';
+
+typedef FetchPostPage = Future<Map<String, dynamic>> Function(String? cursor);
+
+/// One in-flight page per list, with stale responses discarded after refresh.
+class PostPager extends ChangeNotifier {
+  PostPager(this.fetch);
+  final FetchPostPage fetch;
+  List<Map<String, dynamic>> posts = [];
+  Map<String, dynamic> response = {};
+  bool loading = false, hasMore = true;
+  String? error, _cursor;
+  int _generation = 0;
+  bool _disposed = false, _refreshAgain = false, _failedReset = true;
+  Future<void>? _refreshing;
+
+  Future<void> refresh() {
+    if (_disposed) return Future.value();
+    if (_refreshing != null) {
+      _refreshAgain = true;
+      return _refreshing!;
+    }
+    final operation = _refresh();
+    _refreshing = operation;
+    return operation;
+  }
+
+  Future<void> _refresh() async {
+    try {
+      do {
+        _refreshAgain = false;
+        await _load(reset: true);
+      } while (_refreshAgain && !_disposed);
+    } finally {
+      _refreshing = null;
+    }
+  }
+
+  Future<void> next() async {
+    if (_disposed || loading || !hasMore) return;
+    await _load(reset: false);
+  }
+
+  Future<void> retry() => _failedReset ? refresh() : next();
+
+  Future<void> _load({required bool reset}) async {
+    final generation = reset ? ++_generation : _generation;
+    final cursor = reset ? null : _cursor;
+    _failedReset = reset;
+    loading = true;
+    error = null;
+    notifyListeners();
+    try {
+      final data = await fetch(cursor);
+      if (_disposed || generation != _generation) return;
+      if (data['posts'] is! List ||
+          (data['posts'] as List).any((row) => row is! Map)) {
+        throw const FormatException('Invalid posts');
+      }
+      final page = (data['posts'] as List)
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList();
+      final nextCursor = data['nextCursor'];
+      final more = data['hasMore'] == true;
+      if (more &&
+          (nextCursor is! String ||
+              nextCursor.isEmpty ||
+              nextCursor == cursor ||
+              page.isEmpty)) {
+        throw const FormatException('Invalid pagination');
+      }
+      final unique = <String, Map<String, dynamic>>{};
+      for (final post in [
+        ...(reset ? <Map<String, dynamic>>[] : posts),
+        ...page,
+      ]) {
+        final id = post['_id']?.toString();
+        if (id == null || id.isEmpty) {
+          throw const FormatException('Missing post ID');
+        }
+        unique[id] = post;
+      }
+      posts = unique.values.toList();
+      response = data;
+      _cursor = more ? nextCursor as String : null;
+      hasMore = more;
+    } catch (_) {
+      if (!_disposed && generation == _generation) {
+        error = 'Could not load posts. Tap to retry.';
+      }
+    } finally {
+      if (!_disposed && generation == _generation) {
+        loading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _generation++;
+    super.dispose();
+  }
+}
