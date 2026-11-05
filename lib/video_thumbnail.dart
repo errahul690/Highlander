@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'otp_api.dart';
 
-/// Android extracts an actual video frame on a worker and caches the JPEG.
+/// Android and iOS extract a video frame on a worker and cache the JPEG.
 class VideoThumbnail {
   static const channel = MethodChannel('highlanders/video_thumbnail');
   static final _pending = <String, Future<String?>>{};

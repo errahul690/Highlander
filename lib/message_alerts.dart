@@ -44,6 +44,7 @@ class MessageAlerts {
   }
 
   static Future<void> _clearOngoingNotification() async {
+    if (!Platform.isAndroid) return;
     try {
       FlutterForegroundTask.initCommunicationPort();
       if (await FlutterForegroundTask.isRunningService) {
@@ -140,6 +141,7 @@ class MessageAlerts {
     await _notes.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        iOS: DarwinInitializationSettings(),
       ),
       onDidReceiveNotificationResponse: _onTap,
     );
@@ -179,6 +181,10 @@ class MessageAlerts {
             importance: Importance.high,
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentSound: true,
           ),
         ),
         payload: payload,
