@@ -155,6 +155,14 @@ class _AlertsScreenState extends State<AlertsScreen>
     final metadata = item['metadata'] is Map
         ? Map<String, dynamic>.from(item['metadata'] as Map)
         : <String, dynamic>{};
+    if (type == 'group_join_request') {
+      await NotificationRouter.followMap(context, {
+        'kind': type,
+        'groupId': metadata['groupId'],
+        'roomKind': metadata['kind'] ?? 'groups',
+      });
+      return;
+    }
     if (type == 'group_invite') {
       final groupId = '${metadata['groupId'] ?? ''}';
       final roomName = '${metadata['roomName'] ?? 'Group'}';

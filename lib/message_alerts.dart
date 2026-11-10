@@ -73,6 +73,12 @@ class MessageAlerts {
           .build(),
     );
     socket.on('receiveMessage', (value) => _onMessage(value, email));
+    final sessionToken = Session.token;
+    socket.on('session:revoked', (_) => Session.invalidate(sessionToken));
+    socket.on(
+      'connect_error',
+      (error) => Session.handleSocketError(error, sessionToken),
+    );
     socket.on('notification:new', _onAlert);
     socket.connect();
     _socket = socket;
@@ -166,7 +172,11 @@ class MessageAlerts {
     NotificationRouter.handle(response.payload);
   }
 
-  static Future<void> _show(String title, String body, {String? payload}) async {
+  static Future<void> _show(
+    String title,
+    String body, {
+    String? payload,
+  }) async {
     if (_foreground || PushAlerts.ready) return;
     final text = body.length > 180 ? '${body.substring(0, 177)}...' : body;
     try {

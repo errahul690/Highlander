@@ -80,7 +80,11 @@ class _SquadShowcaseState extends State<SquadShowcase>
             .indexOf(a.group)
             .compareTo(_positions.indexOf(b.group));
         if (group != 0) return group;
-        final jersey = a.jersey.compareTo(b.jersey);
+        final aNumber = int.tryParse(a.jerseyLabel);
+        final bNumber = int.tryParse(b.jerseyLabel);
+        final jersey = aNumber != null && bNumber != null
+            ? aNumber.compareTo(bNumber)
+            : a.jerseyLabel.compareTo(b.jerseyLabel);
         return jersey != 0 ? jersey : a.displayOrder.compareTo(b.displayOrder);
       });
     if (_filter != 'ALL' && !_all.any((p) => p.group == _filter)) {
@@ -92,7 +96,7 @@ class _SquadShowcaseState extends State<SquadShowcase>
   int _initialIndex() {
     if (_filter != 'ALL') return 0;
     final index = _players.indexWhere(
-      (p) => p.jersey == 10 && p.group != 'COACH',
+      (p) => p.jerseyLabel == '10' && p.group != 'COACH',
     );
     return index < 0 ? 0 : index;
   }
@@ -478,8 +482,7 @@ class _SquadShowcaseState extends State<SquadShowcase>
     );
   }
 
-  String _number(Player p) =>
-      p.group == 'COACH' || p.jersey == 0 ? 'HC' : '${p.jersey}';
+  String _number(Player p) => p.jerseyLabel;
   Widget _stage(List<Player> players) => LayoutBuilder(
     builder: (context, constraints) => Stack(
       key: const ValueKey('squad-player-stage'),
@@ -626,7 +629,7 @@ class _SquadShowcaseState extends State<SquadShowcase>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (player.group != 'COACH' && player.jersey != 0)
+                if (player.jerseyLabel.isNotEmpty)
                   ClipPath(
                     clipper: const SquadSlant(onlyRight: true),
                     child: Container(
@@ -635,7 +638,7 @@ class _SquadShowcaseState extends State<SquadShowcase>
                       alignment: Alignment.center,
                       padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
                       child: Text(
-                        '${player.jersey}',
+                        player.jerseyLabel,
                         style: const TextStyle(
                           fontFamily: 'Gilroy',
                           fontSize: 34,

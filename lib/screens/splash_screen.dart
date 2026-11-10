@@ -7,12 +7,9 @@ import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../app_banners_repository.dart';
 import '../feed_startup.dart';
 import '../otp_api.dart';
 import '../splash_cache.dart';
-import '../session.dart';
-import '../widgets/startup_loader.dart';
 
 const _nativeSplash = MethodChannel('highlanders/splash');
 
@@ -39,9 +36,6 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   Map<String, dynamic>? _splash;
   bool _proceeded = false;
-  bool _holding = false;
-  bool _loaderReady = false;
-  Completer<void>? _goalFinished;
   Timer? _timer;
   Timer? _nativeReadyTimeout;
   Completer<Map<String, dynamic>?>? _nativePlayback;
@@ -91,7 +85,9 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _refreshForNextLaunch() async {
     final fresh = await SplashCache.instance.refresh(
       client: widget.client,
-      force: true,
+      // main() already checked before playback. Avoid a second startup fetch;
+      // injected clients still exercise settings updates in screen tests.
+      force: widget.client != null,
     );
     if (!mounted || _proceeded || fresh == null) return;
     if (fresh['enabled'] == false) {
@@ -154,10 +150,7 @@ class _SplashScreenState extends State<SplashScreen> {
     _nativeChecked = false;
     _timer?.cancel();
     // A broken WebView/image must not strand the app on splash forever.
-    _timer = Timer(
-      const Duration(seconds: 15),
-      () => unawaited(_holdForFeed()),
-    );
+    _timer = Timer(const Duration(seconds: 15), () => unawaited(_proceed()));
     Map<String, dynamic>? native;
     if ('${data['type']}'.toLowerCase() == 'html') {
       final playback = Completer<Map<String, dynamic>?>();
@@ -180,7 +173,7 @@ class _SplashScreenState extends State<SplashScreen> {
       native = await playback.future;
       _nativeReadyTimeout?.cancel();
     }
-    if (!mounted || _proceeded || _holding) return;
+    if (!mounted || _proceeded) return;
     _nativeChecked = true;
     if (native?['active'] == true) {
       _timerArmed = true;
@@ -196,7 +189,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _onMediaReady() {
-    if (!mounted || _proceeded || _holding) return;
+    if (!mounted || _proceeded) return;
     _mediaReady = true;
     if (!_nativeChecked || _timerArmed) return;
     _timerArmed = true;
@@ -312,58 +305,12 @@ class _SplashScreenState extends State<SplashScreen> {
   void _startTimer(int milliseconds) {
     _timer?.cancel();
     if (milliseconds <= 0) {
-      unawaited(_holdForFeed());
+      unawaited(_proceed());
       return;
     }
     _timer = Timer(Duration(milliseconds: milliseconds), () {
-      unawaited(_holdForFeed());
+      unawaited(_proceed());
     });
-  }
-
-  /// Splash time is for the artwork. If banners and gallery are still downloading,
-  /// keep the full-screen loader up instead of opening a half-loaded feed.
-  Future<void> _showLoader() async {
-    if (!mounted) return;
-    if (!_holding) setState(() => _holding = true);
-    // Android's cached HTML splash sits above Flutter, including this loader.
-    try {
-      await _nativeSplash.invokeMethod<void>('hide');
-    } catch (_) {}
-  }
-
-  Future<void> _holdForFeed() async {
-    if (_proceeded || !mounted) return;
-    if (widget.client != null) {
-      await _proceed();
-      return;
-    }
-    final session = widget.sessionReady;
-    if (session != null) {
-      try {
-        await session;
-      } catch (_) {}
-    }
-    if (!mounted || _proceeded) return;
-    // The loader prepares the feed. A signed-out launch goes straight to sign-in.
-    if (!Session.isSignedIn) {
-      await _proceed();
-      return;
-    }
-    if (!FeedStartup.isReady) {
-      await _showLoader();
-      try {
-        await FeedStartup.ready().timeout(const Duration(seconds: 15));
-      } catch (_) {}
-    }
-    // ready() can time out on gallery work while banner files are still
-    // downloading. Keep the loader up until those pictures are saved.
-    try {
-      await AppBannersRepository.instance.whenImagesReady().timeout(
-        const Duration(seconds: 8),
-      );
-    } catch (_) {}
-    FeedStartup.heldForFeed = true;
-    if (mounted && !_proceeded) await _proceed();
   }
 
   Future<void> _proceed() async {
@@ -379,34 +326,6 @@ class _SplashScreenState extends State<SplashScreen> {
       } catch (_) {}
     }
     if (!mounted) return;
-    final openingFeed = Session.isSignedIn && widget.client == null;
-    if (openingFeed && !_holding && !FeedStartup.isReady) {
-      await _showLoader();
-      try {
-        await FeedStartup.ready().timeout(const Duration(seconds: 15));
-      } catch (_) {}
-      try {
-        await AppBannersRepository.instance.whenImagesReady().timeout(
-          const Duration(seconds: 8),
-        );
-      } catch (_) {}
-      FeedStartup.heldForFeed = true;
-    }
-    if (!mounted) return;
-    if (openingFeed && _holding) {
-      if (Session.isSignedIn && widget.client == null) {
-        await FeedStartup.waitForPosts();
-      }
-      if (!mounted) return;
-      final goal = Completer<void>();
-      _goalFinished = goal;
-      setState(() => _loaderReady = true);
-      await goal.future;
-      if (!mounted) return;
-      if (Session.isSignedIn && widget.client == null) {
-        FeedStartup.finishEntrance();
-      }
-    }
     final next = widget.resolveNext?.call() ?? widget.nextScreen!;
 
     Navigator.of(context).pushReplacement(
@@ -442,8 +361,6 @@ class _SplashScreenState extends State<SplashScreen> {
     _timer?.cancel();
     _cancelNativeWait();
     _videoController?.dispose();
-    final goal = _goalFinished;
-    if (goal != null && !goal.isCompleted) goal.complete();
     super.dispose();
   }
 
@@ -470,19 +387,8 @@ class _SplashScreenState extends State<SplashScreen> {
           // Splash Media Content (Full-bleed for HTML/Lottie, centered for image/video)
           Positioned.fill(child: _buildMediaContent(type, fullUrl, localPath)),
 
-          if (_holding)
-            Positioned.fill(
-              child: StartupLoader(
-                ready: _loaderReady,
-                onFinished: () {
-                  final goal = _goalFinished;
-                  if (goal != null && !goal.isCompleted) goal.complete();
-                },
-              ),
-            ),
-
           // Allow Tap Anywhere or Skip Button
-          if (allowSkip && !_holding)
+          if (allowSkip)
             Positioned(
               left: 0,
               right: 0,

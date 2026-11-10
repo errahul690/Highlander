@@ -43,6 +43,12 @@ class ChatUpdates with WidgetsBindingObserver {
             .build(),
       );
       _socket!.on('receiveMessage', (_) => notifyChanged());
+      final sessionToken = Session.token;
+      _socket!.on('session:revoked', (_) => Session.invalidate(sessionToken));
+      _socket!.on(
+        'connect_error',
+        (error) => Session.handleSocketError(error, sessionToken),
+      );
       _socket!.on('blockStatusChanged', (_) => notifyChanged());
       _socket!.on('chatsRead', (_) => notifyChanged());
       _socket!.on('notification:new', (dynamic value) {

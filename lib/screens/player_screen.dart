@@ -43,7 +43,7 @@ class PlayerScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '#${player.jersey}',
+                  player.jerseyBadge,
                   style: const TextStyle(
                     color: clubRed,
                     fontWeight: FontWeight.w900,

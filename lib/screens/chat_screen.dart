@@ -991,13 +991,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         : '${widget.room?['iconImage'] ?? widget.room?['profile_photo'] ?? widget.room?['profileImage'] ?? ''}';
     final PreferredSizeWidget appBar = _chatBar(
       image: photo,
-      subtitle: _direct
-          ? 'Direct message'
-          : isCircle
-          ? 'Huddle'
-          : isGroup
-          ? 'Group'
-          : null,
+      // subtitle: _direct
+      //     ? 'Direct message'
+      //     : isCircle
+      //     ? 'Huddle'
+      //     : isGroup
+      //     ? 'Group'
+      //     : null,
       actions: [
         if (isGroup) ...[
           IconButton(

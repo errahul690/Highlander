@@ -37,22 +37,24 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        showSplashHtml()
+        // Dart chooses the latest admin setting before starting the animation.
     }
 
-    private fun showSplashHtml() {
-        val downloaded = File(filesDir, "splash/active.html")
-        val settingsFile = File(filesDir, "splash/settings.json")
+    private fun showSplashHtml(selected: JSONObject?) {
         var html: String? = null
         var allowSkip = false
-        if (settingsFile.exists()) {
+        if (selected != null) {
             try {
-                val settings = JSONObject(settingsFile.readText())
+                val settings = selected
                 if (!settings.optBoolean("enabled", true)) return
+                if (settings.optString("type") != "html") return
                 allowSkip = settings.optBoolean("allow_skip", false)
-                if (settings.optString("type") == "html" && downloaded.exists() && downloaded.length() > 0) {
-                    html = downloaded.readText()
+                html = settings.optString("html_content").takeIf { it.isNotBlank() }
+                val localHtml = settings.optString("_local_html_path")
+                if (html == null && localHtml.isNotBlank() && File(localHtml).exists()) {
+                    html = File(localHtml).readText()
                 }
+                if (html == null) return
             } catch (_: Exception) {
             }
         }
@@ -222,6 +224,7 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        PostLinkStore(this).capture(intent.dataString)
         intent.dataString?.let { linksChannel?.invokeMethod("incomingLink", it) }
     }
 
@@ -231,7 +234,11 @@ class MainActivity : FlutterActivity() {
         linksChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "highlanders/app_links")
         splashChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "highlanders/splash")
         splashChannel?.setMethodCallHandler { call, result ->
-            if (call.method == "waitUntilReady") {
+            if (call.method == "prepare") {
+                val selected = (call.arguments as? Map<*, *>)?.let { JSONObject(it) }
+                showSplashHtml(selected)
+                result.success(null)
+            } else if (call.method == "waitUntilReady") {
                 if (splashOverlay == null) result.success(null)
                 else if (splashReadyAt != null) result.success(splashPlaybackState())
                 else splashReadyRequests.add(result)
@@ -253,7 +260,12 @@ class MainActivity : FlutterActivity() {
         }
         linksChannel?.setMethodCallHandler { call, result ->
                 if (call.method == "getInitialLink") {
-                    result.success(intent.dataString)
+                    PostLinkStore(this).initialLink(intent.dataString, result)
+                    return@setMethodCallHandler
+                }
+                if (call.method == "consumePostLink") {
+                    PostLinkStore(this).consume(call.argument<String>("postId"))
+                    result.success(null)
                     return@setMethodCallHandler
                 }
                 if (call.method == "sharePost") {

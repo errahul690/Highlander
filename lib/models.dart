@@ -14,7 +14,8 @@ class Player {
   });
 
   final String name;
-  final int jersey;
+  // Older API records contain numbers; newer records also support text labels.
+  final Object jersey;
   final String position;
   final String image;
   final String frontImage;
@@ -22,6 +23,10 @@ class Player {
   final String nationality;
   final String firstName, lastName, positionCode;
   final int displayOrder;
+
+  String get jerseyLabel => '$jersey'.trim();
+  String get jerseyBadge =>
+      RegExp(r'^\d+$').hasMatch(jerseyLabel) ? '#$jerseyLabel' : jerseyLabel;
 
   String get group {
     final value = '$positionCode $position'.toLowerCase();

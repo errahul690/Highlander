@@ -22,34 +22,13 @@ class FeedStartup {
   static Future<Map<String, dynamic>>? _posts;
   static String? _postsForToken;
   static bool _publicStarted = false;
-  static bool heldForFeed = false;
-  static bool _entranceFinished = false;
-
-  static void finishEntrance() => _entranceFinished = true;
-
-  static bool consumeEntranceFinished() {
-    final finished = _entranceFinished;
-    _entranceFinished = false;
-    return finished;
-  }
-
-  /// Wait without consuming the page that Feed will claim on entry.
-  static Future<void> waitForPosts() async {
-    try {
-      await _posts;
-    } catch (_) {}
-  }
-
-  static bool _feedReady = false;
   static Future<void>? _ready;
   static final http.Client _client = http.Client();
-
-  static bool get isReady => _feedReady;
 
   /// Banner pictures and gallery thumbnails started at launch.
   static Future<void> ready() {
     _startPublic();
-    return _ready ??= _waitForFeed().whenComplete(() => _feedReady = true);
+    return _ready ??= _waitForFeed();
   }
 
   static Future<void> _waitForFeed() async {

@@ -10,11 +10,13 @@ import '../widgets/compose_icon.dart';
 
 import '../widgets/user_avatar.dart';
 import '../widgets/care_verified_badge.dart';
+import '../widgets/support_hub_avatar.dart';
 import '../widgets/unread_chat_badge.dart';
 
 import '../community_api.dart';
 import '../chat_updates.dart';
 import '../realtime_client.dart';
+import '../support_hub_repository.dart';
 import '../theme.dart';
 import '../widgets/community_icons.dart';
 import '../widgets/invite_members_sheet.dart';
@@ -54,10 +56,20 @@ class _CommunityScreenState extends State<CommunityScreen> {
   bool _refreshingChats = false, _chatRefreshPending = false;
   String get _kind => _tab == 0 ? 'circles' : _tabs[_tab].toLowerCase();
 
+  String _rowName(Map<String, dynamic> row) =>
+      _tab == 1 && row['isCare'] == true
+      ? SupportHubRepository.instance.name
+      : '${row['name']}';
+
+  void _onSupportHubName() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
     _tab = widget.initialIndex;
+    SupportHubRepository.instance.addListener(_onSupportHubName);
     _reload();
     _chatSubscription = ChatUpdates.instance.changes.listen(
       (_) => _refreshChats(),
@@ -102,6 +114,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   @override
   void dispose() {
+    SupportHubRepository.instance.removeListener(_onSupportHubName);
     _chatSubscription?.cancel();
     _supportHub?.cancel();
     ChatUpdates.instance.release();
@@ -131,7 +144,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ChatScreen(
-          title: '${row['name']}',
+          title: _rowName(row),
           image: '${row['iconImage'] ?? ''}',
           recipientEmail: _tab == 1 ? row['email'] as String : null,
           isCare: _tab == 1 && row['isCare'] == true,
@@ -889,7 +902,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Widget _chatTile(Map<String, dynamic> row) {
-    final name = '${row['name']}';
+    final name = _rowName(row);
     final content = '${row['content'] ?? ''}';
     final unread = (row['unreadCount'] as num?)?.toInt() ?? 0;
     return Column(
@@ -906,12 +919,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
             horizontal: 16,
             vertical: 4,
           ),
-          leading: UserAvatar(
-            email: '${row['email'] ?? ''}',
-            name: name,
-            image: '${row['iconImage'] ?? ''}',
-            radius: 25,
-          ),
+          leading: row['isCare'] == true
+              ? const SupportHubAvatar()
+              : UserAvatar(
+                  email: '${row['email'] ?? ''}',
+                  name: name,
+                  image: '${row['iconImage'] ?? ''}',
+                  radius: 25,
+                ),
           title: Row(
             children: [
               Flexible(
@@ -999,7 +1014,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       final rows = allRows
                           .where(
                             (row) =>
-                                '${row['name']}'.toLowerCase().contains(query),
+                                _rowName(row).toLowerCase().contains(query),
                           )
                           .toList();
 

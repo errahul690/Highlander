@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 
 import '../otp_api.dart';
 import '../posts_api.dart';
+import '../post_link_router.dart';
 import '../realtime_client.dart';
 import '../session.dart';
 import '../widgets/video_poster.dart';
@@ -304,7 +305,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     if (id.isEmpty) return;
     setState(() => _covered = true);
     try {
-      final link = post['share_url'] ?? 'highlanders://post/$id';
+      final link = sharedPostUrl(id);
       await const MethodChannel(
         'highlanders/app_links',
       ).invokeMethod('sharePost', {'text': '${post['content'] ?? ''}\n$link'});

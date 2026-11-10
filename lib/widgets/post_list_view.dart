@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../post_pager.dart';
 import 'feed_post_card.dart';
+import 'startup_loader.dart';
 
 /// Lazy cards release their media players when they leave the scroll cache.
 class PostListView extends StatefulWidget {
@@ -92,7 +93,8 @@ class _PostListViewState extends State<PostListView> {
     var postIndex = 0;
     var sectionIndex = 0;
     while (postIndex < posts.length || sectionIndex < placed.length) {
-      if (sectionIndex < placed.length && placed[sectionIndex].at == postIndex) {
+      if (sectionIndex < placed.length &&
+          placed[sectionIndex].at == postIndex) {
         rows.add(_FeedRow.section(placed[sectionIndex].child));
         sectionIndex++;
         continue;
@@ -128,40 +130,46 @@ class _PostListViewState extends State<PostListView> {
               )
             else ...[
               SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final rows = _rows();
-                  final row = rows[index];
-                  if (row.section != null) return row.section;
-                  final post = row.post!;
-                  final beforeSection =
-                      index + 1 < rows.length && rows[index + 1].section != null;
-                  return Padding(
-                    key: ValueKey(post['_id']),
-                    padding: EdgeInsets.only(
-                      bottom: beforeSection ? 8 : widget.spacing,
-                    ),
-                    child: FeedPostCard(
-                      post: post,
-                      videoPosts: widget.pager.posts
-                          .where(
-                            (item) => '${item['video'] ?? ''}'.trim().isNotEmpty,
-                          )
-                          .toList(),
-                      onChanged: widget.onChanged,
-                    ),
-                  );
-                }, childCount: _rows().length, addAutomaticKeepAlives: false),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final rows = _rows();
+                    final row = rows[index];
+                    if (row.section != null) return row.section;
+                    final post = row.post!;
+                    final beforeSection =
+                        index + 1 < rows.length &&
+                        rows[index + 1].section != null;
+                    return Padding(
+                      key: ValueKey(post['_id']),
+                      padding: EdgeInsets.only(
+                        bottom: beforeSection ? 8 : widget.spacing,
+                      ),
+                      child: FeedPostCard(
+                        post: post,
+                        videoPosts: widget.pager.posts
+                            .where(
+                              (item) =>
+                                  '${item['video'] ?? ''}'.trim().isNotEmpty,
+                            )
+                            .toList(),
+                        onChanged: widget.onChanged,
+                      ),
+                    );
+                  },
+                  childCount: _rows().length,
+                  addAutomaticKeepAlives: false,
+                ),
               ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Center(
-                    child: widget.pager.posts.isEmpty &&
+                    child:
+                        widget.pager.posts.isEmpty &&
                             (widget.pager.loading || widget.holdEmpty)
-                        ? (widget.emptyLoading ??
-                              const CircularProgressIndicator())
+                        ? (widget.emptyLoading ?? const StartupLoader())
                         : widget.pager.loading
-                        ? const CircularProgressIndicator()
+                        ? const StartupLoader()
                         : widget.pager.error != null
                         ? TextButton(
                             onPressed: widget.pager.retry,

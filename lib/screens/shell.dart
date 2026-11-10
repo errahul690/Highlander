@@ -8,6 +8,7 @@ import '../chat_updates.dart';
 import '../message_alerts.dart';
 import '../notification_router.dart';
 import '../otp_api.dart';
+import '../post_link_router.dart';
 import '../club_repository.dart';
 import '../explore_repository.dart';
 import '../splash_cache.dart';
@@ -22,6 +23,7 @@ import 'explore_screen.dart';
 import 'feed_screen.dart';
 import 'friends_screen.dart';
 import 'profile_screen.dart';
+import 'post_detail_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, this.initialIndex = 2});
@@ -50,7 +52,6 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   late int _index;
-  bool _feedOpening = true;
   io.Socket? _settingsSocket;
 
   void _selectTab(int index) => setState(() => _index = index);
@@ -60,14 +61,33 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     unawaited(NotificationRouter.follow(context, payload));
   };
 
+  late final void Function(String postId) _openSharedPost = (postId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PostDetailScreen(postId: postId)),
+      );
+      unawaited(
+        const MethodChannel('highlanders/app_links')
+            .invokeMethod<void>('consumePostLink', {'postId': postId})
+            .catchError((Object _) {}),
+      );
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  };
+
   @override
   void initState() {
     super.initState();
     _index = widget.initialIndex;
     AppShell._active = this;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      PostLinkRouter.attach(_openSharedPost);
+      NotificationRouter.attach(_openNotification);
+    });
     WidgetsBinding.instance.addObserver(this);
     ChatUpdates.instance.acquire();
-    NotificationRouter.attach(_openNotification);
     unawaited(MessageAlerts.start());
     _settingsSocket = io.io(
       '${OtpApi.apiBase}/public',
@@ -118,6 +138,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    PostLinkRouter.detach(_openSharedPost);
     NotificationRouter.detach(_openNotification);
     if (identical(AppShell._active, this)) AppShell._active = null;
     WidgetsBinding.instance.removeObserver(this);
@@ -157,16 +178,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 isActive: _index == 0,
               ),
               CommunityScreen(title: 'Huddles', isActive: _index == 1),
-              TickerMode(
-                enabled: _index == 2,
-                child: FeedScreen(
-                  onOpeningChanged: (opening) {
-                    if (mounted && _feedOpening != opening) {
-                      setState(() => _feedOpening = opening);
-                    }
-                  },
-                ),
-              ),
+              TickerMode(enabled: _index == 2, child: const FeedScreen()),
               const ExploreScreen(),
               ProfileScreen(
                 isActive: _index == 4,
@@ -174,18 +186,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               ),
             ],
           ),
-          bottomNavigationBar: _index == 2 && _feedOpening
-              ? null
-              : AppBottomNavigation(
-                  selectedIndex: _index,
-                  onSelect: (index) {
-                    if (index == 2) {
-                      _centerTap();
-                    } else {
-                      setState(() => _index = index);
-                    }
-                  },
-                ),
+          bottomNavigationBar: AppBottomNavigation(
+            selectedIndex: _index,
+            onSelect: (index) {
+              if (index == 2) {
+                _centerTap();
+              } else {
+                setState(() => _index = index);
+              }
+            },
+          ),
         ),
       ),
     );

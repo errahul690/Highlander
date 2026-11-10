@@ -5,6 +5,7 @@ import '../club_repository.dart';
 import '../media_cache.dart';
 import '../otp_api.dart';
 import '../posts_api.dart';
+import '../post_link_router.dart';
 import '../theme.dart';
 import '../session.dart';
 import '../screens/post_detail_screen.dart';
@@ -659,8 +660,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
 
   Future<void> _share() async {
     try {
-      final link =
-          _post['share_url'] as String? ?? 'highlanders://post/${_post['_id']}';
+      final link = sharedPostUrl('${_post['_id']}');
       await const MethodChannel(
         'highlanders/app_links',
       ).invokeMethod('sharePost', {'text': '${_post['content'] ?? ''}\n$link'});
@@ -876,7 +876,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
                   ],
                 ),
               ),
-              PopupMenuButton<String>(
+              if (!official) PopupMenuButton<String>(
                 padding: EdgeInsets.zero,
                 offset: const Offset(0, 40),
                 color: Colors.white,
@@ -897,9 +897,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
                     final messenger = ScaffoldMessenger.of(context);
                     await Clipboard.setData(
                       ClipboardData(
-                        text:
-                            _post['share_url'] as String? ??
-                            'highlanders://post/${_post['_id']}',
+                        text: sharedPostUrl('${_post['_id']}'),
                       ),
                     );
                     if (!mounted) return;

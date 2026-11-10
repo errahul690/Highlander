@@ -52,7 +52,7 @@ class _FullSquadScreenState extends State<FullSquadScreen> {
                 _query.isEmpty ||
                 player.name.toLowerCase().contains(_query.toLowerCase()) ||
                 player.position.toLowerCase().contains(_query.toLowerCase()) ||
-                '${player.jersey}'.contains(_query);
+                player.jerseyLabel.toLowerCase().contains(_query.toLowerCase());
             return matchesFilter && matchesQuery;
           }).toList();
 
@@ -318,7 +318,7 @@ class _FullSquadPlayerCard extends StatelessWidget {
 
                 // Jersey Number
                 Text(
-                  '${player.jersey}',
+                  player.jerseyLabel,
                   style: const TextStyle(
                     color: clubRed,
                     fontWeight: FontWeight.w900,
@@ -385,7 +385,7 @@ class _FullSquadPlayerCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFF5D6D4), width: 1),
       ),
       child: Text(
-        '#${player.jersey}',
+        player.jerseyBadge,
         style: const TextStyle(
           color: clubRed,
           fontWeight: FontWeight.w900,

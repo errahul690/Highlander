@@ -147,7 +147,7 @@ class ClubRepository {
               .map(
                 (row) => Player(
                   name: '${row['display_name'] ?? ''}',
-                  jersey: (row['jersey'] as num?)?.toInt() ?? 0,
+                  jersey: '${row['jersey'] ?? ''}'.trim(),
                   position:
                       '${row['position_label']?.toString().isNotEmpty == true ? row['position_label'] : row['position'] ?? ''}',
                   image: mediaUrl(

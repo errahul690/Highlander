@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import 'app_navigation.dart';
+import 'community_api.dart';
 import 'club_repository.dart';
 import 'feed_match_schedule.dart';
 import 'models.dart';
 import 'screens/chat_screen.dart';
+import 'screens/chat_settings_screen.dart';
 import 'screens/friends_screen.dart';
 import 'screens/live_match_screen.dart';
 import 'screens/match_detail_screen.dart';
@@ -46,9 +48,38 @@ class NotificationRouter {
     } catch (_) {}
   }
 
-  static Future<void> followMap(BuildContext context, Map<String, dynamic> data) async {
+  static Future<void> followMap(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) async {
     if (!context.mounted) return;
     final kind = '${data['kind'] ?? data['type'] ?? ''}';
+    if (kind == 'group_join_request') {
+      final id = '${data['roomId'] ?? data['groupId'] ?? ''}';
+      if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(id)) return;
+      final roomKind = '${data['roomKind'] ?? 'groups'}';
+      if (!['groups', 'circles'].contains(roomKind)) return;
+      try {
+        final room = Map<String, dynamic>.from(
+          await CommunityApi.instance.request('/$roomKind/$id/settings') as Map,
+        );
+        if (!context.mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ChatSettingsScreen(kind: roomKind, room: room),
+          ),
+        );
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This group request is no longer available.'),
+            ),
+          );
+        }
+      }
+      return;
+    }
     if (kind == 'chat' || kind == 'direct_message') {
       final email = '${data['email'] ?? data['senderEmail'] ?? ''}'.trim();
       if (email.isEmpty) return;

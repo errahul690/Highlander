@@ -14,7 +14,6 @@ import '../models.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
-import '../app_banners_repository.dart';
 import '../gallery_repository.dart';
 import '../feed_focus_repository.dart';
 import '../feed_startup.dart';
@@ -29,14 +28,7 @@ import '../post_pager.dart';
 import '../widgets/post_list_view.dart';
 
 class FeedScreen extends StatefulWidget {
-  const FeedScreen({
-    super.key,
-    this.client,
-    this.clubRepository,
-    this.now,
-    this.onOpeningChanged,
-  });
-  final ValueChanged<bool>? onOpeningChanged;
+  const FeedScreen({super.key, this.client, this.clubRepository, this.now});
   final http.Client? client;
   final ClubRepository? clubRepository;
   final DateTime? now;
@@ -49,8 +41,6 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   late final http.Client _client;
   late final PostPager _pager;
   late Future<ClubContent> _clubContent;
-  bool _opening = false;
-  bool _loaderReady = false;
   int _recentAfter = 2;
   int _focusAfter = 2;
   FeedFocusRepository? _focus;
@@ -67,14 +57,8 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     _focus!.addListener(_onFocus);
     unawaited(_focus!.load());
     WidgetsBinding.instance.addObserver(this);
-    _opening =
-        !(widget.client == null && FeedStartup.consumeEntranceFinished());
-    final firstPosts = _loadPosts();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      widget.onOpeningChanged?.call(_opening);
-      unawaited(_revealAfterBanners(firstPosts));
-    });
+    unawaited(_loadPosts());
+    FeedStartup.prefetchOtherScreens();
     _subscription = RealtimeClient.instance.settingsChanges.listen((event) {
       // A like already updates the card. Reloading the list only shows the
       // footer spinner.
@@ -116,33 +100,6 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadPosts() => _pager.refresh();
-
-  Future<void> _revealAfterBanners(Future<void> firstPosts) async {
-    try {
-      await Future.wait<void>([
-        firstPosts,
-        if (widget.client == null)
-          AppBannersRepository.instance.whenImagesReady().timeout(
-            const Duration(seconds: 8),
-          ),
-      ]);
-    } catch (_) {}
-    if (mounted) {
-      if (_pager.error != null) {
-        _finishOpening();
-        return;
-      }
-      setState(() => _loaderReady = true);
-      if (!_opening) FeedStartup.prefetchOtherScreens();
-    }
-  }
-
-  void _finishOpening() {
-    if (!mounted) return;
-    setState(() => _opening = false);
-    widget.onOpeningChanged?.call(false);
-    FeedStartup.prefetchOtherScreens();
-  }
 
   Future<void> _refresh() async {
     final club = (widget.clubRepository ?? ClubRepository.instance).load(
@@ -211,65 +168,49 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     ),
     child: Scaffold(
       backgroundColor: const Color(0xFFF9F7F3),
-      body: Stack(
+      body: Column(
         children: [
-          Column(
-            children: [
-              const _FeedHeader(),
-              Expanded(
-                child: ClubPageBody(
-                  color: const Color(0xFFF9F7F3),
-                  child: RefreshIndicator(
-                    onRefresh: _refresh,
-                    child: PostListView(
-                      key: const PageStorageKey('feed-scroll'),
-                      pager: _pager,
-                      onChanged: _loadPosts,
-                      spacing: 20,
-                      emptyLoading: const LinearProgressIndicator(minHeight: 2),
-                      inserts: [
-                        PostListInsert(
-                          afterPosts: _recentAfter,
-                          child: RecentResultsSection(content: _clubContent),
-                        ),
-                        PostListInsert(
-                          afterPosts: _focusAfter,
-                          child: const FeedGalleryFocus(),
-                        ),
-                      ],
-                      padding: EdgeInsets.fromLTRB(
-                        18,
-                        16,
-                        18,
-                        MediaQuery.paddingOf(context).bottom + 20,
-                      ),
-                      header: [
-                        const AppQuickLinks(),
-                        const SizedBox(height: 16),
-                        const AppFeedBanners(),
-                        const SizedBox(height: 18),
-                        FeedMatchFeature(
-                          content: _clubContent,
-                          now: widget.now,
-                        ),
-                        const AppFeedMarquee(
-                          key: ValueKey('feed-announcements'),
-                        ),
-                        const AppFeedPoll(),
-                      ],
+          const _FeedHeader(),
+          Expanded(
+            child: ClubPageBody(
+              color: const Color(0xFFF9F7F3),
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: PostListView(
+                  key: const PageStorageKey('feed-scroll'),
+                  pager: _pager,
+                  onChanged: _loadPosts,
+                  spacing: 20,
+                  emptyLoading: const StartupLoader(),
+                  inserts: [
+                    PostListInsert(
+                      afterPosts: _recentAfter,
+                      child: RecentResultsSection(content: _clubContent),
                     ),
+                    PostListInsert(
+                      afterPosts: _focusAfter,
+                      child: const FeedGalleryFocus(),
+                    ),
+                  ],
+                  padding: EdgeInsets.fromLTRB(
+                    18,
+                    16,
+                    18,
+                    MediaQuery.paddingOf(context).bottom + 20,
                   ),
+                  header: [
+                    const AppQuickLinks(),
+                    const SizedBox(height: 16),
+                    const AppFeedBanners(),
+                    const SizedBox(height: 18),
+                    FeedMatchFeature(content: _clubContent, now: widget.now),
+                    const AppFeedMarquee(key: ValueKey('feed-announcements')),
+                    const AppFeedPoll(),
+                  ],
                 ),
               ),
-            ],
-          ),
-          if (_opening)
-            Positioned.fill(
-              child: StartupLoader(
-                ready: _loaderReady,
-                onFinished: _finishOpening,
-              ),
             ),
+          ),
         ],
       ),
     ),

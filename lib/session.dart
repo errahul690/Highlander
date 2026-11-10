@@ -23,6 +23,27 @@ class Session {
   static String name = 'Highlander';
   static String profilePhoto = '';
   static final profileChanges = ValueNotifier<int>(0);
+  static void Function()? onInvalidated;
+
+  static Future<void> invalidate(String expectedToken) async {
+    if (expectedToken.isEmpty || token != expectedToken) return;
+    clear();
+    onInvalidated?.call();
+    try {
+      await _storage.delete(key: _storageKey);
+    } catch (_) {
+      // The server continues rejecting this session if storage is unavailable.
+    }
+  }
+
+  static void handleSocketError(dynamic error, String expectedToken) {
+    if (error is Map &&
+        error['data'] is Map &&
+        error['data']['code'] == 'ACCOUNT_INACTIVE') {
+      invalidate(expectedToken);
+    }
+  }
+
   static String bio = '';
   static String username = '';
   static String gender = '';
@@ -113,14 +134,16 @@ class Session {
         return false;
       }
       _applyProfile(profile);
-      if (data['profilePhoto'] is String)
+      if (data['profilePhoto'] is String) {
         profilePhoto = data['profilePhoto'] as String;
+      }
       if (data['bio'] is String) bio = data['bio'] as String;
       if (data['username'] is String) username = data['username'] as String;
       if (data['gender'] is String) gender = data['gender'] as String;
       if (data['dob'] is String) dob = data['dob'] as String;
-      if (data['favoritePlayer'] is String)
+      if (data['favoritePlayer'] is String) {
         favoritePlayer = data['favoritePlayer'] as String;
+      }
       return true;
     } on FormatException {
       await _discardStoredSession();

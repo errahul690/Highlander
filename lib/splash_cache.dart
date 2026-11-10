@@ -20,6 +20,21 @@ class SplashCache {
   Future<Map<String, dynamic>?>? _pendingRefresh;
   Map<String, dynamic>? current;
 
+  /// Prefer this launch's admin setting, with a bounded wait on slow networks.
+  Future<Map<String, dynamic>?> forLaunch({
+    http.Client? client,
+    Duration budget = const Duration(milliseconds: 1500),
+  }) async {
+    final cached = current ?? await read();
+    try {
+      final fresh = await refresh(client: client, force: true).timeout(budget);
+      return fresh ?? cached;
+    } catch (_) {
+      // The refresh can finish caching in the background after this deadline.
+      return cached;
+    }
+  }
+
   Future<File> _settingsFile() async {
     final directory = Directory(
       '${(await getApplicationSupportDirectory()).path}${Platform.pathSeparator}splash',

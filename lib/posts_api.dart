@@ -102,6 +102,7 @@ class PostsApi {
     Duration timeout = const Duration(seconds: 10),
   }) async {
     final uri = Uri.parse('${OtpApi.apiBase}$path');
+    final sessionToken = Session.token;
     final headers = {
       'Content-Type': 'application/json',
       if (Session.token.isNotEmpty) 'Authorization': 'Bearer ${Session.token}',
@@ -123,6 +124,9 @@ class PostsApi {
     final result = jsonDecode(response.body);
     if (result is! Map<String, dynamic>) {
       throw Exception('Could not load post.');
+    }
+    if (result['code'] == 'ACCOUNT_INACTIVE') {
+      await Session.invalidate(sessionToken);
     }
     if (response.statusCode == 401) {
       throw Exception('Please log in to continue.');

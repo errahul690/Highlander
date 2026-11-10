@@ -6,6 +6,7 @@ import '../session.dart';
 import '../support_hub_repository.dart';
 import 'care_verified_badge.dart';
 import 'chat_wallpaper.dart';
+import 'support_hub_avatar.dart';
 
 const careRed = Color(0xFFC92922);
 const _background = Color(0xFFFFFAFA);
@@ -76,17 +77,7 @@ class HighlanderCareChat extends StatelessWidget {
       ),
       title: Row(
         children: [
-          const CircleAvatar(
-            radius: 16,
-            backgroundColor: Color(0xFF8B48B2),
-            child: Text(
-              '\u{1F431}',
-              style: TextStyle(
-                fontSize: 23,
-                fontFamilyFallback: ['Segoe UI Emoji'],
-              ),
-            ),
-          ),
+          const SupportHubAvatar(radius: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

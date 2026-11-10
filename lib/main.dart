@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 
 import 'otp_api.dart';
 import 'push_alerts.dart';
+import 'message_alerts.dart';
+import 'feed_store.dart';
 import 'screens/login_screen.dart';
 import 'screens/shell.dart';
 import 'session.dart';
@@ -13,7 +15,7 @@ import 'club_repository.dart';
 import 'match_card_cache.dart';
 import 'realtime_client.dart';
 import 'theme.dart';
-import 'screens/post_detail_screen.dart';
+import 'post_link_router.dart';
 
 import 'screens/splash_screen.dart';
 import 'splash_cache.dart';
@@ -24,36 +26,26 @@ import 'explore_repository.dart';
 import 'screens/swoofi_screen.dart';
 import 'feed_startup.dart';
 
+export 'post_link_router.dart' show postIdFromLink;
+
 final appNavigatorKey = GlobalKey<NavigatorState>();
 const _links = MethodChannel('highlanders/app_links');
-
-String? postIdFromLink(String link) {
-  final uri = Uri.tryParse(link);
-  if (uri == null) return null;
-  String? id;
-  if (uri.scheme == 'highlanders' &&
-      uri.host == 'post' &&
-      uri.pathSegments.length == 1)
-    id = uri.pathSegments.first;
-  if (['http', 'https'].contains(uri.scheme) &&
-      uri.pathSegments.length == 2 &&
-      uri.pathSegments.first == 'post')
-    id = uri.pathSegments.last;
-  return id != null && RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(id) ? id : null;
-}
-
-void _openPostLink(String link) {
-  final id = postIdFromLink(link);
-  if (id != null)
-    appNavigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => PostDetailScreen(postId: id)),
-    );
-}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   PushAlerts.listenForBackgroundMessages();
+  Session.onInvalidated = () {
+    unawaited(MessageAlerts.stop());
+    FeedStore.clear();
+    OtpApi.instance.mobileVerificationToken = '';
+    OtpApi.instance.emailVerificationToken = '';
+    appNavigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
+  };
   await OtpApi.loadEnvironment();
+  final launchSplash = SplashCache.instance.forLaunch();
   FeedStartup.warmBanners();
   unawaited(FeedStartup.ready());
   final sessionReady = Session.restore();
@@ -75,21 +67,33 @@ Future<void> main() async {
     headerIconsReady.timeout(const Duration(seconds: 3), onTimeout: () {}),
     clubReady.timeout(const Duration(seconds: 4), onTimeout: () {}),
   ]);
-  // The Android splash stays up while this local file is read, so Flutter's
-  // first frame is already the saved splash.
-  final cachedSplash = await SplashCache.instance.read();
+  final selectedSplash = await launchSplash;
   await GroundsRepository.instance.restore();
+  try {
+    // Start native HTML only after choosing the latest admin splash; other
+    // media types are rendered by Flutter without a bundled animation first.
+    await const MethodChannel('highlanders/splash')
+        .invokeMethod<void>('prepare', selectedSplash)
+        .timeout(const Duration(milliseconds: 500));
+  } catch (_) {
+    // iOS and platforms without this channel render the same choice in Flutter.
+  }
   runApp(
-    HighlandersApp(sessionReady: startupReady, initialSplash: cachedSplash),
+    HighlandersApp(sessionReady: startupReady, initialSplash: selectedSplash),
   );
   unawaited(GroundsRepository.instance.preload());
   _links.setMethodCallHandler((call) async {
-    if (call.method == 'incomingLink' && call.arguments is String)
-      _openPostLink(call.arguments as String);
+    if (call.method == 'incomingLink' && call.arguments is String) {
+      PostLinkRouter.handle(call.arguments as String);
+    }
   });
   WidgetsBinding.instance.addPostFrameCallback((_) async {
-    final initial = await _links.invokeMethod<String>('getInitialLink');
-    if (initial != null) _openPostLink(initial);
+    try {
+      final initial = await _links.invokeMethod<String>('getInitialLink');
+      if (initial != null) PostLinkRouter.handle(initial);
+    } on MissingPluginException {
+      // Platforms without the native link channel can still run the app.
+    }
   });
 }
 
