@@ -1,6 +1,32 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import 'club_repository.dart';
+import 'media_cache.dart';
+
 typedef FetchPostPage = Future<Map<String, dynamic>> Function(String? cursor);
+
+Iterable<String> _postPhotoUrls(Map<String, dynamic> post) sync* {
+  final seen = <String>{};
+  String? take(Object? value) {
+    final url = ClubRepository.mediaUrl(value);
+    if (url.isEmpty || !seen.add(url)) return null;
+    return url;
+  }
+
+  final images = post['images'];
+  if (images is List) {
+    for (final image in images) {
+      final url = take(image);
+      if (url != null) yield url;
+    }
+  }
+  final single = take(post['image']);
+  if (single != null) yield single;
+  final repost = post['repost'];
+  if (repost is Map) yield* _postPhotoUrls(Map<String, dynamic>.from(repost));
+}
 
 /// One in-flight page per list, with stale responses discarded after refresh.
 class PostPager extends ChangeNotifier {
@@ -82,6 +108,7 @@ class PostPager extends ChangeNotifier {
       }
       posts = unique.values.toList();
       response = data;
+      await _warmPostPhotos(page);
       _cursor = more ? nextCursor as String : null;
       hasMore = more;
     } catch (_) {
@@ -94,6 +121,28 @@ class PostPager extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  Future<void> _warmPostPhotos(List<Map<String, dynamic>> page) async {
+    final first = <String>[];
+    final rest = <String>[];
+    for (final post in page) {
+      final urls = _postPhotoUrls(post).toList();
+      if (urls.isEmpty) continue;
+      if (first.length < 6) {
+        first.add(urls.first);
+        rest.addAll(urls.skip(1));
+      } else {
+        rest.addAll(urls);
+      }
+    }
+    if (rest.isNotEmpty) unawaited(MediaCache.instance.prefetch(rest));
+    if (first.isEmpty) return;
+    try {
+      await MediaCache.instance.prefetch(first).timeout(
+        const Duration(seconds: 2),
+      );
+    } catch (_) {}
   }
 
   @override

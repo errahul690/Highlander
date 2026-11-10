@@ -19,11 +19,14 @@ FeedMatchSelection? selectFeedMatch(List<Fixture> fixtures, DateTime now) {
   for (final fixture in fixtures) {
     if (['cancelled', 'postponed'].contains(fixture.matchStatus.toLowerCase()))
       continue;
+    // Live, then before kick-off, then the next match. A finished match stays off.
+    if (fixture.journeyStage == 'report' || fixture.section == 'completed') {
+      continue;
+    }
     final manual = {
-      'upcoming': (3, FeedMatchPhase.upcoming),
-      'preview': (1, FeedMatchPhase.preview),
       'live': (0, FeedMatchPhase.live),
-      'report': (2, FeedMatchPhase.report),
+      'preview': (1, FeedMatchPhase.preview),
+      'upcoming': (2, FeedMatchPhase.upcoming),
     }[fixture.journeyStage];
     if (manual != null) {
       choices.add((manual.$1, fixture, manual.$2));
@@ -34,23 +37,22 @@ FeedMatchSelection? selectFeedMatch(List<Fixture> fixtures, DateTime now) {
     if (date == null || date.toIso8601String().substring(0, 10) != fixture.date)
       continue;
     final day = date.difference(today).inDays;
-    if (fixture.section == 'completed') {
-      if (day >= -2 && day <= 0)
-        choices.add((2, fixture, FeedMatchPhase.report));
-      continue;
-    }
     final validTime = RegExp(r'^([01]\d|2[0-3]):[0-5]\d$')
         .hasMatch(fixture.time);
     final kickoff = validTime
         ? DateTime.tryParse('${fixture.date}T${fixture.time}:00+05:30')
         : null;
     if (kickoff == null) {
-      if (day >= 0) choices.add((3, fixture, FeedMatchPhase.upcoming));
+      if (day == 0) {
+        choices.add((1, fixture, FeedMatchPhase.preview));
+      } else if (day > 0) {
+        choices.add((2, fixture, FeedMatchPhase.upcoming));
+      }
       continue;
     }
     final remaining = kickoff.difference(now);
     if (remaining > const Duration(hours: 24)) {
-      choices.add((3, fixture, FeedMatchPhase.upcoming));
+      choices.add((2, fixture, FeedMatchPhase.upcoming));
     } else if (remaining > Duration.zero) {
       choices.add((1, fixture, FeedMatchPhase.preview));
     } else if (remaining > const Duration(hours: -6)) {

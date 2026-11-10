@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../app_navigation.dart';
 import '../club_repository.dart';
+import '../media_cache.dart';
 import '../feed_match_schedule.dart';
 import '../models.dart';
 import '../screens/match_detail_screen.dart';
@@ -69,6 +70,7 @@ class _FeedMatchFeatureState extends State<FeedMatchFeature> {
       if (selection == null) return const SizedBox.shrink();
       final f = selection.fixture;
       final phase = selection.phase;
+      if (phase == FeedMatchPhase.report) return const SizedBox.shrink();
       final thumbnail = feedMatchThumbnail(
         f,
         phase,
@@ -786,6 +788,9 @@ class _AdminMatchThumbnail extends StatelessWidget {
         )
       : Image.network(
           ClubRepository.mediaUrl(source),
+          key: ValueKey(
+            'match-thumb-$source-${MediaCache.instance.generation.value}',
+          ),
           fit: BoxFit.cover,
           errorBuilder: (_, error, stack) => failed(),
         );

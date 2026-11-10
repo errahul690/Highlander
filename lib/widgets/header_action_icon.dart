@@ -53,3 +53,21 @@ class HeaderActionIcon extends StatelessWidget {
     },
   );
 }
+
+class NotificationUnreadDot extends StatelessWidget {
+  const NotificationUnreadDot({super.key});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Unread notifications',
+    child: Container(
+      width: 9,
+      height: 9,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE11924),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 1.4),
+      ),
+    ),
+  );
+}

@@ -61,7 +61,9 @@ class RealtimeClient with WidgetsBindingObserver {
           'header_icons',
           'chat-background',
           'matches',
+          'feed-match',
           'feed-focus',
+          'support-hub',
           'feed-refresh',
           'knockoutMatches',
         ].contains(data['resource'])) {

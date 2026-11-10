@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../chat_updates.dart';
 import '../screens/alerts_screen.dart';
 import '../screens/search_screen.dart';
 import 'customer_support_button.dart';
@@ -159,9 +160,23 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
               onPressed: () => Navigator.of(
                 context,
               ).push(MaterialPageRoute(builder: (_) => const AlertsScreen())),
-              icon: const HeaderActionIcon(
-                kind: 'notifications',
-                fallback: Icons.notifications_none_rounded,
+              icon: ValueListenableBuilder<int>(
+                valueListenable: ChatUpdates.instance.unreadNotifications,
+                builder: (_, count, _) => Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const HeaderActionIcon(
+                      kind: 'notifications',
+                      fallback: Icons.notifications_none_rounded,
+                    ),
+                    if (count > 0)
+                      const Positioned(
+                        right: -2,
+                        top: -2,
+                        child: NotificationUnreadDot(),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

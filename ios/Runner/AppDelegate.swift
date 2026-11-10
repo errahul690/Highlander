@@ -47,7 +47,7 @@ import UserNotifications
   }
 
   func receiveLink(_ url: URL) {
-    guard url.scheme == "highlanders", url.host == "post" else { return }
+    guard url.scheme == "Highlanders", url.host == "post" else { return }
     if initialLinkRequested {
       linksChannel?.invokeMethod("incomingLink", arguments: url.absoluteString)
     } else {

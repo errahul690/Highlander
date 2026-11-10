@@ -75,7 +75,9 @@ class ClubRepository {
 
   ClubContent? _cached;
   Future<ClubContent>? _pending;
+  int _loadGeneration = 0;
 
+  ClubContent? get cachedOrNull => _cached;
   ClubContent get cachedContent => _cached ?? clubFallback;
 
   Future<void> refreshCardOverlay() async {
@@ -101,19 +103,32 @@ class ClubRepository {
     if (!forceRefresh && _cached != null) {
       return Future.value(_cached!);
     }
-    return _pending ??= _fetch();
+    if (!forceRefresh && _pending != null) return _pending!;
+    final generation = ++_loadGeneration;
+    final pending = _fetch(generation, forceRefresh: forceRefresh);
+    _pending = pending;
+    return pending;
   }
 
-  Future<ClubContent> _fetch() async {
+  Future<ClubContent> _fetch(int generation, {bool forceRefresh = false}) async {
+    final stamp = forceRefresh
+        ? '${DateTime.now().microsecondsSinceEpoch}'
+        : null;
+    final headers = forceRefresh
+        ? const {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'}
+        : const <String, String>{};
+    Uri endpoint(String path) => Uri.parse('$apiBase$path').replace(
+      queryParameters: stamp == null ? null : {'t': stamp},
+    );
     try {
       final futures = await Future.wait([
         _client
-            .get(Uri.parse('$apiBase/api/public/squad-members'))
+            .get(endpoint('/api/public/squad-members'), headers: headers)
             .timeout(const Duration(seconds: 4))
             .catchError((_) => http.Response('[]', 500)),
         _client
-            .get(Uri.parse('$apiBase/api/public/knockout-matches'))
-            .timeout(const Duration(seconds: 4))
+            .get(endpoint('/api/public/knockout-matches'), headers: headers)
+            .timeout(Duration(seconds: forceRefresh ? 12 : 4))
             .catchError((_) => http.Response('[]', 500)),
         _client
             .get(Uri.parse('$apiBase/api/public/news'))
@@ -276,7 +291,7 @@ class ClubRepository {
         stories: stories,
         defaultMatchThumbnail: defaultThumbnail,
       );
-      if (!fixturesUnavailable) _cached = content;
+      if (generation == _loadGeneration && !fixturesUnavailable) _cached = content;
       return content;
     } catch (_) {
       return ClubContent(
@@ -286,7 +301,7 @@ class ClubRepository {
         fixturesUnavailable: true,
       );
     } finally {
-      _pending = null;
+      if (generation == _loadGeneration) _pending = null;
     }
   }
 }

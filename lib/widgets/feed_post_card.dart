@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../club_repository.dart';
+import '../media_cache.dart';
 import '../otp_api.dart';
 import '../posts_api.dart';
 import '../theme.dart';
@@ -610,11 +612,10 @@ class _FeedPostCardState extends State<FeedPostCard> {
         body: {'liked': nextLiked},
       );
       if (mounted && result['post'] is Map) {
-        setState(
-          () => _post = Map<String, dynamic>.from(result['post'] as Map),
-        );
+        final updated = Map<String, dynamic>.from(result['post'] as Map);
+        _post.addAll(updated);
+        setState(() {});
       }
-      widget.onChanged?.call();
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -688,19 +689,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
   }
 
   Widget _postImage(String source, {BoxFit fit = BoxFit.contain}) =>
-      Image.network(
-        Uri.parse(OtpApi.apiBase).resolve(source).toString(),
-        width: double.infinity,
-        fit: fit,
-        alignment: Alignment.center,
-        gaplessPlayback: true,
-        errorBuilder: (_, error, stack) => const SizedBox(
-          height: 180,
-          child: Center(
-            child: Icon(Icons.image_not_supported_outlined, color: authMuted),
-          ),
-        ),
-      );
+      _CachedPostImage(source: source, fit: fit);
 
   @override
   Widget build(BuildContext context) {
@@ -780,6 +769,9 @@ class _FeedPostCardState extends State<FeedPostCard> {
                                 Uri.parse(OtpApi.apiBase)
                                     .resolve(avatar)
                                     .toString(),
+                                key: ValueKey(
+                                  'post-avatar-$avatar-${MediaCache.instance.generation.value}',
+                                ),
                                 width: 36,
                                 height: 36,
                                 fit: BoxFit.cover,
@@ -1150,15 +1142,16 @@ class _FeedPostCardState extends State<FeedPostCard> {
                     label: (_post['comments'] ?? 0).toString(),
                   ),
                 ),
-                SizedBox(
-                  width: 38,
-                  child: _PostAction(
-                    tooltip: 'Repost',
-                    onPressed: _repost,
-                    icon: Icons.repeat,
-                    color: actionColor,
+                if (!official)
+                  SizedBox(
+                    width: 38,
+                    child: _PostAction(
+                      tooltip: 'Repost',
+                      onPressed: _repost,
+                      icon: Icons.repeat,
+                      color: actionColor,
+                    ),
                   ),
-                ),
                 const Spacer(),
                 SizedBox(
                   width: 32,
@@ -1178,6 +1171,76 @@ class _FeedPostCardState extends State<FeedPostCard> {
   }
 }
 
+class _CachedPostImage extends StatefulWidget {
+  const _CachedPostImage({required this.source, required this.fit});
+  final String source;
+  final BoxFit fit;
+
+  @override
+  State<_CachedPostImage> createState() => _CachedPostImageState();
+}
+
+class _CachedPostImageState extends State<_CachedPostImage> {
+  Uint8List? _bytes;
+  late String _url;
+  late int _generation;
+
+  @override
+  void initState() {
+    super.initState();
+    _generation = MediaCache.instance.generation.value;
+    _url = ClubRepository.mediaUrl(widget.source);
+    _bytes = MediaCache.instance.bytesFor(_url);
+    if (_bytes == null && _url.isNotEmpty) _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CachedPostImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final url = ClubRepository.mediaUrl(widget.source);
+    final generation = MediaCache.instance.generation.value;
+    if (url == _url && generation == _generation) return;
+    _generation = generation;
+    _url = url;
+    _bytes = MediaCache.instance.bytesFor(url);
+    if (_bytes == null && url.isNotEmpty) _load();
+  }
+
+  Future<void> _load() async {
+    final url = _url;
+    final bytes = await MediaCache.instance.ensure(url);
+    if (!mounted || url != _url || bytes == null) return;
+    setState(() => _bytes = bytes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = (MediaQuery.sizeOf(context).width *
+            MediaQuery.devicePixelRatioOf(context))
+        .round()
+        .clamp(480, 1440);
+    final bytes = _bytes;
+    if (bytes == null) {
+      return const ColoredBox(color: Color(0xFFE8E8E8));
+    }
+    return Image.memory(
+      bytes,
+      width: double.infinity,
+      fit: widget.fit,
+      alignment: Alignment.center,
+      gaplessPlayback: true,
+      cacheWidth: width,
+      filterQuality: FilterQuality.medium,
+      errorBuilder: (_, error, stack) => const SizedBox(
+        height: 180,
+        child: Center(
+          child: Icon(Icons.image_not_supported_outlined, color: authMuted),
+        ),
+      ),
+    );
+  }
+}
+
 class _PostText extends StatefulWidget {
   const _PostText({required this.text, required this.color});
 
@@ -1190,6 +1253,7 @@ class _PostText extends StatefulWidget {
 
 class _PostTextState extends State<_PostText> {
   static const _collapsedLines = 2;
+  static final _hashtag = RegExp(r'(?<![\w])#[\w]+', unicode: true);
   bool _expanded = false;
 
   TextStyle get _style => TextStyle(
@@ -1200,10 +1264,32 @@ class _PostTextState extends State<_PostText> {
     letterSpacing: -.1,
   );
 
+  TextSpan get _span {
+    final text = widget.text;
+    final children = <InlineSpan>[];
+    var start = 0;
+    for (final match in _hashtag.allMatches(text)) {
+      if (match.start > start) {
+        children.add(TextSpan(text: text.substring(start, match.start)));
+      }
+      children.add(
+        TextSpan(
+          text: match.group(0),
+          style: const TextStyle(color: clubRed),
+        ),
+      );
+      start = match.end;
+    }
+    if (start < text.length) {
+      children.add(TextSpan(text: text.substring(start)));
+    }
+    return TextSpan(children: children, style: _style);
+  }
+
   bool _overflows(double maxWidth) {
     if (!maxWidth.isFinite) return false;
     final painter = TextPainter(
-      text: TextSpan(text: widget.text, style: _style),
+      text: _span,
       maxLines: _collapsedLines,
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
@@ -1231,9 +1317,8 @@ class _PostTextState extends State<_PostText> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.text,
-              style: _style,
+            Text.rich(
+              _span,
               maxLines: expanded ? null : _collapsedLines,
               overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
             ),

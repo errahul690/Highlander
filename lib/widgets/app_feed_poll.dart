@@ -64,7 +64,7 @@ class _AppFeedPollState extends State<AppFeedPoll> {
       _scheduleExpiry();
       if (_reloadAgain) {
         _reloadAgain = false;
-        _load();
+        await _load();
       }
     }
   }

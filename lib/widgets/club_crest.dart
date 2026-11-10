@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../club_repository.dart';
+import '../media_cache.dart';
 import 'team_logo_entrance.dart';
 
 class ClubCrest extends StatelessWidget {
@@ -11,6 +12,7 @@ class ClubCrest extends StatelessWidget {
     this.size = 44,
     this.color = Colors.white,
     this.background = homeBackground,
+    this.disc = true,
     this.enterFromLeft,
   });
 
@@ -22,6 +24,7 @@ class ClubCrest extends StatelessWidget {
   final double size;
   final Color color;
   final Color background;
+  final bool disc;
   final bool? enterFromLeft;
 
   Widget _disc(Widget child) => Container(
@@ -85,13 +88,33 @@ class ClubCrest extends StatelessWidget {
           );
   }
 
+  Widget _mark(Widget child) => disc
+      ? _disc(child)
+      : SizedBox(width: size, height: size, child: child);
+
   Widget _crest() {
     if (logo.isEmpty) return _initials();
-    return _disc(
+    final imageSize = disc ? size * .8 : size;
+    final generation = MediaCache.instance.generation.value;
+    final bytes = MediaCache.instance.bytesFor(logo);
+    if (bytes != null) {
+      return _mark(
+        Image.memory(
+          bytes,
+          key: ValueKey('crest-$logo-$generation'),
+          width: imageSize,
+          height: imageSize,
+          fit: BoxFit.contain,
+          gaplessPlayback: true,
+        ),
+      );
+    }
+    return _mark(
       Image.network(
         ClubRepository.mediaUrl(logo),
-        width: size * .8,
-        height: size * .8,
+        key: ValueKey('crest-net-$logo-$generation'),
+        width: imageSize,
+        height: imageSize,
         fit: BoxFit.contain,
         errorBuilder: (_, error, stack) => FittedBox(child: _initials()),
       ),

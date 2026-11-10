@@ -25,6 +25,7 @@ class SwoofiRepository extends ChangeNotifier {
   final http.Client _client;
   List<SwoofiCard> cards = const [];
   bool loaded = false;
+  Future<List<SwoofiCard>>? _pending;
 
   Future<File> _cacheFile() async {
     final directory = await getApplicationSupportDirectory();
@@ -71,8 +72,18 @@ class SwoofiRepository extends ChangeNotifier {
         ),
   ];
 
-  Future<List<SwoofiCard>> load({bool force = false}) async {
-    if (loaded && !force) return cards;
+  Future<List<SwoofiCard>> load({bool force = false}) {
+    if (loaded && !force) return Future.value(cards);
+    final pending = _pending;
+    if (!force && pending != null) return pending;
+    final request = _fetch();
+    _pending = request;
+    return request.whenComplete(() {
+      if (identical(_pending, request)) _pending = null;
+    });
+  }
+
+  Future<List<SwoofiCard>> _fetch() async {
     final response = await _client
         .get(Uri.parse('${OtpApi.apiBase}/api/public/swoofi'))
         .timeout(const Duration(seconds: 8));

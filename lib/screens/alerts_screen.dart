@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../app_navigation.dart';
+import '../chat_updates.dart';
 import '../club_repository.dart';
 import '../community_api.dart';
 import '../notification_router.dart';
 import '../otp_api.dart';
 import '../session.dart';
+import '../support_hub_repository.dart';
 import '../theme.dart';
 import '../widgets/user_avatar.dart';
 import 'chat_screen.dart';
@@ -58,6 +60,7 @@ class _AlertsScreenState extends State<AlertsScreen>
         _items.insert(0, item);
         _unreadCount++;
       });
+      ChatUpdates.instance.noteUnreadNotifications(_unreadCount);
     });
     _socket!.onConnect((_) => _load());
     _socket!.connect();
@@ -89,9 +92,12 @@ class _AlertsScreenState extends State<AlertsScreen>
             .map((row) => Map<String, dynamic>.from(row as Map))
             .where((row) => '${row['type']}' != 'direct_message')
             .toList();
-        _unreadCount = _items.where((row) => row['read'] != true).length;
+        _unreadCount = result['unreadCount'] is num
+            ? (result['unreadCount'] as num).toInt()
+            : _items.where((row) => row['read'] != true).length;
         _error = null;
       });
+      ChatUpdates.instance.noteUnreadNotifications(_unreadCount);
     } catch (error) {
       if (mounted) {
         setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
@@ -112,6 +118,7 @@ class _AlertsScreenState extends State<AlertsScreen>
             item['read'] = true;
           }
         });
+        ChatUpdates.instance.noteUnreadNotifications(0);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('All notifications marked as read'),
@@ -138,6 +145,7 @@ class _AlertsScreenState extends State<AlertsScreen>
         item['read'] = true;
         if (_unreadCount > 0) _unreadCount--;
       });
+      ChatUpdates.instance.noteUnreadNotifications(_unreadCount);
       CommunityApi.instance
           .request('/notifications/${item['_id']}/read', method: 'PUT')
           .catchError((_) => null);
@@ -178,6 +186,7 @@ class _AlertsScreenState extends State<AlertsScreen>
               isCare:
                   metadata['isCare'] == true ||
                   item['title'] == 'Highlander Care' ||
+                  item['title'] == SupportHubRepository.instance.name ||
                   item['title'] == 'Admin chat',
             ),
           ),

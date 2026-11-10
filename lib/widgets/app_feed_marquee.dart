@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../media_cache.dart';
 import '../realtime_client.dart';
 import '../app_marquee_repository.dart';
 import '../app_navigation.dart';
@@ -35,9 +36,10 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
       size: 18,
     );
     if (_marquee.iconUrl.isEmpty) return fallback;
+    final iconUrl = Uri.parse(OtpApi.apiBase).resolve(_marquee.iconUrl).toString();
     return Image.network(
-      Uri.parse(OtpApi.apiBase).resolve(_marquee.iconUrl).toString(),
-      key: ValueKey(_marquee.iconUrl),
+      iconUrl,
+      key: ValueKey('$iconUrl-${MediaCache.instance.generation.value}'),
       width: 20,
       height: 20,
       fit: BoxFit.contain,
@@ -115,7 +117,7 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
     });
     if (_reloadAgain && mounted) {
       _reloadAgain = false;
-      _reload();
+      await _reload();
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../community_api.dart';
 import '../screens/chat_screen.dart';
+import '../support_hub_repository.dart';
 import 'header_action_icon.dart';
 
 class CustomerSupportButton extends StatefulWidget {
@@ -12,6 +13,23 @@ class CustomerSupportButton extends StatefulWidget {
 
 class _CustomerSupportButtonState extends State<CustomerSupportButton> {
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SupportHubRepository.instance.addListener(_onName);
+  }
+
+  @override
+  void dispose() {
+    SupportHubRepository.instance.removeListener(_onName);
+    super.dispose();
+  }
+
+  void _onName() {
+    if (mounted) setState(() {});
+  }
+
   Future<void> _open() async {
     setState(() => _loading = true);
     try {
@@ -20,7 +38,7 @@ class _CustomerSupportButtonState extends State<CustomerSupportButton> {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => ChatScreen(
-            title: 'Highlander Care',
+            title: SupportHubRepository.instance.name,
             isCare: true,
             recipientEmail: '${contact['email']}',
           ),
@@ -41,7 +59,7 @@ class _CustomerSupportButtonState extends State<CustomerSupportButton> {
     kind: 'admin_chat',
     child: IconButton(
       key: const ValueKey('header-customer-support'),
-      tooltip: 'Highlander Care',
+      tooltip: SupportHubRepository.instance.name,
       constraints: const BoxConstraints.tightFor(width: 32, height: 40),
       style: IconButton.styleFrom(
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,

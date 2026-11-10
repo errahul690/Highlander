@@ -9,6 +9,7 @@ import '../community_api.dart';
 import '../chat_updates.dart';
 import '../otp_api.dart';
 import '../session.dart';
+import '../support_hub_repository.dart';
 import '../chat_dates.dart';
 import '../theme.dart';
 import '../widgets/chat_wallpaper.dart';
@@ -341,7 +342,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _careAction({required bool clear}) async {
     if (_careBusy || _sending || _uploadingAttachment) return;
-    final contactName = widget.isCare ? 'Highlander Care' : widget.title;
+    final contactName = widget.isCare
+        ? SupportHubRepository.instance.name
+        : widget.title;
     final action = clear
         ? 'Clear Chat'
         : _careBlocked
@@ -354,7 +357,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         content: Text(
           clear
               ? widget.isCare
-                  ? 'Messages will be cleared only for you. Highlander Care will keep its copy.'
+                  ? 'Messages will be cleared only for you. $contactName will keep its copy.'
                   : 'Messages will be cleared only for you. $contactName will still have this chat.'
               : _careBlocked
               ? 'You can send and receive messages with $contactName again.'

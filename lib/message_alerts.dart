@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import 'notification_router.dart';
+import 'push_alerts.dart';
 import 'otp_api.dart';
 import 'session.dart';
 
@@ -26,6 +27,7 @@ class MessageAlerts {
     await _clearOngoingNotification();
     _foreground = true;
     await _prepareNotes();
+    await PushAlerts.start();
     _connect();
   }
 
@@ -165,7 +167,7 @@ class MessageAlerts {
   }
 
   static Future<void> _show(String title, String body, {String? payload}) async {
-    if (_foreground) return;
+    if (_foreground || PushAlerts.ready) return;
     final text = body.length > 180 ? '${body.substring(0, 177)}...' : body;
     try {
       await _prepareNotes();

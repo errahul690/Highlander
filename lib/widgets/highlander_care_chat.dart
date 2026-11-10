@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../chat_dates.dart';
 import '../session.dart';
+import '../support_hub_repository.dart';
 import 'care_verified_badge.dart';
 import 'chat_wallpaper.dart';
 
@@ -47,7 +48,12 @@ class HighlanderCareChat extends StatelessWidget {
   final String? attachmentName, error;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: SupportHubRepository.instance,
+    builder: (context, _) => _view(context, SupportHubRepository.instance.name),
+  );
+
+  Widget _view(BuildContext context, String name) => Scaffold(
     backgroundColor: _background,
     appBar: AppBar(
       toolbarHeight: 72,
@@ -86,18 +92,18 @@ class HighlanderCareChat extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Flexible(
                       child: Text(
-                        'Highlander Care',
-                        style: TextStyle(
+                        name,
+                        style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 6),
                     CareVerifiedBadge(),
                   ],
                 ),
@@ -199,7 +205,7 @@ class HighlanderCareChat extends StatelessWidget {
                         return CareMessageBubble(
                           own: false,
                           child: Text(
-                            'Hi ${Session.name.trim().isEmpty ? 'Highlander' : Session.name.trim().split(RegExp(r'\s+')).first}! \u{1F44B}\nWelcome to Highlander Care. How can we help you today?',
+                            'Hi ${Session.name.trim().isEmpty ? 'Highlander' : Session.name.trim().split(RegExp(r'\s+')).first}! \u{1F44B}\nWelcome to $name. How can we help you today?',
                           ),
                         );
                       }
@@ -243,7 +249,7 @@ class HighlanderCareChat extends StatelessWidget {
                   ),
                 ),
         ),
-        _composer(context),
+        _composer(context, name),
       ],
     ),
   ),
@@ -281,7 +287,7 @@ class HighlanderCareChat extends StatelessWidget {
     ),
   );
 
-  Widget _composer(BuildContext context) => SafeArea(
+  Widget _composer(BuildContext context, String name) => SafeArea(
     key: const ValueKey('care-composer'),
     top: false,
     child: Padding(
@@ -299,8 +305,8 @@ class HighlanderCareChat extends StatelessWidget {
                   Expanded(
                     child: Text(
                       blockedBy
-                          ? 'Highlander Care has blocked you.'
-                          : 'You blocked Highlander Care.',
+                          ? '$name has blocked you.'
+                          : 'You blocked $name.',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF737373),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../widgets/club_page_body.dart';
 
 import 'package:flutter/material.dart';
@@ -7,6 +9,7 @@ import '../widgets/app_bottom_navigation.dart';
 
 import '../gallery_repository.dart';
 import '../theme.dart';
+import '../widgets/gallery_image.dart';
 import '../widgets/match_highlights_player.dart';
 
 class GalleryScreen extends StatefulWidget {
@@ -21,33 +24,82 @@ class _GalleryScreenState extends State<GalleryScreen> {
   String _selectedTab = 'images'; // 'images' or 'videos'
   bool _loading = true;
   List<GalleryItem> _items = [];
+  final GalleryRepository _gallery = GalleryRepository.instance;
 
   @override
   void initState() {
     super.initState();
     _selectedTab = widget.initialTab == 'videos' ? 'videos' : 'images';
-    _loadItems();
+    _gallery.addListener(_onGallery);
+    if (_gallery.hasLoaded(_selectedTab)) {
+      _items = _gallery.current(_selectedTab);
+      _loading = false;
+      unawaited(_gallery.revalidate(_selectedTab));
+    } else {
+      _loadItems();
+    }
   }
 
-  Future<void> _loadItems() async {
-    setState(() => _loading = true);
-    final results = await GalleryRepository.instance.loadGallery(
-      type: _selectedTab,
-    );
-    if (mounted) {
+  void _onGallery() {
+    if (!_gallery.hasLoaded(_selectedTab)) return;
+    final next = _gallery.current(_selectedTab);
+    if (!mounted || identical(_items, next)) return;
+    setState(() {
+      _items = next;
+      _loading = false;
+    });
+  }
+
+  Future<void> _loadItems({bool refresh = false}) async {
+    final type = _selectedTab;
+    if (!refresh && _gallery.hasLoaded(type)) {
+      final current = _gallery.current(type);
+      if (mounted && !identical(_items, current)) {
+        setState(() {
+          _items = current;
+          _loading = false;
+        });
+      }
+      return;
+    }
+    if (mounted && _items.isEmpty) setState(() => _loading = true);
+    final results = refresh
+        ? await _gallery.revalidate(type)
+        : await _gallery.loadGallery(type: type);
+    if (mounted && type == _selectedTab && !identical(_items, results)) {
       setState(() {
         _items = results;
         _loading = false;
       });
+    } else if (mounted && _loading) {
+      setState(() => _loading = false);
     }
   }
 
   void _onTabChanged(String tab) {
     if (_selectedTab == tab) return;
+    final repo = _gallery;
     setState(() {
       _selectedTab = tab;
+      if (repo.hasLoaded(tab)) {
+        _items = repo.current(tab);
+        _loading = false;
+      } else {
+        _items = [];
+        _loading = true;
+      }
     });
-    _loadItems();
+    if (!repo.hasLoaded(tab)) {
+      _loadItems();
+    } else {
+      unawaited(repo.revalidate(tab));
+    }
+  }
+
+  @override
+  void dispose() {
+    _gallery.removeListener(_onGallery);
+    super.dispose();
   }
 
   void _openAlbum(GalleryItem item) {
@@ -76,7 +128,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
       appBar: const ClubHeader(title: 'Gallery', showBack: true),
       bottomNavigationBar: const AppBottomNavigation(),
       body: RefreshIndicator(
-        onRefresh: _loadItems,
+        onRefresh: () => _loadItems(refresh: true),
         color: clubRed,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -364,28 +416,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   Widget _buildThumbnailImage(String url) {
     if (url.isEmpty) {
-      return Container(
-        color: const Color(0xFFE5E7EB),
-        child: const Center(
+      return const ColoredBox(
+        color: Color(0xFFE5E7EB),
+        child: Center(
           child: Icon(Icons.image_outlined, color: Colors.grey, size: 32),
         ),
       );
     }
-
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(
-        color: const Color(0xFFE5E7EB),
-        child: const Center(
-          child: Icon(
-            Icons.broken_image_outlined,
-            color: Colors.grey,
-            size: 32,
-          ),
-        ),
-      ),
-    );
+    return GalleryImage(key: ValueKey(url), url: url);
   }
 }
 
@@ -411,10 +449,7 @@ class _AlbumGridScreen extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             Text(
               '$count ${count == 1 ? 'photo' : 'photos'}',
@@ -442,24 +477,15 @@ class _AlbumGridScreen extends StatelessWidget {
                 key: ValueKey('album-photo-$index'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => _AlbumPhotoScreen(
-                      photos: photos,
-                      initialIndex: index,
-                    ),
+                    builder: (_) =>
+                        _AlbumPhotoScreen(photos: photos, initialIndex: index),
                   ),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    photos[index],
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, error, stack) => Container(
-                      color: const Color(0xFFE5E7EB),
-                      child: const Icon(
-                        Icons.broken_image_outlined,
-                        color: Colors.grey,
-                      ),
-                    ),
+                  child: GalleryImage(
+                    key: ValueKey(photos[index]),
+                    url: photos[index],
                   ),
                 ),
               ),
@@ -508,14 +534,13 @@ class _AlbumPhotoScreenState extends State<_AlbumPhotoScreen> {
       onPageChanged: (index) => setState(() => _index = index),
       itemBuilder: (_, index) => InteractiveViewer(
         child: Center(
-          child: Image.network(
-            widget.photos[index],
+          child: GalleryImage(
+            key: ValueKey(widget.photos[index]),
+            url: widget.photos[index],
             fit: BoxFit.contain,
-            errorBuilder: (_, error, stack) => const Icon(
-              Icons.broken_image_outlined,
-              color: Colors.white54,
-              size: 48,
-            ),
+            decodeWidth: 1920,
+            expand: false,
+            placeholder: const Color(0xFF101014),
           ),
         ),
       ),

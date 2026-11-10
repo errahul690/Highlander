@@ -50,14 +50,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
   DateTime? _selectedDate;
   DateTime? _selectedResultDate;
   late Future<ClubContent> _content;
+  ClubContent? _shown;
   StreamSubscription<Map<String, dynamic>>? _matches;
+
+  ClubRepository get _repository =>
+      widget.repository ?? ClubRepository.instance;
 
   @override
   void initState() {
     super.initState();
-    _content = (widget.repository ?? ClubRepository.instance).load(
-      forceRefresh: true,
-    );
+    _shown = _repository.cachedOrNull;
+    // A saved list paints immediately. The refresh replaces it when it arrives.
+    _content = _repository.load(forceRefresh: _shown != null);
     _matches = RealtimeClient.instance.settingsChanges.listen((event) {
       if (!mounted) return;
       if (['all', 'matches', 'knockoutMatches'].contains(event['resource'])) {
@@ -125,12 +129,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
       ),
       body: FutureBuilder<ClubContent>(
         future: _content,
+        initialData: _shown,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
+          final content = snapshot.data;
+          if (content == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          final content = snapshot.data ?? clubFallback;
-          if (snapshot.hasError || content.fixturesUnavailable) {
+          if (snapshot.connectionState == ConnectionState.done &&
+              (snapshot.hasError || content.fixturesUnavailable)) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,

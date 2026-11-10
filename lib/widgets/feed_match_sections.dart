@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -7,12 +9,14 @@ export 'feed_match_feature.dart';
 
 import '../app_navigation.dart';
 import '../gallery_repository.dart';
+import 'gallery_image.dart';
 import '../feed_focus_repository.dart';
 import '../realtime_client.dart';
 import '../screens/gallery_screen.dart';
 import 'match_highlights_player.dart';
 import '../club_identity.dart';
 import '../club_repository.dart';
+import '../media_cache.dart';
 import '../models.dart';
 import '../screens/match_detail_screen.dart';
 import '../screens/matches_screen.dart'
@@ -141,9 +145,7 @@ class RecentResultsSection extends StatelessWidget {
                           const SizedBox(width: 7),
                           Expanded(
                             child: Text(
-                              index == 0 && isNorthEastClub(f.home)
-                                  ? 'Last home match'
-                                  : '${f.heading.isEmpty ? 'Match' : f.heading} · ${isNorthEastClub(f.home) ? 'Home' : 'Away'}',
+                              '${f.heading.trim().isEmpty ? 'Match' : f.heading.trim()} · ${isNorthEastClub(f.home) ? 'Home' : 'Away'}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -166,11 +168,7 @@ class RecentResultsSection extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _resultLogo(
-                            f.home,
-                            f.homeLogo,
-                            logoDisc(f.homeLogoBackground, home: true),
-                          ),
+                          _resultLogo(f.home, f.homeLogo),
                           Flexible(
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
@@ -189,11 +187,7 @@ class RecentResultsSection extends StatelessWidget {
                               ),
                             ),
                           ),
-                          _resultLogo(
-                            f.away,
-                            f.awayLogo,
-                            logoDisc(f.awayLogoBackground, home: false),
-                          ),
+                          _resultLogo(f.away, f.awayLogo),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -298,29 +292,220 @@ Widget _pill(
   ),
 );
 
-Widget _resultLogo(String name, String logo, Color background) => CircleAvatar(
-  radius: 25,
-  backgroundColor: background,
-  child: Padding(
-    padding: const EdgeInsets.all(4),
-    child: logo.isEmpty && name.toLowerCase().contains('bengaluru')
-        ? const Text(
-            'BFC',
-            style: TextStyle(
-              color: Color(0xFF303BA5),
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
+const _resultLogoBox = 52.0;
+
+Widget _resultLogo(String name, String logo) => logo.isEmpty
+    ? _ResultLogoFallback(name: name)
+    : _UniformResultLogo(name: name, logo: logo);
+
+class _ResultLogoFallback extends StatelessWidget {
+  const _ResultLogoFallback({required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: _resultLogoBox,
+    height: _resultLogoBox,
+    child: name.toLowerCase().contains('bengaluru')
+        ? const Center(
+            child: Text(
+              'BFC',
+              style: TextStyle(
+                color: Color(0xFF303BA5),
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           )
         : ClubCrest(
             team: name,
-            logo: logo,
-            size: 32,
+            size: _resultLogoBox,
+            disc: false,
             color: const Color(0xFF394A65),
-            background: background,
           ),
-  ),
-);
+  );
+}
+
+class _UniformResultLogo extends StatefulWidget {
+  const _UniformResultLogo({required this.name, required this.logo});
+  final String name;
+  final String logo;
+
+  @override
+  State<_UniformResultLogo> createState() => _UniformResultLogoState();
+}
+
+class _UniformResultLogoState extends State<_UniformResultLogo> {
+  ui.Image? _image;
+  Rect? _content;
+  int _request = 0;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _generation = MediaCache.instance.generation.value;
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _UniformResultLogo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final generation = MediaCache.instance.generation.value;
+    if (oldWidget.logo != widget.logo || generation != _generation) {
+      _generation = generation;
+      _load();
+    }
+  }
+
+  @override
+  void dispose() {
+    _request++;
+    _image?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final request = ++_request;
+    final logo = widget.logo;
+    try {
+      final bytes = await MediaCache.instance.ensure(logo);
+      if (!mounted || request != _request || bytes == null) return;
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 192);
+      final frame = await codec.getNextFrame();
+      codec.dispose();
+      final image = frame.image;
+      if (!mounted || request != _request) {
+        image.dispose();
+        return;
+      }
+      final content = await _opaqueBounds(image);
+      if (!mounted || request != _request) {
+        image.dispose();
+        return;
+      }
+      setState(() {
+        _image?.dispose();
+        _image = image;
+        _content = content;
+      });
+    } catch (_) {
+      if (mounted && request == _request) {
+        setState(() {
+          _image?.dispose();
+          _image = null;
+          _content = null;
+        });
+      }
+    }
+  }
+
+  Future<Rect> _opaqueBounds(ui.Image image) async {
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    final full = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
+    if (data == null) return full;
+    final pixels = data.buffer.asUint8List();
+    final visible = _pixelBounds(
+      pixels,
+      image.width,
+      image.height,
+      (red, green, blue, alpha) => alpha >= 16,
+    );
+    if (visible == null) return full;
+    // White padding around a crest is not part of the mark. A white crest
+    // stays intact because trimming it would erase most of the artwork.
+    final ink = _pixelBounds(
+      pixels,
+      image.width,
+      image.height,
+      (red, green, blue, alpha) =>
+          alpha >= 16 && (red < 235 || green < 235 || blue < 235),
+    );
+    if (ink == null) return visible;
+    final visibleArea = visible.width * visible.height;
+    final inkArea = ink.width * ink.height;
+    if (visibleArea <= 0 || inkArea < visibleArea * 0.2) return visible;
+    return ink;
+  }
+
+  Rect? _pixelBounds(
+    List<int> pixels,
+    int width,
+    int height,
+    bool Function(int red, int green, int blue, int alpha) keep,
+  ) {
+    var minX = width;
+    var minY = height;
+    var maxX = -1;
+    var maxY = -1;
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        final index = (y * width + x) * 4;
+        if (!keep(pixels[index], pixels[index + 1], pixels[index + 2], pixels[index + 3])) {
+          continue;
+        }
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < minX || maxY < minY) return null;
+    return Rect.fromLTRB(
+      minX.toDouble(),
+      minY.toDouble(),
+      (maxX + 1).toDouble(),
+      (maxY + 1).toDouble(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final image = _image;
+    final content = _content;
+    return SizedBox(
+      width: _resultLogoBox,
+      height: _resultLogoBox,
+      child: image == null || content == null
+          ? _ResultLogoFallback(name: widget.name)
+          : CustomPaint(
+              size: const Size.square(_resultLogoBox),
+              painter: _FittedLogoPainter(image, content),
+            ),
+    );
+  }
+}
+
+class _FittedLogoPainter extends CustomPainter {
+  const _FittedLogoPainter(this.image, this.content);
+  final ui.Image image;
+  final Rect content;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = math.min(
+      size.width / content.width,
+      size.height / content.height,
+    );
+    final width = content.width * scale;
+    final height = content.height * scale;
+    canvas.drawImageRect(
+      image,
+      content,
+      Rect.fromLTWH(
+        (size.width - width) / 2,
+        (size.height - height) / 2,
+        width,
+        height,
+      ),
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _FittedLogoPainter oldDelegate) =>
+      oldDelegate.image != image || oldDelegate.content != content;
+}
 
 Widget _resultName(String name, TextAlign align) => Text(
   isNorthEastClub(name) ? 'NEUFC' : name,
@@ -366,8 +551,9 @@ class FeedGalleryFocus extends StatefulWidget {
 
 class _FeedGalleryFocusState extends State<FeedGalleryFocus>
     with WidgetsBindingObserver {
-  late Future<List<GalleryItem>> _videos;
+  List<GalleryItem> _videos = const [];
   late final FeedFocusRepository _focus;
+  final GalleryRepository _gallery = GalleryRepository.instance;
   StreamSubscription<Map<String, dynamic>>? _settingsSubscription;
 
   @override
@@ -380,7 +566,7 @@ class _FeedGalleryFocusState extends State<FeedGalleryFocus>
       event,
     ) {
       if (event['resource'] == 'feed-refresh') {
-        final videos = _reloadVideos();
+        final videos = _gallery.revalidate('videos');
         RealtimeClient.instance.trackFeedRefresh(
           Future.wait([videos, _focus.load()]),
         );
@@ -390,20 +576,18 @@ class _FeedGalleryFocusState extends State<FeedGalleryFocus>
       }
     });
     unawaited(_focus.load());
-    _videos = GalleryRepository.instance.loadGallery(
-      type: 'videos',
-      useFallback: false,
-    );
+    _gallery.addListener(_onGallery);
+    if (_gallery.hasLoaded('videos')) {
+      _videos = _gallery.current('videos');
+    } else {
+      unawaited(_gallery.loadGallery(type: 'videos', useFallback: false));
+    }
   }
 
-  Future<List<GalleryItem>> _reloadVideos() {
-    GalleryRepository.instance.invalidateFeedVideos();
-    final videos = GalleryRepository.instance.loadGallery(
-      type: 'videos',
-      useFallback: false,
-    );
-    setState(() => _videos = videos);
-    return videos;
+  void _onGallery() {
+    final next = _gallery.current('videos');
+    if (!mounted || identical(_videos, next)) return;
+    setState(() => _videos = next);
   }
 
   void _refreshHeading() {
@@ -412,14 +596,12 @@ class _FeedGalleryFocusState extends State<FeedGalleryFocus>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      unawaited(_focus.load());
-      _reloadVideos();
-    }
+    if (state == AppLifecycleState.resumed) unawaited(_focus.load());
   }
 
   @override
   void dispose() {
+    _gallery.removeListener(_onGallery);
     _focus.removeListener(_refreshHeading);
     WidgetsBinding.instance.removeObserver(this);
     _settingsSubscription?.cancel();
@@ -462,10 +644,8 @@ class _FeedGalleryFocusState extends State<FeedGalleryFocus>
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<List<GalleryItem>>(
-    future: _videos,
-    builder: (context, snapshot) {
-      final moments = (snapshot.data ?? const <GalleryItem>[])
+  Widget build(BuildContext context) {
+      final moments = _videos
           .where(
             (item) => item.type == 'videos' && item.videoUrl.trim().isNotEmpty,
           )
@@ -594,21 +774,11 @@ class _FeedGalleryFocusState extends State<FeedGalleryFocus>
                                   child: Stack(
                                     fit: StackFit.expand,
                                     children: [
-                                      if (video.thumbnail.isNotEmpty)
-                                        Image.network(
-                                          ClubRepository.mediaUrl(
-                                            video.thumbnail,
-                                          ),
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, error, stack) =>
-                                              const ColoredBox(
-                                                color: Color(0xFF283934),
-                                              ),
-                                        )
-                                      else
-                                        const ColoredBox(
-                                          color: Color(0xFF283934),
-                                        ),
+                                      GalleryImage(
+                                        key: ValueKey(video.thumbnail),
+                                        url: video.thumbnail,
+                                        placeholder: const Color(0xFF283934),
+                                      ),
                                       const Center(
                                         child: CircleAvatar(
                                           backgroundColor: Colors.white,
@@ -652,6 +822,5 @@ class _FeedGalleryFocusState extends State<FeedGalleryFocus>
           const SizedBox(height: 24),
         ],
       );
-    },
-  );
+  }
 }

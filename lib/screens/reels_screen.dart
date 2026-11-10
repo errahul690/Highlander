@@ -455,20 +455,22 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                               '${post['comments'] ?? 0}',
                               style: const TextStyle(color: Colors.white),
                             ),
-                            const SizedBox(height: 16),
-                            IconButton(
-                              tooltip: 'Repost video',
-                              onPressed: () => _repost(post),
-                              color: Colors.white,
-                              icon: const Icon(
-                                Icons.repeat,
-                                size: 28,
+                            if (post['official'] != true) ...[
+                              const SizedBox(height: 16),
+                              IconButton(
+                                tooltip: 'Repost video',
+                                onPressed: () => _repost(post),
+                                color: Colors.white,
+                                icon: const Icon(
+                                  Icons.repeat,
+                                  size: 28,
+                                ),
                               ),
-                            ),
-                            Text(
-                              '${post['reposts'] ?? 0}',
-                              style: const TextStyle(color: Colors.white),
-                            ),
+                              Text(
+                                '${post['reposts'] ?? 0}',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ],
                             const SizedBox(height: 16),
                             IconButton(
                               tooltip: 'Share video',

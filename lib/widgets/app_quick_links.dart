@@ -7,6 +7,7 @@ import '../realtime_client.dart';
 import 'package:flutter/services.dart';
 
 import '../app_settings_repository.dart';
+import '../media_cache.dart';
 import '../otp_api.dart';
 import '../theme.dart';
 import '../screens/alerts_screen.dart';
@@ -97,7 +98,7 @@ class _AppQuickLinksState extends State<AppQuickLinks>
     if (mounted) setState(() => _buttons = buttons);
     if (_reloadAgain && mounted) {
       _reloadAgain = false;
-      _reload();
+      await _reload();
     }
   }
 
@@ -194,6 +195,9 @@ class _AppQuickLinksState extends State<AppQuickLinks>
                                   Uri.parse(OtpApi.apiBase)
                                       .resolve(_buttons[index].iconUrl)
                                       .toString(),
+                                  key: ValueKey(
+                                    'quick-${_buttons[index].iconUrl}-${MediaCache.instance.generation.value}',
+                                  ),
                                   width: 22,
                                   height: 22,
                                   fit: BoxFit.contain,

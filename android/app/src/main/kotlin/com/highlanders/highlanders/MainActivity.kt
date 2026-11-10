@@ -9,11 +9,13 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.app.Activity
 import android.provider.OpenableColumns
 import android.view.Gravity
 import android.view.ViewGroup
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.TextView
 import java.io.File
@@ -25,6 +27,9 @@ class MainActivity : FlutterActivity() {
     private var videoThumbnails: VideoThumbnailChannel? = null
     private var splashChannel: MethodChannel? = null
     private var splashOverlay: FrameLayout? = null
+    private var splashReadyAt: Long? = null
+    private var splashMinimumDurationMs = 0L
+    private val splashReadyRequests = mutableListOf<MethodChannel.Result>()
     private var skipButton: TextView? = null
     private var pendingSkip = false
     private var pendingAttachmentResult: MethodChannel.Result? = null
@@ -39,12 +44,12 @@ class MainActivity : FlutterActivity() {
         val downloaded = File(filesDir, "splash/active.html")
         val settingsFile = File(filesDir, "splash/settings.json")
         var html: String? = null
-        var allowSkip = true
+        var allowSkip = false
         if (settingsFile.exists()) {
             try {
                 val settings = JSONObject(settingsFile.readText())
                 if (!settings.optBoolean("enabled", true)) return
-                allowSkip = settings.optBoolean("allow_skip", true)
+                allowSkip = settings.optBoolean("allow_skip", false)
                 if (settings.optString("type") == "html" && downloaded.exists() && downloaded.length() > 0) {
                     html = downloaded.readText()
                 }
@@ -59,12 +64,22 @@ class MainActivity : FlutterActivity() {
             }
         }
         val page = html ?: return
+        splashMinimumDurationMs =
+            if (page.contains("const ROAD_START = 1.25, ROAD_DUR = 3.0;")) 6000L else 0L
         val overlay = FrameLayout(this)
         val webView = WebView(this)
         overlay.setBackgroundColor(Color.parseColor("#0E1014"))
         webView.setBackgroundColor(Color.parseColor("#0E1014"))
         webView.settings.javaScriptEnabled = true
         webView.settings.allowFileAccess = true
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                if (splashReadyAt == null) splashReadyAt = SystemClock.uptimeMillis()
+                val requests = splashReadyRequests.toList()
+                splashReadyRequests.clear()
+                requests.forEach { it.success(splashPlaybackState()) }
+            }
+        }
         webView.loadDataWithBaseURL(
             "file:///android_asset/splash/",
             page,
@@ -79,34 +94,7 @@ class MainActivity : FlutterActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
             ),
         )
-        if (allowSkip) {
-            val density = resources.displayMetrics.density
-            fun dp(value: Int) = (value * density).toInt()
-            val skip = TextView(this)
-            skip.text = "SKIP"
-            skip.setTextColor(Color.WHITE)
-            skip.setTypeface(skip.typeface, Typeface.BOLD)
-            skip.textSize = 13f
-            skip.letterSpacing = 0.16f
-            skip.gravity = Gravity.CENTER
-            skip.setPadding(dp(28), dp(12), dp(28), dp(12))
-            skip.background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(28).toFloat()
-                setColor(0xE616181D.toInt())
-                setStroke(dp(1), 0x66FFFFFF)
-            }
-            skip.elevation = dp(8).toFloat()
-            skip.setOnClickListener { requestSkip() }
-            skipButton = skip
-            val params = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
-            )
-            params.bottomMargin = dp(36)
-            overlay.addView(skip, params)
-        }
+        if (allowSkip) addSkipButton(overlay)
         addContentView(
             overlay,
             ViewGroup.LayoutParams(
@@ -132,6 +120,36 @@ class MainActivity : FlutterActivity() {
         channel.invokeMethod("skip", null)
     }
 
+    private fun addSkipButton(overlay: FrameLayout) {
+        if (skipButton != null) return
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+        val skip = TextView(this)
+        skip.text = "SKIP"
+        skip.setTextColor(Color.WHITE)
+        skip.setTypeface(skip.typeface, Typeface.BOLD)
+        skip.textSize = 13f
+        skip.letterSpacing = 0.16f
+        skip.gravity = Gravity.CENTER
+        skip.setPadding(dp(28), dp(12), dp(28), dp(12))
+        skip.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(28).toFloat()
+            setColor(0xE616181D.toInt())
+            setStroke(dp(1), 0x66FFFFFF)
+        }
+        skip.elevation = dp(8).toFloat()
+        skip.setOnClickListener { requestSkip() }
+        skipButton = skip
+        val params = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
+        )
+        params.bottomMargin = dp(36)
+        overlay.addView(skip, params)
+    }
+
     private fun removeSkipButton() {
         val button = skipButton ?: return
         skipButton = null
@@ -141,8 +159,16 @@ class MainActivity : FlutterActivity() {
     private fun hideCachedHtmlSplash() {
         val overlay = splashOverlay ?: return
         splashOverlay = null
+        splashReadyRequests.forEach { it.success(null) }
+        splashReadyRequests.clear()
         (overlay.parent as? ViewGroup)?.removeView(overlay)
     }
+
+    private fun splashPlaybackState(): Map<String, Any> = mapOf(
+        "active" to (splashOverlay != null),
+        "elapsedMs" to (splashReadyAt?.let { SystemClock.uptimeMillis() - it } ?: 0L),
+        "minimumDurationMs" to splashMinimumDurationMs,
+    )
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -205,11 +231,17 @@ class MainActivity : FlutterActivity() {
         linksChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "highlanders/app_links")
         splashChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "highlanders/splash")
         splashChannel?.setMethodCallHandler { call, result ->
-            if (call.method == "hide") {
+            if (call.method == "waitUntilReady") {
+                if (splashOverlay == null) result.success(null)
+                else if (splashReadyAt != null) result.success(splashPlaybackState())
+                else splashReadyRequests.add(result)
+            } else if (call.method == "hide") {
                 hideCachedHtmlSplash()
                 result.success(null)
             } else if (call.method == "setAllowSkip") {
-                if (call.argument<Boolean>("allow") == false) removeSkipButton()
+                val allow = call.argument<Boolean>("allow") == true
+                val overlay = splashOverlay
+                if (allow && overlay != null) addSkipButton(overlay) else removeSkipButton()
                 result.success(null)
             } else {
                 result.notImplemented()

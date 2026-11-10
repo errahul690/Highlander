@@ -13,6 +13,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../grounds_repository.dart';
 import '../grounds_map_html.dart';
 import '../theme.dart';
+import 'photo_viewer_screen.dart';
 
 class GroundsScreen extends StatefulWidget {
   const GroundsScreen({super.key, this.active = true});
@@ -548,6 +549,20 @@ class _GroundDetailScreenState extends State<GroundDetailScreen> {
     super.dispose();
   }
 
+  void _openPhotos(List<String> urls, int index) {
+    final photos = urls.where((url) => url.isNotEmpty).toList();
+    if (photos.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PhotoViewerScreen(
+          images: photos,
+          initialIndex: index.clamp(0, photos.length - 1),
+          authorName: ground.name,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openDirections() async {
     final query = [
       ground.name,
@@ -732,11 +747,19 @@ class _GroundDetailScreenState extends State<GroundDetailScreen> {
           spacing: gap,
           runSpacing: gap,
           children: [
-            for (final item in photoItems)
+            for (var index = 0; index < photoItems.length; index++)
               SizedBox(
-                width: item.fullWidth ? constraints.maxWidth - 24 : halfWidth,
-                height: item.fullWidth ? 190 : 135,
-                child: _photo(item.url),
+                width: photoItems[index].fullWidth
+                    ? constraints.maxWidth - 24
+                    : halfWidth,
+                height: photoItems[index].fullWidth ? 190 : 135,
+                child: GestureDetector(
+                  onTap: () => _openPhotos(
+                    [for (final item in photoItems) item.url],
+                    index,
+                  ),
+                  child: _photo(photoItems[index].url),
+                ),
               ),
           ],
         ),
@@ -770,7 +793,10 @@ class _GroundDetailScreenState extends State<GroundDetailScreen> {
                               itemCount: images.length,
                               onPageChanged: (index) =>
                                   setState(() => _photoIndex = index),
-                              itemBuilder: (_, index) => _photo(images[index]),
+                              itemBuilder: (_, index) => GestureDetector(
+                                onTap: () => _openPhotos(images, index),
+                                child: _photo(images[index]),
+                              ),
                             ),
                     ),
                   ),

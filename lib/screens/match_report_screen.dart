@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../chat_updates.dart';
 import '../models.dart';
+import '../widgets/header_action_icon.dart';
 import '../widgets/match_score_summary.dart';
 import '../widgets/match_photo_gallery.dart';
 import '../widgets/match_insights.dart';
@@ -93,7 +95,21 @@ class _MatchReportScreenState extends State<MatchReportScreen> {
             tooltip: 'Notifications',
             onPressed: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => const AlertsScreen())),
-            icon: const Icon(Icons.notifications_active_outlined, size: 23),
+            icon: ValueListenableBuilder<int>(
+              valueListenable: ChatUpdates.instance.unreadNotifications,
+              builder: (_, count, _) => Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.notifications_active_outlined, size: 23),
+                  if (count > 0)
+                    const Positioned(
+                      right: -1,
+                      top: -1,
+                      child: NotificationUnreadDot(),
+                    ),
+                ],
+              ),
+            ),
           ),
           IconButton(
             tooltip: 'My profile',

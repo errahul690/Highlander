@@ -6,8 +6,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../widgets/club_header.dart';
-import '../widgets/animated_football.dart';
-import '../theme.dart';
+import '../widgets/startup_loader.dart';
 import '../widgets/feed_match_sections.dart';
 import '../club_repository.dart';
 import '../models.dart';
@@ -16,6 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../app_banners_repository.dart';
+import '../gallery_repository.dart';
 import '../feed_focus_repository.dart';
 import '../feed_startup.dart';
 import '../session.dart';
@@ -24,13 +24,19 @@ import '../realtime_client.dart';
 import '../widgets/app_quick_links.dart';
 import '../widgets/app_feed_banners.dart';
 import '../widgets/app_feed_marquee.dart';
-import '../gallery_repository.dart';
 import '../widgets/app_feed_poll.dart';
 import '../post_pager.dart';
 import '../widgets/post_list_view.dart';
 
 class FeedScreen extends StatefulWidget {
-  const FeedScreen({super.key, this.client, this.clubRepository, this.now});
+  const FeedScreen({
+    super.key,
+    this.client,
+    this.clubRepository,
+    this.now,
+    this.onOpeningChanged,
+  });
+  final ValueChanged<bool>? onOpeningChanged;
   final http.Client? client;
   final ClubRepository? clubRepository;
   final DateTime? now;
@@ -44,9 +50,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   late final PostPager _pager;
   late Future<ClubContent> _clubContent;
   bool _opening = false;
-  Timer? _openTimer;
-  ImageStream? _bannerStream;
-  ImageStreamListener? _bannerListener;
+  bool _loaderReady = false;
   int _recentAfter = 2;
   int _focusAfter = 2;
   FeedFocusRepository? _focus;
@@ -63,22 +67,22 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     _focus!.addListener(_onFocus);
     unawaited(_focus!.load());
     WidgetsBinding.instance.addObserver(this);
-    _loadPosts();
-    if (widget.client == null) {
-      _opening = true;
-      unawaited(_warmFirstBanner());
-      _openTimer = Timer(const Duration(seconds: 1), () {
-        if (mounted) setState(() => _opening = false);
-      });
-    }
+    _opening =
+        !(widget.client == null && FeedStartup.consumeEntranceFinished());
+    final firstPosts = _loadPosts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onOpeningChanged?.call(_opening);
+      unawaited(_revealAfterBanners(firstPosts));
+    });
     _subscription = RealtimeClient.instance.settingsChanges.listen((event) {
-      if (event['resource'] == 'posts' || event['resource'] == 'all')
+      // A like already updates the card. Reloading the list only shows the
+      // footer spinner.
+      if ((event['resource'] == 'posts' || event['resource'] == 'all') &&
+          event['action'] != 'liked') {
         _loadPosts();
-      if ([
-        'all',
-        'feed-focus',
-        'recent-results',
-      ].contains(event['resource'])) {
+      }
+      if (['all', 'feed-focus', 'recent-results'].contains(event['resource'])) {
         unawaited(_focus?.load());
       }
       if ([
@@ -113,37 +117,34 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
 
   Future<void> _loadPosts() => _pager.refresh();
 
-  Future<void> _warmFirstBanner() async {
+  Future<void> _revealAfterBanners(Future<void> firstPosts) async {
     try {
-      final banners = await AppBannersRepository.instance.load();
-      final banner = banners.where((item) => item.enabled).firstOrNull;
-      if (banner == null || !mounted) return;
-      final url = Uri.parse(
-        OtpApi.apiBase,
-      ).resolve(banner.imageUrl).toString();
-      final stream = NetworkImage(
-        url,
-      ).resolve(ImageConfiguration.empty);
-      final listener = ImageStreamListener(
-        (image, synchronousCall) => _dropBannerStream(),
-        onError: (error, stackTrace) => _dropBannerStream(),
-      );
-      _bannerStream = stream;
-      _bannerListener = listener;
-      stream.addListener(listener);
+      await Future.wait<void>([
+        firstPosts,
+        if (widget.client == null)
+          AppBannersRepository.instance.whenImagesReady().timeout(
+            const Duration(seconds: 8),
+          ),
+      ]);
     } catch (_) {}
+    if (mounted) {
+      if (_pager.error != null) {
+        _finishOpening();
+        return;
+      }
+      setState(() => _loaderReady = true);
+      if (!_opening) FeedStartup.prefetchOtherScreens();
+    }
   }
 
-  void _dropBannerStream() {
-    final stream = _bannerStream;
-    final listener = _bannerListener;
-    _bannerStream = null;
-    _bannerListener = null;
-    if (stream != null && listener != null) stream.removeListener(listener);
+  void _finishOpening() {
+    if (!mounted) return;
+    setState(() => _opening = false);
+    widget.onOpeningChanged?.call(false);
+    FeedStartup.prefetchOtherScreens();
   }
 
   Future<void> _refresh() async {
-    GalleryRepository.instance.invalidateFeedVideos();
     final club = (widget.clubRepository ?? ClubRepository.instance).load(
       forceRefresh: true,
     );
@@ -151,6 +152,8 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     await Future.wait([
       club,
       _loadPosts(),
+      ?_focus?.load(),
+      GalleryRepository.instance.revalidate('videos'),
       RealtimeClient.instance.refreshFeed(),
     ]);
   }
@@ -171,18 +174,18 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
               if (cursor != null) 'cursor': cursor,
             },
           ),
-          headers: {
-            if (Session.token.isNotEmpty)
-              'Authorization': 'Bearer ${Session.token}',
-          },
+          headers: Session.token.isEmpty
+              ? const {}
+              : {'Authorization': 'Bearer ${Session.token}'},
         )
         .timeout(const Duration(seconds: 10));
     final data = jsonDecode(response.body);
     if (response.statusCode != 200 ||
         data is! Map ||
         data['success'] != true ||
-        data['posts'] is! List)
+        data['posts'] is! List) {
       throw Exception('Could not load posts.');
+    }
     return Map<String, dynamic>.from(data);
   }
 
@@ -193,8 +196,6 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _openTimer?.cancel();
-    _dropBannerStream();
     _focus?.removeListener(_onFocus);
     _pager.dispose();
     _subscription?.cancel();
@@ -213,76 +214,60 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
       body: Stack(
         children: [
           Column(
-        children: [
-          const _FeedHeader(),
-          Expanded(
-            child: ClubPageBody(
-                    color: const Color(0xFFF9F7F3),
-                    child: RefreshIndicator(
-                      onRefresh: _refresh,
-                      child: PostListView(
-                        key: const PageStorageKey('feed-scroll'),
-                        pager: _pager,
-                        onChanged: _loadPosts,
-                        spacing: 20,
-                        emptyLoading: Semantics(
-                          label: 'Loading feed',
-                          child: AnimatedFootball(
-                            size: 64,
-                            color: clubRed,
-                            enableBounce: false,
-                          ),
+            children: [
+              const _FeedHeader(),
+              Expanded(
+                child: ClubPageBody(
+                  color: const Color(0xFFF9F7F3),
+                  child: RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: PostListView(
+                      key: const PageStorageKey('feed-scroll'),
+                      pager: _pager,
+                      onChanged: _loadPosts,
+                      spacing: 20,
+                      emptyLoading: const LinearProgressIndicator(minHeight: 2),
+                      inserts: [
+                        PostListInsert(
+                          afterPosts: _recentAfter,
+                          child: RecentResultsSection(content: _clubContent),
                         ),
-                        inserts: [
-                          PostListInsert(
-                            afterPosts: _recentAfter,
-                            child: RecentResultsSection(content: _clubContent),
-                          ),
-                          PostListInsert(
-                            afterPosts: _focusAfter,
-                            child: const FeedGalleryFocus(),
-                          ),
-                        ],
-                        padding: EdgeInsets.fromLTRB(
-                          18,
-                          16,
-                          18,
-                          MediaQuery.paddingOf(context).bottom + 20,
+                        PostListInsert(
+                          afterPosts: _focusAfter,
+                          child: const FeedGalleryFocus(),
                         ),
-                        header: [
-                          const AppQuickLinks(),
-                          const SizedBox(height: 16),
-                          const AppFeedBanners(),
-                          const SizedBox(height: 18),
-                          FeedMatchFeature(
-                            content: _clubContent,
-                            now: widget.now,
-                          ),
-                          const AppFeedMarquee(
-                            key: ValueKey('feed-announcements'),
-                          ),
-                          const AppFeedPoll(),
-                        ],
+                      ],
+                      padding: EdgeInsets.fromLTRB(
+                        18,
+                        16,
+                        18,
+                        MediaQuery.paddingOf(context).bottom + 20,
                       ),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-          if (_opening)
-            Positioned.fill(
-              child: ColoredBox(
-                color: Color(0xFFF9F7F3),
-                child: Center(
-                  child: Semantics(
-                    label: 'Loading feed',
-                    child: AnimatedFootball(
-                      size: 64,
-                      color: clubRed,
-                      enableBounce: false,
+                      header: [
+                        const AppQuickLinks(),
+                        const SizedBox(height: 16),
+                        const AppFeedBanners(),
+                        const SizedBox(height: 18),
+                        FeedMatchFeature(
+                          content: _clubContent,
+                          now: widget.now,
+                        ),
+                        const AppFeedMarquee(
+                          key: ValueKey('feed-announcements'),
+                        ),
+                        const AppFeedPoll(),
+                      ],
                     ),
                   ),
                 ),
+              ),
+            ],
+          ),
+          if (_opening)
+            Positioned.fill(
+              child: StartupLoader(
+                ready: _loaderReady,
+                onFinished: _finishOpening,
               ),
             ),
         ],

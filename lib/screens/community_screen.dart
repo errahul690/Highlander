@@ -14,6 +14,7 @@ import '../widgets/unread_chat_badge.dart';
 
 import '../community_api.dart';
 import '../chat_updates.dart';
+import '../realtime_client.dart';
 import '../theme.dart';
 import '../widgets/community_icons.dart';
 import '../widgets/invite_members_sheet.dart';
@@ -49,6 +50,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   late Future<List<Map<String, dynamic>>> _rows;
   final _joining = <String>{};
   StreamSubscription<void>? _chatSubscription;
+  StreamSubscription<Map<String, dynamic>>? _supportHub;
   bool _refreshingChats = false, _chatRefreshPending = false;
   String get _kind => _tab == 0 ? 'circles' : _tabs[_tab].toLowerCase();
 
@@ -61,6 +63,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
       (_) => _refreshChats(),
     );
     ChatUpdates.instance.acquire();
+    _supportHub = RealtimeClient.instance.settingsChanges.listen((event) {
+      if (event['resource'] == 'support-hub' || event['resource'] == 'all') {
+        _refreshChats();
+      }
+    });
   }
 
   @override
@@ -96,6 +103,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   void dispose() {
     _chatSubscription?.cancel();
+    _supportHub?.cancel();
     ChatUpdates.instance.release();
     _search.dispose();
     super.dispose();
@@ -783,6 +791,30 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
+  Widget _huddleAvatar(Map<String, dynamic> row, String name) {
+    final image =
+        '${row['iconImage'] ?? row['image'] ?? row['profile_photo'] ?? row['profileImage'] ?? ''}'
+            .trim();
+    if (image.isEmpty) {
+      return CircleAvatar(
+        radius: 25,
+        backgroundColor: const Color(0xFFFDE8E7),
+        child: ImageIcon(
+          _icons[0],
+          color: const Color(0xFFC82D22),
+          size: 26,
+        ),
+      );
+    }
+    return UserAvatar(
+      name: name,
+      image: image,
+      radius: 25,
+      backgroundColor: const Color(0xFFFDE8E7),
+      foregroundColor: const Color(0xFFC82D22),
+    );
+  }
+
   Widget _circleTile(Map<String, dynamic> row) {
     final name = '${row['name']}';
     final id = '${row['_id']}';
@@ -797,15 +829,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             horizontal: 16,
             vertical: 4,
           ),
-          leading: CircleAvatar(
-            radius: 25,
-            backgroundColor: const Color(0xFFFDE8E7),
-            child: ImageIcon(
-              _icons[0],
-              color: const Color(0xFFC82D22),
-              size: 26,
-            ),
-          ),
+          leading: _huddleAvatar(row, name),
           title: Text(
             name,
             maxLines: 1,

@@ -69,7 +69,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserPosts();
     _loadCounts();
     _postsSubscription = RealtimeClient.instance.settingsChanges.listen((event) {
-      if (event['resource'] == 'posts' || event['resource'] == 'all') {
+      if ((event['resource'] == 'posts' || event['resource'] == 'all') &&
+          event['action'] != 'liked') {
         _loadUserPosts();
         _loadCounts();
       }

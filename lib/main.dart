@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import 'otp_api.dart';
+import 'push_alerts.dart';
 import 'screens/login_screen.dart';
 import 'screens/shell.dart';
 import 'session.dart';
@@ -51,7 +52,10 @@ void _openPostLink(String link) {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PushAlerts.listenForBackgroundMessages();
   await OtpApi.loadEnvironment();
+  FeedStartup.warmBanners();
+  unawaited(FeedStartup.ready());
   final sessionReady = Session.restore();
   FeedStartup.warm(sessionReady);
   await HeaderIconsRepository.instance.restore();

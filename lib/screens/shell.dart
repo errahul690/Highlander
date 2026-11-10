@@ -50,6 +50,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   late int _index;
+  bool _feedOpening = true;
   io.Socket? _settingsSocket;
 
   void _selectTab(int index) => setState(() => _index = index);
@@ -156,7 +157,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 isActive: _index == 0,
               ),
               CommunityScreen(title: 'Huddles', isActive: _index == 1),
-              TickerMode(enabled: _index == 2, child: const FeedScreen()),
+              TickerMode(
+                enabled: _index == 2,
+                child: FeedScreen(
+                  onOpeningChanged: (opening) {
+                    if (mounted && _feedOpening != opening) {
+                      setState(() => _feedOpening = opening);
+                    }
+                  },
+                ),
+              ),
               const ExploreScreen(),
               ProfileScreen(
                 isActive: _index == 4,
@@ -164,16 +174,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               ),
             ],
           ),
-          bottomNavigationBar: AppBottomNavigation(
-            selectedIndex: _index,
-            onSelect: (index) {
-              if (index == 2) {
-                _centerTap();
-              } else {
-                setState(() => _index = index);
-              }
-            },
-          ),
+          bottomNavigationBar: _index == 2 && _feedOpening
+              ? null
+              : AppBottomNavigation(
+                  selectedIndex: _index,
+                  onSelect: (index) {
+                    if (index == 2) {
+                      _centerTap();
+                    } else {
+                      setState(() => _index = index);
+                    }
+                  },
+                ),
         ),
       ),
     );

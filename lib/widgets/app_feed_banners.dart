@@ -36,18 +36,55 @@ class _AppFeedBannersState extends State<AppFeedBanners>
   }
 
   bool _loading = false;
+  bool _retriedEmpty = false;
+  bool _refreshImagesAgain = false;
+  int _imageEpoch = 0;
   int _page = 0;
   static const _bannerAspect = 1746 / 901;
 
   String _imageUrl(AppBanner banner) =>
       Uri.parse(OtpApi.apiBase).resolve(banner.imageUrl).toString();
+
+  Widget _bannerPicture(AppBanner banner, int index) {
+    final bytes = _repository.bytesFor(banner);
+    if (bytes != null) {
+      return Image.memory(
+        bytes,
+        key: ValueKey('app-banner-memory-$index-$_imageEpoch'),
+        fit: BoxFit.contain,
+        width: double.infinity,
+        height: double.infinity,
+        gaplessPlayback: true,
+      );
+    }
+    if (!_repository.imagesReady) {
+      return const ColoredBox(color: Color(0xFFF4F1EC));
+    }
+    return Image.network(
+      _imageUrl(banner),
+      key: ValueKey('app-banner-image-$index-$_imageEpoch'),
+      fit: BoxFit.contain,
+      width: double.infinity,
+      height: double.infinity,
+      gaplessPlayback: true,
+      errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF342322)),
+    );
+  }
   @override
   void initState() {
     super.initState();
     _listenForUpdates();
     _banners = _repository.current.where((banner) => banner.enabled).toList();
     WidgetsBinding.instance.addObserver(this);
-    _reload();
+    if (_banners.isEmpty) {
+      _reload();
+    } else if (!_repository.imagesReady) {
+      unawaited(
+        _repository.prepareImages(context).then((_) {
+          if (mounted) setState(() {});
+        }),
+      );
+    }
   }
 
   @override
@@ -63,23 +100,35 @@ class _AppFeedBannersState extends State<AppFeedBanners>
     if (state == AppLifecycleState.resumed) _reload();
   }
 
-  Future<void> _reload() async {
+  Future<void> _reload({bool refreshImages = false}) async {
     if (_loading) {
       _reloadAgain = true;
+      _refreshImagesAgain = _refreshImagesAgain || refreshImages;
       return;
     }
     _loading = true;
-    final banners = await _repository.load();
+    final banners = refreshImages
+        ? await _repository.refresh()
+        : await _repository.load();
     _loading = false;
     if (!mounted) return;
+    if (!refreshImages &&
+        banners.every((banner) => !banner.enabled) &&
+        !_retriedEmpty) {
+      _retriedEmpty = true;
+      return _reload();
+    }
     if (_controller.hasClients) _controller.jumpToPage(0);
     setState(() {
       _banners = banners.where((banner) => banner.enabled).toList();
+      if (refreshImages) _imageEpoch++;
       _page = 0;
     });
     if (_reloadAgain && mounted) {
       _reloadAgain = false;
-      _reload();
+      final refreshAgain = _refreshImagesAgain;
+      _refreshImagesAgain = false;
+      await _reload(refreshImages: refreshAgain);
     }
   }
 
@@ -106,15 +155,7 @@ class _AppFeedBannersState extends State<AppFeedBanners>
                     onTap: banner.link.isEmpty
                         ? null
                         : () => openAppDestination(context, banner.link),
-                    child: Image.network(
-                      _imageUrl(banner),
-                      fit: BoxFit.contain,
-                      width: double.infinity,
-                      height: double.infinity,
-                      gaplessPlayback: true,
-                      errorBuilder: (_, error, stack) =>
-                          const ColoredBox(color: Color(0xFF342322)),
-                    ),
+                    child: _bannerPicture(banner, index),
                   ),
                 );
               },

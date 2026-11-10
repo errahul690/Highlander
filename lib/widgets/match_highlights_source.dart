@@ -78,4 +78,4 @@ bool youtubeStaysInApp(String url) {
   if (uri.path == '/watch' || uri.path.startsWith('/redirect')) return false;
   return true;
 }
-const youtubeAppReferrer = 'https://com.highlanders.highlanders/';
+const youtubeAppReferrer = 'https://com.highlander/';
