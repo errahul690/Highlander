@@ -1,4 +1,5 @@
 import '../brand_colors.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -397,7 +398,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: _tab == index ? Colors.white : clubInk,
-                            fontSize: 11,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -580,10 +581,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                     children: [
                       Text(
                         name,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF16172D),
                         ),
@@ -661,16 +662,60 @@ class _FriendsScreenState extends State<FriendsScreen>
                   tooltip: 'More options for $name',
                   enabled: !saving,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 30,
-                    minHeight: 36,
+                  color: Colors.white,
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 6,
+                  shadowColor: const Color(0x18900F32),
+                  position: PopupMenuPosition.under,
+                  offset: const Offset(0, 6),
+                  menuPadding: const EdgeInsets.all(6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: const BorderSide(color: brandAccentLight),
                   ),
-                  icon: const Icon(Icons.more_vert, size: 18),
+                  constraints: const BoxConstraints(
+                    minWidth: 176,
+                    maxWidth: 224,
+                  ),
+                  icon: const Icon(
+                    Icons.more_vert,
+                    size: 20,
+                    color: brandAccent,
+                  ),
                   onSelected: (_) => _follow(person),
                   itemBuilder: (_) => [
                     const PopupMenuItem(
                       value: 'unfollow',
-                      child: Text('Unfollow'),
+                      height: 48,
+                      child: Row(
+                        children: [
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: brandAccentLight,
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(9),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(7),
+                              child: Icon(
+                                Icons.person_remove_outlined,
+                                size: 18,
+                                color: brandAccent,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Unfollow',
+                            style: TextStyle(
+                              color: brandAccent,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
