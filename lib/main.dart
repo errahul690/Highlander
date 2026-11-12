@@ -45,7 +45,21 @@ Future<void> main() async {
     );
   };
   await OtpApi.loadEnvironment();
-  final launchSplash = loadBundledSplash();
+  final selectedSplash = await loadBundledSplash();
+  final startupReady = Completer<void>();
+  try {
+    await const MethodChannel('highlanders/splash')
+        .invokeMethod<void>('prepare', selectedSplash)
+        .timeout(const Duration(milliseconds: 500));
+  } catch (_) {
+    // iOS renders the bundled HTML in Flutter.
+  }
+  runApp(
+    HighlandersApp(
+      sessionReady: startupReady.future,
+      initialSplash: selectedSplash,
+    ),
+  );
   FeedStartup.warmBanners();
   unawaited(FeedStartup.ready());
   final sessionReady = Session.restore();
@@ -62,24 +76,13 @@ Future<void> main() async {
   final clubReady = ClubRepository.instance.load().then<void>((_) {});
   unawaited(ExploreRepository.instance.load());
   unawaited(SwoofiRepository.instance.load(force: true));
-  final startupReady = Future.wait<void>([
+  final startupTasks = Future.wait<void>([
     sessionReady,
     headerIconsReady.timeout(const Duration(seconds: 3), onTimeout: () {}),
     clubReady.timeout(const Duration(seconds: 4), onTimeout: () {}),
-  ]);
-  final selectedSplash = await launchSplash;
+  ]).then<void>((_) {});
   await GroundsRepository.instance.restore();
-  try {
-    // Android and Flutter render the same bundled splash artwork.
-    await const MethodChannel('highlanders/splash')
-        .invokeMethod<void>('prepare', selectedSplash)
-        .timeout(const Duration(milliseconds: 500));
-  } catch (_) {
-    // iOS and platforms without this channel render the same choice in Flutter.
-  }
-  runApp(
-    HighlandersApp(sessionReady: startupReady, initialSplash: selectedSplash),
-  );
+  startupReady.complete(startupTasks);
   unawaited(GroundsRepository.instance.preload());
   _links.setMethodCallHandler((call) async {
     if (call.method == 'incomingLink' && call.arguments is String) {
