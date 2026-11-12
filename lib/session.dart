@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'otp_api.dart';
+import 'push_alerts.dart';
 
 class Session {
   static const _storage = FlutterSecureStorage();
@@ -29,6 +30,7 @@ class Session {
     if (expectedToken.isEmpty || token != expectedToken) return;
     clear();
     onInvalidated?.call();
+    await PushAlerts.stop(sessionToken: expectedToken);
     try {
       await _storage.delete(key: _storageKey);
     } catch (_) {
@@ -207,12 +209,14 @@ class Session {
   }
 
   static Future<void> logout() async {
+    await PushAlerts.stop();
     await _storage.delete(key: _storageKey);
     clear();
   }
 
   static Future<void> _discardStoredSession() async {
     clear();
+    await PushAlerts.stop();
     try {
       await _storage.delete(key: _storageKey);
     } catch (_) {
