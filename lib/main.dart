@@ -18,7 +18,7 @@ import 'theme.dart';
 import 'post_link_router.dart';
 
 import 'screens/splash_screen.dart';
-import 'splash_cache.dart';
+import 'bundled_splash.dart';
 import 'grounds_repository.dart';
 import 'header_icons_repository.dart';
 import 'chat_background_repository.dart';
@@ -45,7 +45,7 @@ Future<void> main() async {
     );
   };
   await OtpApi.loadEnvironment();
-  final launchSplash = SplashCache.instance.forLaunch();
+  final launchSplash = loadBundledSplash();
   FeedStartup.warmBanners();
   unawaited(FeedStartup.ready());
   final sessionReady = Session.restore();
@@ -70,8 +70,7 @@ Future<void> main() async {
   final selectedSplash = await launchSplash;
   await GroundsRepository.instance.restore();
   try {
-    // Start native HTML only after choosing the latest admin splash; other
-    // media types are rendered by Flutter without a bundled animation first.
+    // Android and Flutter render the same bundled splash artwork.
     await const MethodChannel('highlanders/splash')
         .invokeMethod<void>('prepare', selectedSplash)
         .timeout(const Duration(milliseconds: 500));

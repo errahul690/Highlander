@@ -9,7 +9,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../feed_startup.dart';
 import '../otp_api.dart';
-import '../splash_cache.dart';
+import '../bundled_splash.dart';
 
 const _nativeSplash = MethodChannel('highlanders/splash');
 
@@ -68,55 +68,19 @@ class _SplashScreenState extends State<SplashScreen> {
       _armTimer(initial);
     } else if (initial != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _proceed());
-    } else if (widget.client == null) {
+    } else {
       unawaited(_showBundledSplash());
     }
-    unawaited(_refreshForNextLaunch());
   }
 
   Future<void> _showBundledSplash() async {
     try {
-      final html = await rootBundle.loadString('assets/splash/default.html');
+      final data = await loadBundledSplash();
       if (!mounted || _proceeded || _splash != null) return;
-      final data = <String, dynamic>{
-        'enabled': true,
-        'type': 'html',
-        'html_content': html,
-        'bg_color': '#0E1014',
-        'duration': 6,
-        'allow_skip': false,
-      };
       _applySplash(data);
-    } catch (_) {}
-  }
-
-  Future<void> _refreshForNextLaunch() async {
-    final fresh = await SplashCache.instance.refresh(
-      client: widget.client,
-      // main() already checked before playback. Avoid a second startup fetch;
-      // injected clients still exercise settings updates in screen tests.
-      force: widget.client != null,
-    );
-    if (!mounted || _proceeded || fresh == null) return;
-    if (fresh['enabled'] == false) {
-      // A setting saved for the next launch must not cut off this playback.
-      if (_splash == null && widget.client != null) _proceed();
-      return;
+    } catch (_) {
+      await _proceed();
     }
-    final allowSkip = fresh['allow_skip'] == true;
-    if (!mounted || _proceeded) return;
-    // A test client has no saved splash. A real launch keeps the splash
-    // already on screen and stores the new one for the next open.
-    if (widget.client != null && widget.initialSplash == null) {
-      _applySplash(fresh, restartTimer: _splash == null);
-    } else if (_splash != null && _splash!['allow_skip'] != allowSkip) {
-      setState(() => _splash = {..._splash!, 'allow_skip': allowSkip});
-    }
-    try {
-      await _nativeSplash.invokeMethod<void>('setAllowSkip', {
-        'allow': allowSkip,
-      });
-    } catch (_) {}
   }
 
   void _installSplash(Map<String, dynamic> data) {

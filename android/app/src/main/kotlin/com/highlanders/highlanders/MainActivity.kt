@@ -37,7 +37,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Dart chooses the latest admin setting before starting the animation.
+        // Dart loads the bundled splash before starting the animation.
     }
 
     private fun showSplashHtml(selected: JSONObject?) {

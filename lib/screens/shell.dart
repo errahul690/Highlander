@@ -11,7 +11,6 @@ import '../otp_api.dart';
 import '../post_link_router.dart';
 import '../club_repository.dart';
 import '../explore_repository.dart';
-import '../splash_cache.dart';
 import '../grounds_repository.dart';
 import 'swoofi_screen.dart';
 
@@ -99,9 +98,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           .build(),
     );
     _settingsSocket!.on('app-settings:updated', (dynamic event) {
-      if (event is Map && event['resource'] == 'splash') {
-        unawaited(SplashCache.instance.refresh(force: true));
-      }
       if (event is Map && event['resource'] == 'match-card') {
         unawaited(ClubRepository.instance.refreshCardOverlay());
       }
@@ -125,7 +121,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       MessageAlerts.setForeground(true);
       _settingsSocket?.connect();
-      unawaited(SplashCache.instance.refresh());
       unawaited(GroundsRepository.instance.preload());
       unawaited(ExploreRepository.instance.load());
       unawaited(SwoofiRepository.instance.load(force: true));
