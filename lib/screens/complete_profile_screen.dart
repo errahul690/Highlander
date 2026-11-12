@@ -287,8 +287,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     child: Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-      automaticallyImplyLeading: false,
-
+        automaticallyImplyLeading: false,
+        toolbarHeight: 0,
         backgroundColor: Colors.white,
         foregroundColor: clubInk,
         surfaceTintColor: Colors.transparent,
@@ -297,7 +297,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
           child: Form(
             key: _form,
             child: Column(

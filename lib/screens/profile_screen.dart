@@ -826,9 +826,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ClubHeader(
                 title: 'Profile',
                 embedded: true,
-                showSearch: false,
-                showNotifications: false,
-                showSupport: false,
+                showSearch: true,
+                showNotifications: true,
+                showSupport: true,
                 uppercaseTitle: false,
               ),
             ),

@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+3
 
 environment:
-  sdk: ^3.13.5
+  sdk: '>=3.13.0 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -81,13 +81,11 @@ flutter:
     - assets/images/kerala-blasters-logo.png
     - assets/images/stadium_bg.jpg
     - assets/images/match-report-background.png
-    - assets/images/chat_bg_pattern.jpg
     - assets/images/match_hero_stadium.png
     - assets/images/matches-sunset-stadium.png
     - assets/images/matchday_live_default.png
     - assets/images/before_kickoff_default.png
     - assets/images/watch_live_card_bg.png
-    - assets/images/login-tunnel.png
     - assets/images/login-hero.png
     - assets/images/email-artwork.png
     - assets/images/profile-stadium.png
@@ -103,8 +101,6 @@ flutter:
     - assets/images/header-background.png
     - assets/images/header-edge.png
     - assets/images/feed-background.png
-    - assets/images/swoofi/
-    - assets/images/swoofi/reference/
     - assets/icons/circles.png
     - assets/icons/chats.png
     - assets/icons/groups.png

@@ -9,7 +9,6 @@ import '../widgets/club_header.dart';
 import '../widgets/ground_icons.dart';
 import '../widgets/app_bottom_navigation.dart';
 
-import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../grounds_repository.dart';
@@ -571,24 +570,6 @@ class _GroundDetailScreenState extends State<GroundDetailScreen> {
     );
   }
 
-  Future<void> _openDirections() async {
-    final query = [
-      ground.name,
-      ground.address,
-      ground.location,
-    ].where((value) => value.trim().isNotEmpty).join(', ');
-    final uri = Uri.https('www.google.com', '/maps/search/', {
-      'api': '1',
-      'query': query,
-    });
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
-        mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open directions.')),
-      );
-    }
-  }
-
   static const _red = brandAccent;
   static const _ink = Color(0xFF1B1E2D);
   static const _muted = Color(0xFF565656);
@@ -835,16 +816,6 @@ class _GroundDetailScreenState extends State<GroundDetailScreen> {
                   divider: index < rows.length - 1,
                 ),
             ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: _openDirections,
-            icon: const Icon(Icons.near_me_outlined, size: 18),
-            label: const Text('Directions'),
-            style: TextButton.styleFrom(foregroundColor: _red),
           ),
         ),
       ],

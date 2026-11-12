@@ -1,4 +1,5 @@
 import '../brand_colors.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -745,6 +746,13 @@ class _FeedPostCardState extends State<FeedPostCard> {
     final actionColor = isDarkBg ? Colors.white : const Color(0xFF171717);
     final time = _time();
     final avatar = _post['authorImage'] as String? ?? '';
+    final logoBackground = _hexToColor(
+      _post['authorImageBackgroundColor'] as String? ?? '',
+      fallback: Colors.white,
+    );
+    final logoFallbackColor = logoBackground.computeLuminance() < 0.5
+        ? Colors.white
+        : authRed;
     final image = (_post['image'] as String? ?? '').trim();
     final rawImages =
         (_post['images'] as List?)
@@ -806,13 +814,13 @@ class _FeedPostCardState extends State<FeedPostCard> {
               official
                   ? CircleAvatar(
                       radius: 30,
-                      backgroundColor: authRed,
+                      backgroundColor: logoBackground,
                       child: avatar.isEmpty
                           ? Icon(
                               official
                                   ? Icons.shield_outlined
                                   : Icons.person_outline,
-                              color: Colors.white,
+                              color: logoFallbackColor,
                               size: 24,
                             )
                           : ClipOval(
@@ -830,7 +838,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
                                   official
                                       ? Icons.shield_outlined
                                       : Icons.person_outline,
-                                  color: Colors.white,
+                                  color: logoFallbackColor,
                                   size: 24,
                                 ),
                               ),

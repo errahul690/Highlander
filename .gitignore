@@ -1,7 +1,4 @@
 # Miscellaneous
-.env
-.env.*
-!.env.example
 *.class
 *.log
 *.pyc
@@ -50,6 +47,19 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
-# Local test files
+# Local tests
 /test/
+/tests/
+/integration_test/
 /ios/RunnerTests/
+*_test.dart
+*.test.cjs
+*.test.js
+*.test.jsx
+*.test.ts
+*.test.tsx
+
+# Local environment configuration
+.env
+.env.*
+!.env.example

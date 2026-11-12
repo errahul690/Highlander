@@ -103,40 +103,47 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
                 const SizedBox(width: 12),
               ],
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        uppercaseTitle ? title.toUpperCase() : title,
-                        maxLines: 1,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: titleFontSize ?? (showLogo ? 18 : 22),
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: showLogo ? .2 : .4,
+                child: Transform.translate(
+                  // Keep iPhone titles above the curved header edge.
+                  offset: Offset(
+                    0,
+                    Theme.of(context).platform == TargetPlatform.iOS ? -10 : 0,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          uppercaseTitle ? title.toUpperCase() : title,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: titleFontSize ?? (showLogo ? 18 : 22),
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: showLogo ? .2 : .4,
+                          ),
                         ),
                       ),
-                    ),
-                    if (subtitle?.isNotEmpty == true) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          height: 1.25,
-                          letterSpacing: .15,
+                      if (subtitle?.isNotEmpty == true) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            height: 1.25,
+                            letterSpacing: .15,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],

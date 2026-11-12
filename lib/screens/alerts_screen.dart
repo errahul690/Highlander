@@ -695,7 +695,6 @@ class _AlertsScreenState extends State<AlertsScreen>
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: ClubHeader(
         title: 'Notifications',
-        subtitle: _unreadCount > 0 ? '$_unreadCount new' : null,
         showBack: false,
         showSearch: false,
         showSupport: false,
