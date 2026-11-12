@@ -1,7 +1,9 @@
 import '../brand_colors.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../app_poll_repository.dart';
 import '../realtime_client.dart';
@@ -12,7 +14,8 @@ import 'poll_background_image.dart';
 const _pollRed = brandAccent;
 
 class AppFeedPoll extends StatefulWidget {
-  const AppFeedPoll({super.key, this.repository});
+  const AppFeedPoll({super.key, this.repository, this.initialPollId});
+  final String? initialPollId;
   final AppPollRepository? repository;
   @override
   State<AppFeedPoll> createState() => _AppFeedPollState();
@@ -23,8 +26,9 @@ class _AppFeedPollState extends State<AppFeedPoll> {
       widget.repository ?? AppPollRepository.instance;
   List<AppPoll> _polls = [];
   int _currentIndex = 0;
-  bool _slideForward = true;
-  double _dragDelta = 0.0;
+  final _pager = PageController();
+  final Map<String, double> _heights = {};
+  bool _initialPollSelected = false;
   final Map<String, String> _selectedOptionByPoll = {};
   StreamSubscription<Map<String, dynamic>>? _subscription;
   Timer? _expiryTimer;
@@ -56,16 +60,34 @@ class _AppFeedPollState extends State<AppFeedPoll> {
       return;
     }
     _loading = true;
-    await _repository.load();
+    final currentId = _polls.isEmpty
+        ? null
+        : _polls[_currentIndex.clamp(0, _polls.length - 1)].id;
+    await _repository.load(pollId: widget.initialPollId);
     _loading = false;
     if (mounted) {
       setState(() {
-        _polls = _repository.polls;
+        _polls = List.of(_repository.polls);
+        final desiredId = !_initialPollSelected
+            ? widget.initialPollId ?? currentId
+            : currentId;
+        final desiredIndex = _polls.indexWhere((poll) => poll.id == desiredId);
+        if (desiredIndex >= 0) {
+          _currentIndex = desiredIndex;
+          _initialPollSelected = true;
+        }
         if (_polls.isEmpty && _repository.current != null) {
           _polls = [_repository.current!];
         }
         if (_currentIndex >= _polls.length) {
           _currentIndex = _polls.isEmpty ? 0 : _polls.length - 1;
+        }
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            _pager.hasClients &&
+            _pager.page?.round() != _currentIndex) {
+          _pager.jumpToPage(_currentIndex);
         }
       });
       _scheduleExpiry();
@@ -88,24 +110,13 @@ class _AppFeedPollState extends State<AppFeedPoll> {
     }
   }
 
-  void _nextPoll() {
-    if (_polls.length <= 1) return;
-    setState(() {
-      _slideForward = true;
-      _currentIndex = (_currentIndex + 1) % _polls.length;
-      _error = '';
-    });
-    _scheduleExpiry();
-  }
-
-  void _prevPoll() {
-    if (_polls.length <= 1) return;
-    setState(() {
-      _slideForward = false;
-      _currentIndex = (_currentIndex - 1 + _polls.length) % _polls.length;
-      _error = '';
-    });
-    _scheduleExpiry();
+  void _goToPoll(int index) {
+    if (!_pager.hasClients) return;
+    _pager.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _vote(AppPoll poll, String optionId) async {
@@ -136,6 +147,7 @@ class _AppFeedPollState extends State<AppFeedPoll> {
 
   @override
   void dispose() {
+    _pager.dispose();
     _expiryTimer?.cancel();
     _subscription?.cancel();
     super.dispose();
@@ -143,293 +155,289 @@ class _AppFeedPollState extends State<AppFeedPoll> {
 
   @override
   Widget build(BuildContext context) {
-    if (_polls.isEmpty) return const SizedBox.shrink();
+    if (_polls.isEmpty) {
+      if (widget.initialPollId != null) {
+        return Center(
+          child: _loading
+              ? const CircularProgressIndicator()
+              : const Text('This poll is no longer available.'),
+        );
+      }
+      return const SizedBox.shrink();
+    }
     final poll = _polls[_currentIndex.clamp(0, _polls.length - 1)];
-    final results = poll.selectedOptionId != null || poll.expired;
-    final selectedOptionId = _selectedOptionByPoll[poll.id];
-    final hasMultiple = _polls.length > 1;
-    final backgroundImage = _repository.backgroundFor(poll);
-
-    return GestureDetector(
+    return KeyedSubtree(
       key: const ValueKey('feed-poll'),
-      behavior: HitTestBehavior.opaque,
-      onHorizontalDragStart: (_) => _dragDelta = 0,
-      onHorizontalDragUpdate: (details) =>
-          _dragDelta += details.primaryDelta ?? 0,
-      onHorizontalDragEnd: (details) {
-        if (!hasMultiple) return;
-        final velocity = details.primaryVelocity ?? 0;
-        if (velocity < -120 || _dragDelta < -30) {
-          _nextPoll();
-        } else if (velocity > 120 || _dragDelta > 30) {
-          _prevPoll();
-        }
-        _dragDelta = 0;
-      },
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeInOutCubic,
-        alignment: Alignment.topCenter,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 280),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          layoutBuilder: (currentChild, previousChildren) {
-            return Stack(
-              alignment: Alignment.topCenter,
-              children: [...previousChildren, ?currentChild],
-            );
-          },
-          transitionBuilder: (child, animation) {
-            final isIncoming =
-                child.key == ValueKey('feed-poll-card-${poll.id}');
-            final inOffset = Tween<Offset>(
-              begin: Offset(_slideForward ? 1.0 : -1.0, 0),
-              end: Offset.zero,
-            );
-            final outOffset = Tween<Offset>(
-              begin: Offset(_slideForward ? -1.0 : 1.0, 0),
-              end: Offset.zero,
-            );
+      child: _card(context, poll),
+    );
+  }
 
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SlideTransition(
-                position: (isIncoming ? inOffset : outOffset).animate(
-                  animation,
-                ),
-                child: FadeTransition(opacity: animation, child: child),
+  Widget _pollPages(BuildContext context, AppPoll poll) {
+    if (_polls.length == 1) return _pollContent(poll);
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: SizedBox(
+        height: _heights[poll.id] ?? 300,
+        child: PageView.builder(
+          key: const ValueKey('poll-pager'),
+          controller: _pager,
+          physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
+          itemCount: _polls.length,
+          onPageChanged: (index) {
+            setState(() {
+              _currentIndex = index;
+              _error = '';
+            });
+            _scheduleExpiry();
+          },
+          itemBuilder: (context, index) {
+            final page = _polls[index];
+            return OverflowBox(
+              alignment: Alignment.topCenter,
+              minHeight: 0,
+              maxHeight: double.infinity,
+              child: _PollSizeReporter(
+                onSize: (size) {
+                  if (mounted && _heights[page.id] != size.height) {
+                    setState(() => _heights[page.id] = size.height);
+                  }
+                },
+                child: _pollContent(page),
               ),
             );
           },
-          child: Container(
-            key: ValueKey('feed-poll-card-${poll.id}'),
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: poll.cardBackgroundColor,
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x18000000),
-                  offset: Offset(0, 5),
-                  blurRadius: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _pagination() => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (var i = 0; i < _polls.length; i++)
+        Semantics(
+          label: 'Poll ${i + 1} of ${_polls.length}',
+          selected: i == _currentIndex,
+          button: true,
+          child: InkWell(
+            onTap: () => _goToPoll(i),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i == _currentIndex
+                      ? _pollRed
+                      : const Color(0xFFA6A4AD),
                 ),
-              ],
-            ),
-            foregroundDecoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: Stack(
-                children: [
-                  if (backgroundImage.isNotEmpty)
-                    Positioned.fill(
-                      child: PollBackgroundImage(
-                        source: ClubRepository.mediaUrl(backgroundImage),
-                        key: ValueKey('poll-background-$backgroundImage'),
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: .88),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x07000000),
-                                blurRadius: 6,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.bar_chart_rounded,
-                                color: _pollRed,
-                                size: 22,
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  poll.pollName?.isNotEmpty == true
-                                      ? poll.pollName!
-                                      : 'FAN POLL',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: _pollRed,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Your call, Highlander.',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -.4,
-                            color: Color(0xFF1C1C21),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          poll.question,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF595664),
-                            height: 1.3,
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                        if (poll.expired)
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              'Voting closed',
-                              style: TextStyle(color: authMuted, fontSize: 12),
-                            ),
-                          ),
-                        if (!poll.started)
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              'Voting opens soon',
-                              style: TextStyle(color: authMuted, fontSize: 12),
-                            ),
-                          ),
-                        for (final option in poll.options)
-                          _option(poll, option, results, selectedOptionId),
-                        if (_error.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              _error,
-                              style: const TextStyle(
-                                color: authRed,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        if (!results)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2, bottom: 8),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: FilledButton(
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: _pollRed,
-                                  disabledBackgroundColor: _pollRed.withValues(
-                                    alpha: .45,
-                                  ),
-                                  foregroundColor: Colors.white,
-                                  disabledForegroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                onPressed:
-                                    _voting ||
-                                        selectedOptionId == null ||
-                                        !poll.started
-                                    ? null
-                                    : () => _vote(poll, selectedOptionId),
-                                child: Text(
-                                  _voting
-                                      ? 'Saving your vote...'
-                                      : poll.effectiveCtaText,
-                                ),
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            if (results) ...[
-                              Image.asset(
-                                'assets/icons/poll-voters.png',
-                                width: 18,
-                                height: 18,
-                                excludeFromSemantics: true,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${poll.totalVotes} votes',
-                                style: const TextStyle(
-                                  color: Color(0xFF595664),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                            const Spacer(),
-                            if (hasMultiple)
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  for (var i = 0; i < _polls.length; i++)
-                                    Semantics(
-                                      label:
-                                          'Poll ${i + 1} of ${_polls.length}',
-                                      selected: i == _currentIndex,
-                                      button: true,
-                                      child: InkWell(
-                                        onTap: () {
-                                          if (i == _currentIndex) return;
-                                          setState(() {
-                                            _slideForward = i > _currentIndex;
-                                            _currentIndex = i;
-                                            _error = '';
-                                          });
-                                          _scheduleExpiry();
-                                        },
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 3,
-                                            vertical: 8,
-                                          ),
-                                          child: Container(
-                                            width: 6,
-                                            height: 6,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: i == _currentIndex
-                                                  ? _pollRed
-                                                  : const Color(0xFFA6A4AD),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
         ),
+    ],
+  );
+
+  Widget _card(BuildContext context, AppPoll poll) {
+    final hasMultiple = _polls.length > 1;
+    final backgroundImage = _repository.backgroundFor(poll);
+    return Container(
+      key: const ValueKey('feed-poll-card'),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: poll.cardBackgroundColor,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x18000000),
+            offset: Offset(0, 5),
+            blurRadius: 12,
+          ),
+        ],
       ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          children: [
+            if (backgroundImage.isNotEmpty)
+              Positioned.fill(
+                child: PollBackgroundImage(
+                  source: ClubRepository.mediaUrl(backgroundImage),
+                  key: ValueKey('poll-background-$backgroundImage'),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .88),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x07000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.bar_chart_rounded,
+                          color: _pollRed,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            poll.pollName?.isNotEmpty == true
+                                ? poll.pollName!
+                                : 'FAN POLL',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _pollRed,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Your call, Highlander.',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.4,
+                      color: Color(0xFF1C1C21),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _pollPages(context, poll),
+                  const SizedBox(height: 10),
+                  Row(
+                    key: const ValueKey('poll-footer'),
+                    children: [
+                      ...[
+                        Image.asset(
+                          'assets/icons/poll-voters.png',
+                          width: 18,
+                          height: 18,
+                          excludeFromSemantics: true,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${poll.totalVotes} votes',
+                          style: const TextStyle(
+                            color: Color(0xFF595664),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      if (hasMultiple)
+                        KeyedSubtree(
+                          key: const ValueKey('poll-pagination'),
+                          child: _pagination(),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pollContent(AppPoll poll) {
+    final results = poll.selectedOptionId != null || poll.expired;
+    final selectedOptionId = _selectedOptionByPoll[poll.id];
+    return Column(
+      key: ValueKey('poll-content-${poll.id}'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          poll.question,
+          style: const TextStyle(
+            fontSize: 16,
+            color: Color(0xFF595664),
+            height: 1.3,
+          ),
+        ),
+        const SizedBox(height: 22),
+        if (poll.expired)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Voting closed',
+              style: TextStyle(color: authMuted, fontSize: 12),
+            ),
+          ),
+        if (!poll.started)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Voting opens soon',
+              style: TextStyle(color: authMuted, fontSize: 12),
+            ),
+          ),
+        for (final option in poll.options)
+          _option(poll, option, results, selectedOptionId),
+        if (_error.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              _error,
+              style: const TextStyle(color: authRed, fontSize: 12),
+            ),
+          ),
+        if (!results)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _pollRed,
+                  disabledBackgroundColor: _pollRed.withValues(alpha: .45),
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: _voting || selectedOptionId == null || !poll.started
+                    ? null
+                    : () => _vote(poll, selectedOptionId),
+                child: Text(
+                  _voting ? 'Saving your vote...' : poll.effectiveCtaText,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -530,5 +538,34 @@ class _AppFeedPollState extends State<AppFeedPoll> {
         ),
       ),
     );
+  }
+}
+
+class _PollSizeReporter extends SingleChildRenderObjectWidget {
+  const _PollSizeReporter({required this.onSize, required super.child});
+  final ValueChanged<Size> onSize;
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _PollSizeRenderObject(onSize);
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _PollSizeRenderObject renderObject,
+  ) => renderObject.onSize = onSize;
+}
+
+class _PollSizeRenderObject extends RenderProxyBox {
+  _PollSizeRenderObject(this.onSize);
+  ValueChanged<Size> onSize;
+  Size? _previous;
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (_previous == size) return;
+    _previous = size;
+    final measured = size;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (attached) onSize(measured);
+    });
   }
 }

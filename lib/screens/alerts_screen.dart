@@ -159,6 +159,13 @@ class _AlertsScreenState extends State<AlertsScreen>
     final metadata = item['metadata'] is Map
         ? Map<String, dynamic>.from(item['metadata'] as Map)
         : <String, dynamic>{};
+    if (type == 'poll_created') {
+      await NotificationRouter.followMap(context, {
+        'kind': type,
+        'pollId': metadata['pollId'],
+      });
+      return;
+    }
     if (type == 'group_join_request') {
       await NotificationRouter.followMap(context, {
         'kind': type,
@@ -486,8 +493,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: [
                                 BoxShadow(
-                                  color: brandAccent
-                                      .withValues(alpha: 0.25),
+                                  color: brandAccent.withValues(alpha: 0.25),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -558,9 +564,7 @@ class _AlertsScreenState extends State<AlertsScreen>
             color: selected ? brandAccent : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected
-                  ? brandAccent
-                  : const Color(0xFFE2E8F0),
+              color: selected ? brandAccent : const Color(0xFFE2E8F0),
               width: 1,
             ),
             boxShadow: [
@@ -734,9 +738,7 @@ class _AlertsScreenState extends State<AlertsScreen>
         ],
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: brandAccent),
-            )
+          ? const Center(child: CircularProgressIndicator(color: brandAccent))
           : RefreshIndicator(
               color: brandAccent,
               onRefresh: _load,

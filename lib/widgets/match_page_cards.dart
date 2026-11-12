@@ -87,21 +87,25 @@ class MatchPageHero extends StatelessWidget {
   final bool showReportAction;
   final double minHeight;
 
-  Widget _team(bool home, double size) => Column(
+  Widget _team(BuildContext context, bool home, double size) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
       _crest(fixture, home, size),
       const SizedBox(height: 5),
-      Text(
-        _teamName(home ? fixture.home : fixture.away),
-        textAlign: TextAlign.center,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          height: 1.15,
+      // Reserve two lines on both sides so names cannot shift the crests.
+      SizedBox(
+        height: MediaQuery.textScalerOf(context).scale(16) * 1.15 * 2,
+        child: Text(
+          _teamName(home ? fixture.home : fixture.away),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            height: 1.15,
+          ),
         ),
       ),
     ],
@@ -203,6 +207,7 @@ class MatchPageHero extends StatelessWidget {
                           children: [
                             Expanded(
                               child: _team(
+                                context,
                                 true,
                                 constraints.maxWidth < 350 ? 56 : 58,
                               ),
@@ -259,6 +264,7 @@ class MatchPageHero extends StatelessWidget {
                               const MatchVersus(),
                             Expanded(
                               child: _team(
+                                context,
                                 false,
                                 constraints.maxWidth < 350 ? 56 : 58,
                               ),

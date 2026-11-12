@@ -11,6 +11,7 @@ import 'screens/gallery_screen.dart';
 import 'screens/grounds_screen.dart';
 import 'screens/matches_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/polls_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/squad_screen.dart';
 import 'screens/swoofi_screen.dart';
@@ -24,6 +25,7 @@ Future<void> openAppDestination(BuildContext context, String link) async {
     '/grounds': const GroundsScreen(),
     '/alerts': const AlertsScreen(),
     '/profile': const ProfileScreen(),
+    '/polls': const PollsScreen(),
     '/settings': const SettingsScreen(),
     '/friends': const FriendsScreen(title: 'Friends'),
     '/circles': const CommunityScreen(),

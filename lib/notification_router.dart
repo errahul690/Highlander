@@ -14,6 +14,7 @@ import 'screens/live_match_screen.dart';
 import 'screens/match_detail_screen.dart';
 import 'screens/match_preview_screen.dart';
 import 'screens/post_detail_screen.dart';
+import 'screens/polls_screen.dart';
 
 class NotificationRouter {
   static void Function(String payload)? _open;
@@ -54,6 +55,14 @@ class NotificationRouter {
   ) async {
     if (!context.mounted) return;
     final kind = '${data['kind'] ?? data['type'] ?? ''}';
+    if (kind == 'poll_created') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PollsScreen(pollId: '${data['pollId'] ?? ''}'),
+        ),
+      );
+      return;
+    }
     if (kind == 'group_join_request') {
       final id = '${data['roomId'] ?? data['groupId'] ?? ''}';
       if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(id)) return;
@@ -126,7 +135,10 @@ class NotificationRouter {
       return;
     }
     final matchId = '${data['matchId'] ?? ''}'.trim();
-    if (kind == 'match' || kind == 'match_stage' || kind == 'match_update' || matchId.isNotEmpty) {
+    if (kind == 'match' ||
+        kind == 'match_stage' ||
+        kind == 'match_update' ||
+        matchId.isNotEmpty) {
       if (matchId.isNotEmpty) {
         await openMatch(context, matchId);
         return;
@@ -157,6 +169,7 @@ class NotificationRouter {
       FeedMatchPhase.upcoming ||
       FeedMatchPhase.report => MatchDetailScreen(fixture: fixture),
     };
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => page));
   }
 }

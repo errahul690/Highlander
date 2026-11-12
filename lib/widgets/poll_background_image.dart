@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+
+import '../media_cache.dart';
 
 /// Trim transparent padding and soft outer shadows from exported card artwork.
 /// Opaque artwork, including its white frame, remains intact.
@@ -27,92 +30,102 @@ Rect pollArtworkBounds(Uint8List rgba, int width, int height) {
 }
 
 class PollBackgroundImage extends StatefulWidget {
-  const PollBackgroundImage({super.key, required this.source});
+  const PollBackgroundImage({super.key, required this.source, this.cache});
   final String source;
+  final MediaCache? cache;
 
   @override
   State<PollBackgroundImage> createState() => _PollBackgroundImageState();
 }
 
 class _PollBackgroundImageState extends State<PollBackgroundImage> {
-  ImageStream? _stream;
-  ImageStreamListener? _listener;
-  ImageInfo? _info;
+  ui.Image? _image;
   Rect _bounds = Rect.zero;
   int _version = 0;
+  Timer? _retry;
 
   @override
   void initState() {
     super.initState();
-    _resolve();
+    unawaited(_resolve());
   }
 
   @override
   void didUpdateWidget(PollBackgroundImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.source != widget.source) _resolve();
-  }
-
-  void _detach() {
-    if (_stream != null && _listener != null) {
-      _stream!.removeListener(_listener!);
+    if (oldWidget.source != widget.source) {
+      _retry?.cancel();
+      unawaited(_resolve());
     }
-    _stream = null;
-    _listener = null;
   }
 
-  void _resolve() {
+  Future<void> _resolve({bool retry = true}) async {
     final version = ++_version;
-    _detach();
-    _info?.dispose();
-    _info = null;
-    _stream = NetworkImage(widget.source).resolve(ImageConfiguration.empty);
-    _listener = ImageStreamListener((info, synchronousCall) async {
-      _detach();
-      final image = info.image;
-      var bounds = Rect.fromLTWH(
-        0,
-        0,
-        image.width.toDouble(),
-        image.height.toDouble(),
-      );
+    final bytes = await (widget.cache ?? MediaCache.instance).ensure(widget.source);
+    if (!mounted || version != _version) return;
+    if (bytes == null) {
+      if (retry) {
+        _retry = Timer(const Duration(seconds: 1), () {
+          if (mounted) unawaited(_resolve(retry: false));
+        });
+      }
+      return;
+    }
+    ui.Codec? codec;
+    ui.Image? decoded;
+    try {
+      codec = await ui.instantiateImageCodec(bytes);
+      decoded = (await codec.getNextFrame()).image;
+      if (!mounted || version != _version) {
+        decoded.dispose();
+        return;
+      }
+      final image = decoded;
+      final previous = _image;
+      // Paint the image immediately; alpha trimming must not delay visibility.
+      setState(() {
+        _image = image;
+        _bounds = Rect.fromLTWH(
+          0,
+          0,
+          image.width.toDouble(),
+          image.height.toDouble(),
+        );
+      });
+      previous?.dispose();
       try {
         final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-        if (data != null) {
-          bounds = pollArtworkBounds(
+        if (data != null && mounted && version == _version) {
+          final bounds = pollArtworkBounds(
             data.buffer.asUint8List(),
             image.width,
             image.height,
           );
+          setState(() => _bounds = bounds);
         }
       } catch (_) {
-        // If pixels cannot be read, display the complete original image.
+        // Keep the complete image visible if pixel extraction is unsupported.
       }
-      if (!mounted || version != _version) {
-        info.dispose();
-        return;
-      }
-      setState(() {
-        _info = info;
-        _bounds = bounds;
-      });
-    }, onError: (Object error, StackTrace? stack) => _detach());
-    _stream!.addListener(_listener!);
+    } catch (_) {
+      if (decoded != null && !identical(decoded, _image)) decoded.dispose();
+    } finally {
+      codec?.dispose();
+    }
   }
 
   @override
   void dispose() {
     _version++;
-    _detach();
-    _info?.dispose();
+    _retry?.cancel();
+    _image?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => SizedBox.expand(
-    child: _info == null
+    child: _image == null
         ? null
-        : CustomPaint(painter: _ArtworkPainter(_info!.image, _bounds)),
+        : CustomPaint(painter: _ArtworkPainter(_image!, _bounds)),
   );
 }
 

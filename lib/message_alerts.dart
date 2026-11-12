@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -34,7 +35,10 @@ class MessageAlerts {
   static void setForeground(bool foreground) {
     if (_underTest) return;
     _foreground = foreground;
-    if (foreground) _connect();
+    if (foreground) {
+      _connect();
+      unawaited(PushAlerts.start());
+    }
   }
 
   static Future<void> stop() async {
@@ -139,6 +143,7 @@ class MessageAlerts {
         'roomKind': '${metadata['kind'] ?? 'groups'}',
         'postId': '${metadata['postId'] ?? ''}',
         'matchId': '${metadata['matchId'] ?? ''}',
+        'pollId': '${metadata['pollId'] ?? ''}',
         'link': '${value['link'] ?? ''}',
       }),
     );

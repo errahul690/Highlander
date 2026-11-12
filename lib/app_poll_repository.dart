@@ -128,12 +128,16 @@ class AppPollRepository {
   AppPoll? get current => _current ?? (_polls.isNotEmpty ? _polls.first : null);
   int _loadVersion = 0;
 
-  Future<AppPoll?> load() async {
+  Future<AppPoll?> load({String? pollId}) async {
     final version = ++_loadVersion;
     try {
       final response = await _client
           .get(
-            Uri.parse('${OtpApi.apiBase}/api/user/polls'),
+            Uri.parse('${OtpApi.apiBase}/api/user/polls').replace(
+              queryParameters: pollId?.isNotEmpty == true
+                  ? {'poll_id': pollId!}
+                  : null,
+            ),
             headers: {'Authorization': 'Bearer ${Session.token}'},
           )
           .timeout(const Duration(seconds: 5));
