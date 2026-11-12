@@ -28,7 +28,7 @@ class FeedMatchMatchup extends StatelessWidget {
             Text(
               fixture.played ? fixture.score : 'VS',
               style: const TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: 'Gilroy',
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFF15263C),

@@ -27,11 +27,8 @@ class InviteMembersSheet extends StatefulWidget {
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => InviteMembersSheet(
-      roomId: roomId,
-      roomTitle: roomTitle,
-      kind: kind,
-    ),
+    builder: (_) =>
+        InviteMembersSheet(roomId: roomId, roomTitle: roomTitle, kind: kind),
   );
 
   @override
@@ -128,7 +125,9 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Invitation sent to ${person['full_name'] ?? 'friend'} in chat!',
+              widget.kind == 'groups'
+                  ? "${person['full_name'] ?? 'Member'} added to the group"
+                  : "Invitation sent to ${person['full_name'] ?? 'friend'} in chat!",
             ),
           ),
         );
@@ -183,8 +182,10 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Invite members',
+                        Text(
+                          widget.kind == 'groups'
+                              ? 'Add members'
+                              : 'Invite members',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -216,67 +217,79 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
             const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
             // Share link quick action
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFEAEA),
-                        borderRadius: BorderRadius.circular(10),
+            if (widget.kind != 'groups')
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEAEA),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.share_outlined,
+                          color: authRed,
+                          size: 20,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.share_outlined,
-                        color: authRed,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Share invite link',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1F2937),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Share invite link',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1F2937),
+                              ),
                             ),
-                          ),
-                          Text(
-                            'Share invite message with others',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF6B7280),
+                            Text(
+                              'Share invite message with others',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6B7280),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: 'Copy link',
-                      icon: const Icon(Icons.copy_outlined, size: 20, color: authRed),
-                      onPressed: _copyInvite,
-                    ),
-                    IconButton(
-                      tooltip: 'Share',
-                      icon: const Icon(Icons.send_rounded, size: 20, color: authRed),
-                      onPressed: _shareInvite,
-                    ),
-                  ],
+                      IconButton(
+                        tooltip: 'Copy link',
+                        icon: const Icon(
+                          Icons.copy_outlined,
+                          size: 20,
+                          color: authRed,
+                        ),
+                        onPressed: _copyInvite,
+                      ),
+                      IconButton(
+                        tooltip: 'Share',
+                        icon: const Icon(
+                          Icons.send_rounded,
+                          size: 20,
+                          color: authRed,
+                        ),
+                        onPressed: _shareInvite,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
             // Search Bar
             Padding(
@@ -285,9 +298,18 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                 controller: _search,
                 onSubmitted: (_) => _load(),
                 decoration: InputDecoration(
-                  hintText: 'Search people to invite...',
-                  hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
-                  prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF9CA3AF)),
+                  hintText: widget.kind == 'groups'
+                      ? 'Search people to add...'
+                      : 'Search people to invite...',
+                  hintStyle: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 20,
+                    color: Color(0xFF9CA3AF),
+                  ),
                   suffixIcon: _search.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -299,7 +321,10 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                       : null,
                   filled: true,
                   fillColor: const Color(0xFFF3F4F6),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
@@ -321,7 +346,10 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                         children: [
                           Text(_error!, style: const TextStyle(color: authRed)),
                           const SizedBox(height: 8),
-                          TextButton(onPressed: _load, child: const Text('Retry')),
+                          TextButton(
+                            onPressed: _load,
+                            child: const Text('Retry'),
+                          ),
                         ],
                       ),
                     )
@@ -329,13 +357,19 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                   ? Center(
                       child: Text(
                         _search.text.isEmpty
-                            ? 'No people available to invite.'
+                            ? 'No people available to add.'
                             : 'No people found for "${_search.text.trim()}".',
-                        style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 13,
+                        ),
                       ),
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       itemCount: _people.length,
                       separatorBuilder: (_, _) => const Divider(
                         height: 1,
@@ -344,22 +378,31 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                       ),
                       itemBuilder: (context, index) {
                         final person = _people[index];
-                        final email = '${person['email'] ?? ''}'.trim().toLowerCase();
-                        final name = '${person['full_name'] ?? person['name'] ?? 'Highlander'}';
+                        final email = '${person['email'] ?? ''}'
+                            .trim()
+                            .toLowerCase();
+                        final name =
+                            '${person['full_name'] ?? person['name'] ?? 'Highlander'}';
                         final isInvited = _invitedEmails.contains(email);
                         final isBusy = _busyEmails.contains(email);
                         final subtitle = [
-                          if ('${person['city'] ?? ''}'.isNotEmpty) person['city'],
-                          if ('${person['primary_sport'] ?? ''}'.isNotEmpty) person['primary_sport'],
+                          if ('${person['city'] ?? ''}'.isNotEmpty)
+                            person['city'],
+                          if ('${person['primary_sport'] ?? ''}'.isNotEmpty)
+                            person['primary_sport'],
                         ].join(' · ');
 
                         return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           leading: UserAvatar(
                             userId: '${person['_id'] ?? ''}',
                             email: email,
                             name: name,
-                            image: '${person['profile_photo'] ?? person['profileImage'] ?? ''}',
+                            image:
+                                '${person['profile_photo'] ?? person['profileImage'] ?? ''}',
                             radius: 22,
                           ),
                           title: Text(
@@ -383,16 +426,16 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                                   ),
                                 )
                               : (email.isNotEmpty
-                                  ? Text(
-                                      email,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF9CA3AF),
-                                      ),
-                                    )
-                                  : null),
+                                    ? Text(
+                                        email,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF9CA3AF),
+                                        ),
+                                      )
+                                    : null),
                           trailing: isInvited
                               ? Container(
                                   padding: const EdgeInsets.symmetric(
@@ -403,7 +446,7 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                                     color: const Color(0xFFECFDF5),
                                     borderRadius: BorderRadius.circular(16),
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
@@ -413,7 +456,9 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                                       ),
                                       SizedBox(width: 4),
                                       Text(
-                                        'Invited',
+                                        widget.kind == 'groups'
+                                            ? 'Added'
+                                            : 'Invited',
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
@@ -436,7 +481,9 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                                     ),
                                     minimumSize: const Size(64, 32),
                                   ),
-                                  onPressed: isBusy ? null : () => _invite(person),
+                                  onPressed: isBusy
+                                      ? null
+                                      : () => _invite(person),
                                   child: isBusy
                                       ? const SizedBox(
                                           width: 14,
@@ -446,9 +493,11 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                                             color: Colors.white,
                                           ),
                                         )
-                                      : const Text(
-                                          'Invite',
-                                          style: TextStyle(
+                                      : Text(
+                                          widget.kind == 'groups'
+                                              ? 'Add'
+                                              : 'Invite',
+                                          style: const TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -464,4 +513,3 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
     );
   }
 }
-

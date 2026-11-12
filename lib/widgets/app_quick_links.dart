@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -7,8 +8,6 @@ import '../realtime_client.dart';
 import 'package:flutter/services.dart';
 
 import '../app_settings_repository.dart';
-import '../media_cache.dart';
-import '../otp_api.dart';
 import '../theme.dart';
 import '../screens/alerts_screen.dart';
 import '../screens/community_screen.dart';
@@ -17,6 +16,7 @@ import '../screens/friends_screen.dart';
 import '../screens/gallery_screen.dart';
 import '../screens/grounds_screen.dart';
 import 'grounds_host.dart';
+import 'quick_card_image.dart';
 import '../screens/matches_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/settings_screen.dart';
@@ -26,7 +26,7 @@ import '../screens/swoofi_screen.dart';
 const _icons = <String, IconData>{
   'groups': Icons.groups_outlined,
   'calendar': Icons.calendar_month_outlined,
-  'camera': Icons.photo_camera_outlined,
+  'camera': Icons.image_outlined,
   'stadium': Icons.stadium_outlined,
   'notifications': Icons.notifications_outlined,
   'ticket': Icons.confirmation_number_outlined,
@@ -143,121 +143,236 @@ class _AppQuickLinksState extends State<AppQuickLinks>
   }
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: const Color(0xFFF0F0F0)),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x07000000),
-          blurRadius: 4,
-          offset: Offset(0, 1),
-        ),
-      ],
-    ),
-    child: LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        key: const ValueKey('app-quick-links-scroll'),
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var index = 0; index < _buttons.length; index++)
-              SizedBox(
-                width: (constraints.maxWidth / 4).clamp(70.0, double.infinity),
-                child: InkWell(
-                  key: ValueKey('app-quick-button-$index'),
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => _open(_buttons[index]),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: const [
-                              Color(0xFFF0EBFF),
-                              Color(0xFFFFEEE8),
-                              Color(0xFFE7F2FF),
-                              Color(0xFFE5FAEF),
-                            ][index % 4],
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          alignment: Alignment.center,
-                          child: _buttons[index].iconUrl.isEmpty
-                              ? _quickIcon(_buttons[index].icon, index)
-                              : Image.network(
-                                  Uri.parse(OtpApi.apiBase)
-                                      .resolve(_buttons[index].iconUrl)
-                                      .toString(),
-                                  key: ValueKey(
-                                    'quick-${_buttons[index].iconUrl}-${MediaCache.instance.generation.value}',
-                                  ),
-                                  width: 22,
-                                  height: 22,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, error, stack) =>
-                                      _quickIcon(_buttons[index].icon, index),
-                                ),
-                        ),
-                        const SizedBox(height: 5),
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            _buttons[index].label.toUpperCase(),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontFamily: clubFontFamily,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF303137),
-                              height: 1.25,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ),
-                        if (_buttons[index].subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            _buttons[index].subtitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontFamily: clubFontFamily,
-                              fontSize: 10,
-                              height: 1.25,
-                              fontWeight: FontWeight.w400,
-                              color: Color(0xFF999999),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      key: const ValueKey('app-quick-links-scroll'),
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < _buttons.length; index++) ...[
+            if (index > 0) const SizedBox(width: 2),
+            SizedBox(width: 98, child: _card(_buttons[index], index)),
           ],
-        ),
+        ],
       ),
     ),
   );
 
-  Widget _quickIcon(String icon, int index) => Icon(
-    _icons[icon] ?? Icons.link,
-    size: 25,
-    color: const [
-      Color(0xFF8A79CB),
-      Color(0xFFEA4D3D),
-      Color(0xFF2588CA),
-      Color(0xFF24A6A4),
-    ][index % 4],
+  Widget _card(AppQuickButton button, int index) {
+    final accent = _color(
+      button.iconBackgroundColor,
+      const [
+        brandAccent,
+        Color(0xFF0079BA),
+        Color(0xFFE66B00),
+        Color(0xFF397E28),
+      ][index % 4],
+    );
+    final background = const [
+      Color(0xFFFFF0F5),
+      Color(0xFFEEF8FF),
+      Color(0xFFFFF5E8),
+      Color(0xFFF1F8E9),
+    ][index % 4];
+    final tint = const [
+      Color(0xFFF6C7D6),
+      Color(0xFFC6E6FB),
+      Color(0xFFFFDAA6),
+      Color(0xFFC9E5B3),
+    ][index % 4];
+    final artwork = button.topImageUrl;
+    return Material(
+      color: button.backgroundImageUrl.isEmpty
+          ? background
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      elevation: button.backgroundImageUrl.isEmpty ? .5 : 0,
+      shadowColor: const Color(0x10000000),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: ValueKey('app-quick-button-$index'),
+        onTap: () => _open(button),
+        child: SizedBox(
+          height: 161,
+          child: Stack(
+            children: [
+              if (button.backgroundImageUrl.isEmpty)
+                Positioned.fill(child: CustomPaint(painter: _CardTint(tint))),
+              if (button.backgroundImageUrl.isNotEmpty)
+                Positioned.fill(
+                  child: _uploadedImage(
+                    button.backgroundImageUrl,
+                    fit: BoxFit.fill,
+                    fallback: ColoredBox(
+                      color: background,
+                      child: CustomPaint(painter: _CardTint(tint)),
+                    ),
+                  ),
+                ),
+              Positioned(
+                top: 3,
+                left: 5,
+                right: 5,
+                height: 81,
+                child: ClipRRect(
+                  key: ValueKey('app-quick-photo-$index'),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                  child: artwork.isEmpty
+                      ? (button.backgroundImageUrl.isNotEmpty
+                            ? const SizedBox.shrink()
+                            : _photoPlaceholder(accent, button.icon))
+                      : _uploadedImage(
+                          artwork,
+                          fit: BoxFit.cover,
+                          fallback: _photoPlaceholder(accent, button.icon),
+                        ),
+                ),
+              ),
+              Positioned(
+                top: 60,
+                left: 7,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(color: Colors.white, width: 1.3),
+                  ),
+                  child: button.customIconUrl.isNotEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: _uploadedImage(
+                            button.customIconUrl,
+                            fit: BoxFit.contain,
+                            fallback: Icon(
+                              _icons[button.icon] ?? Icons.link,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          _icons[button.icon] ?? Icons.link,
+                          size: 20,
+                          color: Colors.white,
+                        ),
+                ),
+              ),
+              Positioned(
+                top: 94,
+                left: 10,
+                right: 5,
+                child: Text(
+                  button.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: clubFontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.15,
+                    color: Color(0xFF191919),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 116,
+                left: 11,
+                right: 30,
+                child: Text(
+                  button.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: clubFontFamily,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    height: 1.2,
+                    color: Color(0xFF676168),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 14,
+                bottom: 16,
+                child: Container(
+                  key: ValueKey('app-quick-arrow-$index'),
+                  width: 21,
+                  height: 21,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: tint,
+                    border: Border.all(color: Colors.white, width: 1.2),
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 15,
+                    color: accent,
+                  ),
+                ),
+              ),
+              if (button.backgroundImageUrl.isEmpty)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white, width: 1.2),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _photoPlaceholder(Color accent, String icon) => Container(
+    color: accent.withValues(alpha: .12),
+    alignment: Alignment.center,
+    child: Icon(
+      Icons.image_outlined,
+      size: 34,
+      color: accent.withValues(alpha: .3),
+    ),
   );
+
+  Color _color(String value, Color fallback) =>
+      RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(value)
+      ? Color(int.parse('FF${value.substring(1)}', radix: 16))
+      : fallback;
+
+  Widget _uploadedImage(
+    String url, {
+    required BoxFit fit,
+    required Widget fallback,
+  }) => QuickCardImage(
+    key: ValueKey('quick-art-$url'),
+    url: url,
+    fit: fit,
+    fallback: fallback,
+  );
+}
+
+class _CardTint extends CustomPainter {
+  const _CardTint(this.color);
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) => canvas.drawPath(
+    Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width, size.height - 25)
+      ..lineTo(size.width, size.height)
+      ..close(),
+    Paint()..color = color,
+  );
+  @override
+  bool shouldRepaint(_CardTint oldDelegate) => oldDelegate.color != color;
 }

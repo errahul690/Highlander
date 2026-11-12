@@ -1,19 +1,16 @@
+import '../widgets/club_header.dart';
 import '../widgets/club_page_body.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../community_api.dart';
 import '../theme.dart';
-import '../widgets/club_bar.dart';
+
 import '../widgets/invite_members_sheet.dart';
 
 const chatPermissionItems = [
   DropdownMenuItem(value: 'all', child: Text('All members can send')),
-  DropdownMenuItem(
-    value: 'admins',
-    child: Text('Only admin / creator can send'),
-  ),
+  DropdownMenuItem(value: 'admins', child: Text('Only admins can send')),
   DropdownMenuItem(value: 'off', child: Text('Chat off')),
 ];
 
@@ -52,7 +49,9 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
         _settings = Map<String, dynamic>.from(
           await CommunityApi.instance.request('$_path/settings') as Map,
         );
-        _requests = await CommunityApi.instance.list('$_path/requests');
+        if (widget.kind != 'groups') {
+          _requests = await CommunityApi.instance.list('$_path/requests');
+        }
       }
     } catch (error) {
       _error = '$error'.replaceFirst('Exception: ', '');
@@ -72,8 +71,12 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
                 key: _settings[key] == true,
             }
           : {
-              'autoApprove': _settings['autoApprove'] == true,
+              'autoApprove': widget.kind == 'groups'
+                  ? false
+                  : _settings['autoApprove'] == true,
               'chatPermission': _settings['chatPermission'] ?? 'all',
+              if (widget.kind == 'groups')
+                'allowMemberInvites': _settings['allowMemberInvites'] == true,
             };
       await CommunityApi.instance.request(
         _personal ? '/settings' : '$_path/settings',
@@ -167,35 +170,17 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final isGroup = widget.kind == 'groups';
-    final PreferredSizeWidget appBar = isGroup
-        ? AppBar(
-            toolbarHeight: 56,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            backgroundColor: const Color(0xFFBA0C12),
-            systemOverlayStyle: SystemUiOverlayStyle.light,
-            leading: IconButton(
-              tooltip: 'Back',
-              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-            centerTitle: false,
-            title: Text(
-              '${_settings['name'] ?? widget.room?['name'] ?? 'Group'} settings',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          )
-        : ClubBar(
-            title: _personal
-                ? 'Chat settings'
-                : '${widget.kind == 'circles' ? 'Huddle' : 'Group'} settings',
-          );
+    final PreferredSizeWidget appBar = ClubHeader(
+      title: isGroup
+          ? '${_settings['name'] ?? widget.room?['name'] ?? 'Group'} settings'
+          : _personal
+          ? 'Chat settings'
+          : '${widget.kind == 'circles' ? 'Huddle' : 'Group'} settings',
+      showBack: false,
+      showSearch: false,
+      showSupport: false,
+      uppercaseTitle: false,
+    );
 
     return ClubScaffold(
       appBar: appBar,
@@ -265,15 +250,13 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
                         ),
                       ),
                       title: const Text(
-                        'Invite members',
+                        'Add members',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
                         ),
                       ),
-                      subtitle: const Text(
-                        'Add people or share group invite link',
-                      ),
+                      subtitle: const Text('Add people to this group'),
                       trailing: const Icon(
                         Icons.chevron_right,
                         color: Color(0xFF9CA3AF),
@@ -288,11 +271,18 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
                     ),
                     const Divider(height: 24),
                   ],
-                  _toggle(
-                    'autoApprove',
-                    'Auto approve join requests',
-                    'Off: approve or reject each request manually. Changes apply to new requests.',
-                  ),
+                  if (isGroup)
+                    _toggle(
+                      'allowMemberInvites',
+                      'Members can invite',
+                      'Allow any group member to add people. Admins can always add members.',
+                    ),
+                  if (!isGroup)
+                    _toggle(
+                      'autoApprove',
+                      'Auto approve join requests',
+                      'Off: approve or reject each request manually. Changes apply to new requests.',
+                    ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: '${_settings['chatPermission'] ?? 'all'}',
@@ -320,7 +310,7 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
                   onPressed: _busy ? null : _save,
                   child: Text(_busy ? 'Please wait…' : 'Save settings'),
                 ),
-                if (!_personal) ...[
+                if (!_personal && !isGroup) ...[
                   const SizedBox(height: 28),
                   const Text(
                     'Join requests',

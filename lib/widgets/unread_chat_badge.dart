@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import 'package:flutter/material.dart';
 
 class UnreadChatBadge extends StatelessWidget {
@@ -17,7 +18,7 @@ class UnreadChatBadge extends StatelessWidget {
         constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
         decoration: BoxDecoration(
-          color: inverted ? Colors.white : const Color(0xFFC92922),
+          color: inverted ? Colors.white : brandAccent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -27,7 +28,7 @@ class UnreadChatBadge extends StatelessWidget {
             fontSize: 11,
             height: 1.3,
             fontWeight: FontWeight.w800,
-            color: inverted ? const Color(0xFFC92922) : Colors.white,
+            color: inverted ? brandAccent : Colors.white,
           ),
         ),
       ),

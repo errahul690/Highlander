@@ -41,6 +41,8 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun showSplashHtml(selected: JSONObject?) {
+        // Hot restart reuses this Activity; each prepare needs fresh playback state.
+        hideCachedHtmlSplash()
         var html: String? = null
         var allowSkip = false
         if (selected != null) {
@@ -76,6 +78,7 @@ class MainActivity : FlutterActivity() {
         webView.settings.allowFileAccess = true
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
+                if (splashOverlay !== overlay) return
                 if (splashReadyAt == null) splashReadyAt = SystemClock.uptimeMillis()
                 val requests = splashReadyRequests.toList()
                 splashReadyRequests.clear()
@@ -159,11 +162,24 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun hideCachedHtmlSplash() {
-        val overlay = splashOverlay ?: return
+        val overlay = splashOverlay
         splashOverlay = null
+        splashReadyAt = null
+        splashMinimumDurationMs = 0L
+        pendingSkip = false
+        removeSkipButton()
         splashReadyRequests.forEach { it.success(null) }
         splashReadyRequests.clear()
-        (overlay.parent as? ViewGroup)?.removeView(overlay)
+        if (overlay != null) {
+            (overlay.parent as? ViewGroup)?.removeView(overlay)
+            for (index in 0 until overlay.childCount) {
+                (overlay.getChildAt(index) as? WebView)?.apply {
+                    stopLoading()
+                    destroy()
+                }
+            }
+            overlay.removeAllViews()
+        }
     }
 
     private fun splashPlaybackState(): Map<String, Any> = mapOf(

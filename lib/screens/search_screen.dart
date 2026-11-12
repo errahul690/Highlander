@@ -196,12 +196,6 @@ class _SearchScreenState extends State<SearchScreen>
               padding: const EdgeInsets.fromLTRB(4, 8, 12, 4),
               child: Row(
                 children: [
-                  IconButton(
-                    key: const ValueKey('search-back'),
-                    tooltip: 'Back',
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back),
-                  ),
                   Expanded(
                     child: TextField(
                       key: const ValueKey('search-field'),

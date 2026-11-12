@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -5,6 +6,7 @@ import '../club_repository.dart';
 import '../media_cache.dart';
 import '../otp_api.dart';
 import '../posts_api.dart';
+import '../post_reaction.dart';
 import '../post_link_router.dart';
 import '../theme.dart';
 import '../session.dart';
@@ -16,6 +18,8 @@ import '../screens/photo_viewer_screen.dart';
 import 'post_video.dart';
 import 'post_photo_carousel.dart';
 import 'user_avatar.dart';
+
+const _postRed = brandAccent;
 
 class FeedPostCard extends StatefulWidget {
   const FeedPostCard({
@@ -39,6 +43,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
   late Map<String, dynamic> _post;
   bool _busy = false;
   bool _deleted = false;
+  final _likeButtonKey = GlobalKey();
 
   String get _postId =>
       _post['_id']?.toString() ?? _post['id']?.toString() ?? '';
@@ -99,7 +104,10 @@ class _FeedPostCardState extends State<FeedPostCard> {
           );
           return Dialog(
             backgroundColor: Colors.white,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 22,
+              vertical: 24,
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(22),
             ),
@@ -518,7 +526,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
+                  backgroundColor: brandAccent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -586,7 +594,18 @@ class _FeedPostCardState extends State<FeedPostCard> {
     }
   }
 
-  Future<void> _like() async {
+  Future<void> _pickReaction() async {
+    if (_busy) return;
+    final button = _likeButtonKey.currentContext?.findRenderObject();
+    if (button is! RenderBox || !button.hasSize) return;
+    final reaction = await showPostReactionPicker(
+      context,
+      anchor: button.localToGlobal(Offset.zero) & button.size,
+    );
+    if (mounted && reaction != null) await _like(reaction: reaction);
+  }
+
+  Future<void> _like({PostReaction? reaction}) async {
     final id = _postId;
     if (id.isEmpty || _busy) return;
     if (Session.token.isEmpty) {
@@ -594,9 +613,15 @@ class _FeedPostCardState extends State<FeedPostCard> {
       return;
     }
     final wasLiked = _post['liked'] == true;
+    final previousReaction = _post['reactionType'];
     final currentLikes = (_post['likes'] as num?)?.toInt() ?? 0;
-    final nextLiked = !wasLiked;
-    final nextLikes = nextLiked
+    final nextLiked = reaction != null || !wasLiked;
+    final nextReaction = nextLiked
+        ? (reaction ?? PostReaction.like).name
+        : null;
+    final nextLikes = nextLiked == wasLiked
+        ? currentLikes
+        : nextLiked
         ? currentLikes + 1
         : (currentLikes > 0 ? currentLikes - 1 : 0);
 
@@ -604,13 +629,14 @@ class _FeedPostCardState extends State<FeedPostCard> {
       _busy = true;
       _post['liked'] = nextLiked;
       _post['likes'] = nextLikes;
+      _post['reactionType'] = nextReaction;
     });
 
     try {
       final result = await PostsApi.instance.request(
         '/api/user/posts/$id/like',
         method: 'PUT',
-        body: {'liked': nextLiked},
+        body: {'liked': nextLiked, 'reactionType': nextReaction},
       );
       if (mounted && result['post'] is Map) {
         final updated = Map<String, dynamic>.from(result['post'] as Map);
@@ -622,6 +648,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
         setState(() {
           _post['liked'] = wasLiked;
           _post['likes'] = currentLikes;
+          _post['reactionType'] = previousReaction;
         });
       }
       _error(error);
@@ -683,9 +710,9 @@ class _FeedPostCardState extends State<FeedPostCard> {
     if (date == null) return '';
     final age = DateTime.now().difference(date);
     if (age.inMinutes < 1) return 'Just now';
-    if (age.inMinutes < 60) return '${age.inMinutes}m';
-    if (age.inHours < 24) return '${age.inHours}h';
-    return '${age.inDays}d';
+    if (age.inMinutes < 60) return '${age.inMinutes}m ago';
+    if (age.inHours < 24) return '${age.inHours}h ago';
+    return '${age.inDays}d ago';
   }
 
   Widget _postImage(String source, {BoxFit fit = BoxFit.contain}) =>
@@ -708,12 +735,13 @@ class _FeedPostCardState extends State<FeedPostCard> {
       } catch (_) {}
     }
     final cardBg =
-        customBg ?? (official ? const Color(0xFF131313) : Colors.white);
+        customBg ??
+        (official ? const Color(0xFF131313) : const Color(0xFFFFFCFF));
     final isDarkBg = cardBg.computeLuminance() < 0.5;
     final color = isDarkBg ? Colors.white : clubInk;
     final mutedColor = isDarkBg
         ? const Color(0xFFC9C9C9)
-        : const Color(0xFF8E8E8E);
+        : const Color(0xFF77727D);
     final actionColor = isDarkBg ? Colors.white : const Color(0xFF171717);
     final time = _time();
     final avatar = _post['authorImage'] as String? ?? '';
@@ -732,18 +760,40 @@ class _FeedPostCardState extends State<FeedPostCard> {
     final author = _post['authorName'] as String? ?? 'Highlander';
     return Container(
       key: ValueKey('post-card-${_post['_id']}'),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+      padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDarkBg ? const Color(0xFF292B32) : const Color(0xFFE8E8E8),
+        gradient: customBg == null && !isDarkBg
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFFFFFF), Color(0xFFFFF8FB)],
+              )
+            : null,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.fromBorderSide(
+          BorderSide(
+            color: isDarkBg ? const Color(0x26FFFFFF) : const Color(0x80F0DCE5),
+            width: .8,
+            strokeAlign: BorderSide.strokeAlignOutside,
+          ),
         ),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x060F172A),
-            blurRadius: 18,
-            offset: Offset(0, 5),
+            color: isDarkBg ? const Color(0x1AE4003B) : const Color(0x12900F32),
+            blurRadius: 26,
+            spreadRadius: 1,
+            offset: const Offset(0, 3),
+          ),
+          const BoxShadow(
+            color: Color(0x120F172A),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+          const BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 3,
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -752,9 +802,10 @@ class _FeedPostCardState extends State<FeedPostCard> {
         children: [
           Row(
             children: [
+              const SizedBox(width: 6),
               official
                   ? CircleAvatar(
-                      radius: 18,
+                      radius: 30,
                       backgroundColor: authRed,
                       child: avatar.isEmpty
                           ? Icon(
@@ -772,8 +823,8 @@ class _FeedPostCardState extends State<FeedPostCard> {
                                 key: ValueKey(
                                   'post-avatar-$avatar-${MediaCache.instance.generation.value}',
                                 ),
-                                width: 36,
-                                height: 36,
+                                width: 60,
+                                height: 60,
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, error, stack) => Icon(
                                   official
@@ -786,13 +837,10 @@ class _FeedPostCardState extends State<FeedPostCard> {
                             ),
                     )
                   : Container(
-                      padding: const EdgeInsets.all(1),
+                      padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFFC83B43),
-                          width: 1,
-                        ),
+                        border: Border.all(color: _postRed, width: 1.5),
                       ),
                       child: UserAvatar(
                         userId: '${_post['authorId'] ?? _post['userId'] ?? ''}',
@@ -800,10 +848,10 @@ class _FeedPostCardState extends State<FeedPostCard> {
                         currentUser: _isOwnPost,
                         name: author,
                         image: avatar,
-                        radius: 16,
+                        radius: 26,
                       ),
                     ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -825,7 +873,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: color,
-                                fontSize: 14,
+                                fontSize: 17,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: -.2,
                               ),
@@ -841,192 +889,202 @@ class _FeedPostCardState extends State<FeedPostCard> {
                             semanticLabel: 'Verified admin',
                           ),
                         ],
-                        if (time.isNotEmpty)
-                          Text(
-                            ' · $time',
-                            style: TextStyle(
-                              color: mutedColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
                       ],
                     ),
-                    if (official) ...[
-                      const SizedBox(height: 5),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFB80C1C),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'CLUB UPDATE',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
+                    if (time.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        time,
+                        style: TextStyle(
+                          color: mutedColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 1.3,
                         ),
                       ),
                     ],
+                    // if (official) ...[
+                    //   const SizedBox(height: 5),
+                    //   Container(
+                    //     padding: const EdgeInsets.symmetric(
+                    //       horizontal: 10,
+                    //       vertical: 3,
+                    //     ),
+                    //     decoration: BoxDecoration(
+                    //       color: const Color(0xFFB80C1C),
+                    //       borderRadius: BorderRadius.circular(12),
+                    //     ),
+                    //     // child: const Text(
+                    //     //   'CLUB UPDATE',
+                    //     //   style: TextStyle(
+                    //     //     color: Colors.white,
+                    //     //     fontSize: 10,
+                    //     //     fontWeight: FontWeight.w700,
+                    //     //   ),
+                    //     // ),
+                    //   ),
+                    // ],
                   ],
                 ),
               ),
-              if (!official) PopupMenuButton<String>(
-                padding: EdgeInsets.zero,
-                offset: const Offset(0, 40),
-                color: Colors.white,
-                elevation: 12,
-                shadowColor: const Color(0x2E000000),
-                surfaceTintColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(32, 32),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  backgroundColor: Colors.transparent,
-                ),
-                icon: Icon(Icons.more_horiz, color: actionColor, size: 22),
-                onSelected: (value) async {
-                  if (value == 'copy') {
-                    final messenger = ScaffoldMessenger.of(context);
-                    await Clipboard.setData(
-                      ClipboardData(
-                        text: sharedPostUrl('${_post['_id']}'),
-                      ),
-                    );
-                    if (!mounted) return;
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('Link copied to clipboard')),
-                    );
-                  } else if (value == 'edit') {
-                    await _showEditDialog();
-                  } else if (value == 'delete') {
-                    await _showDeleteDialog();
-                  } else if (value == 'report') {
-                    await _showReportDialog();
-                  } else if (value == 'block') {
-                    await _showBlockDialog();
-                  }
-                },
-                itemBuilder: (_) {
-                  if (_isOwnPost) {
-                    return const [
-                      PopupMenuItem(
-                        value: 'edit',
-                        height: 46,
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_outlined, size: 18),
-                            SizedBox(width: 10),
-                            Text(
-                              'Edit Post',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+              if (!official)
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  offset: const Offset(0, 40),
+                  color: Colors.white,
+                  elevation: 12,
+                  shadowColor: const Color(0x2E000000),
+                  surfaceTintColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(32, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: Colors.transparent,
+                  ),
+                  icon: Icon(Icons.more_horiz, color: actionColor, size: 22),
+                  onSelected: (value) async {
+                    if (value == 'copy') {
+                      final messenger = ScaffoldMessenger.of(context);
+                      await Clipboard.setData(
+                        ClipboardData(text: sharedPostUrl('${_post['_id']}')),
+                      );
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Link copied to clipboard'),
                         ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        height: 46,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete_outline,
-                              size: 18,
-                              color: clubRed,
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              'Delete Post',
-                              style: TextStyle(
+                      );
+                    } else if (value == 'edit') {
+                      await _showEditDialog();
+                    } else if (value == 'delete') {
+                      await _showDeleteDialog();
+                    } else if (value == 'report') {
+                      await _showReportDialog();
+                    } else if (value == 'block') {
+                      await _showBlockDialog();
+                    }
+                  },
+                  itemBuilder: (_) {
+                    if (_isOwnPost) {
+                      return const [
+                        PopupMenuItem(
+                          value: 'edit',
+                          height: 46,
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined, size: 18),
+                              SizedBox(width: 10),
+                              Text(
+                                'Edit Post',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          height: 46,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete_outline,
+                                size: 18,
                                 color: clubRed,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // PopupMenuItem(
-                      //   value: 'copy',
-                      //   child: Row(
-                      //     children: [
-                      //       Icon(Icons.link, size: 18),
-                      //       SizedBox(width: 10),
-                      //       Text('Copy post link'),
-                      //     ],
-                      //   ),
-                      // ),
-                    ];
-                  } else {
-                    return const [
-                      PopupMenuItem(
-                        value: 'report',
-                        height: 46,
-                        child: Row(
-                          children: [
-                            Icon(Icons.flag_outlined, size: 18),
-                            SizedBox(width: 10),
-                            Text(
-                              'Report Post',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                              SizedBox(width: 10),
+                              Text(
+                                'Delete Post',
+                                style: TextStyle(
+                                  color: clubRed,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      PopupMenuItem(
-                        value: 'block',
-                        height: 46,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.block_outlined,
-                              size: 18,
-                              color: clubRed,
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              'Block User',
-                              style: TextStyle(
+                        // PopupMenuItem(
+                        //   value: 'copy',
+                        //   child: Row(
+                        //     children: [
+                        //       Icon(Icons.link, size: 18),
+                        //       SizedBox(width: 10),
+                        //       Text('Copy post link'),
+                        //     ],
+                        //   ),
+                        // ),
+                      ];
+                    } else {
+                      return const [
+                        PopupMenuItem(
+                          value: 'report',
+                          height: 46,
+                          child: Row(
+                            children: [
+                              Icon(Icons.flag_outlined, size: 18),
+                              SizedBox(width: 10),
+                              Text(
+                                'Report Post',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'block',
+                          height: 46,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.block_outlined,
+                                size: 18,
                                 color: clubRed,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
                               ),
-                            ),
-                          ],
+                              SizedBox(width: 10),
+                              Text(
+                                'Block User',
+                                style: TextStyle(
+                                  color: clubRed,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      // PopupMenuItem(
-                      //   value: 'copy',
-                      //   child: Row(
-                      //     children: [
-                      //       Icon(Icons.link, size: 18),
-                      //       SizedBox(width: 10),
-                      //       Text('Copy post link'),
-                      //     ],
-                      //   ),
-                      // ),
-                    ];
-                  }
-                },
-              ),
+                        // PopupMenuItem(
+                        //   value: 'copy',
+                        //   child: Row(
+                        //     children: [
+                        //       Icon(Icons.link, size: 18),
+                        //       SizedBox(width: 10),
+                        //       Text('Copy post link'),
+                        //     ],
+                        //   ),
+                        // ),
+                      ];
+                    }
+                  },
+                ),
             ],
           ),
           if ((_post['content'] as String? ?? '').isNotEmpty) ...[
             const SizedBox(height: 12),
-            _PostText(text: _post['content'] as String, color: color),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: _PostText(
+                text: _post['content'] as String,
+                color: isDarkBg ? Colors.white : const Color(0xFF171717),
+              ),
+            ),
           ],
           if (images.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -1038,7 +1096,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
               ),
               child: images.length == 1
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(18),
                       child: GestureDetector(
                         onTap: () {
                           Navigator.of(context).push(
@@ -1053,7 +1111,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
                           );
                         },
                         child: AspectRatio(
-                          aspectRatio: 1.68,
+                          aspectRatio: 1.3,
                           child: _postImage(images.first, fit: BoxFit.cover),
                         ),
                       ),
@@ -1114,24 +1172,32 @@ class _FeedPostCardState extends State<FeedPostCard> {
               ),
             ),
           if (widget.showActions) ...[
-            const SizedBox(height: 5),
+            const SizedBox(height: 8),
             Row(
               children: [
                 SizedBox(
-                  width: 38,
+                  key: _likeButtonKey,
+                  width: 62,
                   child: _PostAction(
                     tooltip: 'Like post',
                     onPressed: _busy ? null : _like,
+                    onLongPress: _busy ? null : _pickReaction,
+                    emoji:
+                        _post['liked'] == true &&
+                            _post['reactionType'] != 'like'
+                        ? PostReaction.fromValue(_post['reactionType'])?.emoji
+                        : null,
                     icon: _post['liked'] == true
                         ? Icons.thumb_up
                         : Icons.thumb_up_outlined,
-                    color: _post['liked'] == true ? clubRed : actionColor,
+                    color: _post['liked'] == true ? _postRed : actionColor,
                     label: (_post['likes'] ?? 0).toString(),
                     selected: _post['liked'] == true,
                   ),
                 ),
+                _PostActionDivider(isDark: isDarkBg),
                 SizedBox(
-                  width: 38,
+                  width: 52,
                   child: _PostAction(
                     tooltip: 'Comment on post',
                     onPressed: widget.openComments ? _comments : null,
@@ -1140,19 +1206,21 @@ class _FeedPostCardState extends State<FeedPostCard> {
                     label: (_post['comments'] ?? 0).toString(),
                   ),
                 ),
+                if (!official) _PostActionDivider(isDark: isDarkBg),
                 if (!official)
                   SizedBox(
-                    width: 38,
+                    width: 56,
                     child: _PostAction(
                       tooltip: 'Repost',
                       onPressed: _repost,
                       icon: Icons.repeat,
                       color: actionColor,
+                      label: (_post['reposts'] ?? 0).toString(),
                     ),
                   ),
                 const Spacer(),
                 SizedBox(
-                  width: 32,
+                  width: 40,
                   child: _PostAction(
                     tooltip: 'Share post',
                     onPressed: _share,
@@ -1213,10 +1281,11 @@ class _CachedPostImageState extends State<_CachedPostImage> {
 
   @override
   Widget build(BuildContext context) {
-    final width = (MediaQuery.sizeOf(context).width *
-            MediaQuery.devicePixelRatioOf(context))
-        .round()
-        .clamp(480, 1440);
+    final width =
+        (MediaQuery.sizeOf(context).width *
+                MediaQuery.devicePixelRatioOf(context))
+            .round()
+            .clamp(480, 1440);
     final bytes = _bytes;
     if (bytes == null) {
       return const ColoredBox(color: Color(0xFFE8E8E8));
@@ -1255,15 +1324,15 @@ class _PostTextState extends State<_PostText> {
   bool _expanded = false;
 
   TextStyle get _style => TextStyle(
+    fontFamily: clubFontFamily,
     color: widget.color,
-    fontSize: 17,
-    fontWeight: FontWeight.w400,
-    height: 1.45,
-    letterSpacing: -.1,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    height: 23 / 15,
+    letterSpacing: 0,
   );
 
-  TextSpan get _span {
-    final text = widget.text;
+  TextSpan _spanFor(String text) {
     final children = <InlineSpan>[];
     var start = 0;
     for (final match in _hashtag.allMatches(text)) {
@@ -1273,7 +1342,7 @@ class _PostTextState extends State<_PostText> {
       children.add(
         TextSpan(
           text: match.group(0),
-          style: const TextStyle(color: clubRed),
+          style: const TextStyle(color: _postRed),
         ),
       );
       start = match.end;
@@ -1287,7 +1356,7 @@ class _PostTextState extends State<_PostText> {
   bool _overflows(double maxWidth) {
     if (!maxWidth.isFinite) return false;
     final painter = TextPainter(
-      text: _span,
+      text: _spanFor(widget.text),
       maxLines: _collapsedLines,
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
@@ -1299,6 +1368,29 @@ class _PostTextState extends State<_PostText> {
   }
 
   void _toggle() => setState(() => _expanded = !_expanded);
+
+  Widget _toggleButton(bool expanded) => Semantics(
+    button: true,
+    child: InkWell(
+      key: ValueKey(expanded ? 'post-show-less' : 'post-show-more'),
+      onTap: _toggle,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            expanded ? 'Show less' : 'Show more',
+            style: _style.copyWith(color: _postRed),
+          ),
+          const SizedBox(width: 6),
+          Icon(
+            expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+            color: _postRed,
+            size: 22,
+          ),
+        ],
+      ),
+    ),
+  );
 
   @override
   void didUpdateWidget(_PostText oldWidget) {
@@ -1312,39 +1404,81 @@ class _PostTextState extends State<_PostText> {
       builder: (context, constraints) {
         final overflows = _overflows(constraints.maxWidth);
         final expanded = _expanded && overflows;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text.rich(
-              _span,
-              maxLines: expanded ? null : _collapsedLines,
-              overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-            ),
-            if (overflows)
-              TextButton(
-                key: ValueKey(expanded ? 'post-show-less' : 'post-show-more'),
-                onPressed: _toggle,
-                style: TextButton.styleFrom(
-                  foregroundColor: clubRed,
-                  padding: const EdgeInsets.only(top: 2),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  alignment: Alignment.centerLeft,
-                ),
-                child: Text(
-                  expanded ? 'Show less' : 'Show more',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-          ],
+        if (!overflows) return Text.rich(_spanFor(widget.text));
+        final scaler = MediaQuery.textScalerOf(context);
+        final labelPainter = TextPainter(
+          text: TextSpan(
+            text: expanded ? 'Show less' : 'Show more',
+            style: _style,
+          ),
+          textDirection: Directionality.of(context),
+          textScaler: scaler,
+        )..layout();
+        final toggleSize = Size(labelPainter.width + 28, labelPainter.height);
+        labelPainter.dispose();
+        final toggle = WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: _toggleButton(expanded),
+        );
+        var visibleText = widget.text;
+        if (!expanded) {
+          // Reserve the inline control while finding the two-line cutoff.
+          // Characters keeps emoji and joined Unicode characters intact.
+          final characters = widget.text.characters.toList();
+          var low = 0;
+          var high = characters.length;
+          while (low < high) {
+            final mid = (low + high + 1) ~/ 2;
+            final candidate = '${characters.take(mid).join().trimRight()}...  ';
+            final painter =
+                TextPainter(
+                    text: TextSpan(
+                      style: _style,
+                      children: [_spanFor(candidate), toggle],
+                    ),
+                    textDirection: Directionality.of(context),
+                    textScaler: scaler,
+                    maxLines: _collapsedLines,
+                  )
+                  ..setPlaceholderDimensions([
+                    PlaceholderDimensions(
+                      size: toggleSize,
+                      alignment: PlaceholderAlignment.middle,
+                    ),
+                  ])
+                  ..layout(maxWidth: constraints.maxWidth);
+            final fits = !painter.didExceedMaxLines;
+            painter.dispose();
+            if (fits) {
+              low = mid;
+            } else {
+              high = mid - 1;
+            }
+          }
+          visibleText = '${characters.take(low).join().trimRight()}...';
+        }
+        return Text.rich(
+          TextSpan(
+            style: _style,
+            children: [_spanFor('$visibleText  '), toggle],
+          ),
         );
       },
     );
   }
+}
+
+class _PostActionDivider extends StatelessWidget {
+  const _PostActionDivider({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 1,
+    height: 20,
+    margin: const EdgeInsets.symmetric(horizontal: 2),
+    color: isDark ? const Color(0xFF45414A) : const Color(0xFFE5DDE7),
+  );
 }
 
 class _PostAction extends StatelessWidget {
@@ -1355,6 +1489,8 @@ class _PostAction extends StatelessWidget {
     required this.onPressed,
     this.label,
     this.selected = false,
+    this.onLongPress,
+    this.emoji,
   });
   final String tooltip;
   final IconData icon;
@@ -1362,6 +1498,8 @@ class _PostAction extends StatelessWidget {
   final VoidCallback? onPressed;
   final String? label;
   final bool selected;
+  final VoidCallback? onLongPress;
+  final String? emoji;
 
   @override
   Widget build(BuildContext context) => Tooltip(
@@ -1372,18 +1510,25 @@ class _PostAction extends StatelessWidget {
       selected: selected,
       child: TextButton(
         onPressed: onPressed,
+        onLongPress: onLongPress,
         style: TextButton.styleFrom(
           foregroundColor: color,
-          minimumSize: const Size(32, 38),
-          padding: const EdgeInsets.symmetric(horizontal: 2),
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          backgroundColor: selected
+              ? const Color(0xFFFCE5ED)
+              : Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(24),
           ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (selected)
+            if (emoji != null)
+              Text(emoji!, style: const TextStyle(fontSize: 18))
+            else if (selected)
               Icon(icon, size: 18)
             else
               CustomPaint(
@@ -1391,15 +1536,15 @@ class _PostAction extends StatelessWidget {
                 painter: _PostIconPainter(icon, color),
               ),
             if (label != null) ...[
-              const SizedBox(width: 2),
+              const SizedBox(width: 4),
               Flexible(
                 child: Text(
                   label!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),

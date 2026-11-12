@@ -1,7 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../otp_api.dart';
+import '../media_cache.dart';
 
 class PhotoViewerScreen extends StatefulWidget {
   const PhotoViewerScreen({
@@ -52,6 +54,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
       return Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
+      automaticallyImplyLeading: false,
           backgroundColor: Colors.black,
           iconTheme: const IconThemeData(color: Colors.white),
         ),
@@ -84,7 +87,6 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
               },
               itemBuilder: (context, index) {
                 final source = widget.images[index];
-                final url = Uri.parse(OtpApi.apiBase).resolve(source).toString();
                 return GestureDetector(
                   onTap: _toggleOverlay,
                   child: Center(
@@ -92,30 +94,9 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                       minScale: 0.8,
                       maxScale: 4.0,
                       clipBehavior: Clip.none,
-                      child: Image.network(
-                        url,
-                        fit: BoxFit.contain,
-                        alignment: Alignment.center,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white54,
-                              ),
-                            ),
-                          );
-                        },
-                        errorBuilder: (_, error, stackTrace) => const Center(
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            color: Colors.white38,
-                            size: 54,
-                          ),
-                        ),
+                      child: _ViewerPhoto(
+                        key: ValueKey(source),
+                        source: source,
                       ),
                     ),
                   ),
@@ -136,23 +117,11 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0xCC000000),
-                      Colors.transparent,
-                    ],
+                    colors: [Color(0xCC000000), Colors.transparent],
                   ),
                 ),
                 child: Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         widget.authorName?.isNotEmpty == true
@@ -224,4 +193,55 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
       ),
     );
   }
+}
+
+class _ViewerPhoto extends StatefulWidget {
+  const _ViewerPhoto({super.key, required this.source});
+  final String source;
+
+  @override
+  State<_ViewerPhoto> createState() => _ViewerPhotoState();
+}
+
+class _ViewerPhotoState extends State<_ViewerPhoto> {
+  late final Future<Uint8List?> _loading;
+
+  @override
+  void initState() {
+    super.initState();
+    _loading = MediaCache.instance.ensure(widget.source);
+  }
+
+  static const _error = Center(
+    child: Icon(Icons.broken_image_outlined, color: Colors.white38, size: 54),
+  );
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Uint8List?>(
+    future: _loading,
+    initialData: MediaCache.instance.bytesFor(widget.source),
+    builder: (context, snapshot) {
+      final bytes = snapshot.data;
+      if (bytes != null) {
+        return Image.memory(
+          bytes,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          gaplessPlayback: true,
+          errorBuilder: (_, error, stackTrace) => _error,
+        );
+      }
+      if (snapshot.connectionState == ConnectionState.done) return _error;
+      return const Center(
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Colors.white54,
+          ),
+        ),
+      );
+    },
+  );
 }

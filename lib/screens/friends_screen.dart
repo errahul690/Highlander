@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -17,7 +18,7 @@ class FriendsScreen extends StatefulWidget {
   const FriendsScreen({
     super.key,
     required this.title,
-    this.showBack = true,
+    this.showBack = false,
     this.isActive = true,
     this.initialTab = 0,
   });
@@ -49,6 +50,8 @@ class _FriendsScreenState extends State<FriendsScreen>
   final _search = TextEditingController();
   Timer? _searchDebounce;
   String _query = '';
+  Map<String, dynamic>? _counts;
+  int _countsVersion = 0;
   Future<List<Map<String, dynamic>>>? _searchResults;
 
   @override
@@ -60,7 +63,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         : widget.initialTab > 2
         ? 2
         : widget.initialTab;
-    _friendTab = widget.title == 'Followers' ? 1 : 0;
+    _friendTab = widget.title == 'Followers' ? 1 : -1;
     _load();
   }
 
@@ -88,8 +91,21 @@ class _FriendsScreenState extends State<FriendsScreen>
   void _load() {
     _followStatus.clear();
     _loadPeople();
+    _loadCounts();
     if (_query.isNotEmpty) _runSearch();
     Future.microtask(_loadRequests);
+  }
+
+  Future<void> _loadCounts() async {
+    final version = ++_countsVersion;
+    try {
+      final data = await CommunityApi.instance.request('/people-counts');
+      if (mounted && version == _countsVersion && data is Map) {
+        setState(() => _counts = Map<String, dynamic>.from(data));
+      }
+    } catch (_) {
+      /* Keep the last confirmed counts until refresh succeeds. */
+    }
   }
 
   void _runSearch() {
@@ -121,12 +137,37 @@ class _FriendsScreenState extends State<FriendsScreen>
       onChanged: _searchChanged,
       textInputAction: TextInputAction.search,
       maxLength: 80,
+      style: const TextStyle(fontSize: 13, color: Color(0xFF17182D)),
       onSubmitted: (_) {
         if (_query.isNotEmpty) setState(_runSearch);
       },
       decoration: InputDecoration(
         hintText: 'Search people by name',
-        prefixIcon: const Icon(Icons.search),
+        hintStyle: const TextStyle(color: Color(0xFF747588), fontSize: 13),
+        prefixIcon: const Icon(
+          Icons.search,
+          size: 20,
+          color: Color(0xFF17182D),
+        ),
+        filled: true,
+        fillColor: const Color(0xFFF3F2F7),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: Color(0xFFE6E3EE)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: Color(0xFFE6E3EE)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: authRed),
+        ),
         counterText: '',
         suffixIcon: _query.isEmpty
             ? null
@@ -225,6 +266,7 @@ class _FriendsScreenState extends State<FriendsScreen>
       _query = '';
       _searchResults = null;
       _tab = index;
+      if (index == 0) _friendTab = -1;
       if (index == 2) _loadPeople();
     });
     if (index == 1) _loadRequests();
@@ -254,6 +296,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                 data['requested'] == true || data['followRequested'] == true,
           );
         });
+        _loadCounts();
       }
     } catch (error) {
       if (mounted) {
@@ -307,7 +350,11 @@ class _FriendsScreenState extends State<FriendsScreen>
     title: 'Friends',
     // subtitle: 'Your fellow Highlanders',
     embedded: true,
-    showBack: widget.showBack,
+    showBack: false,
+    showSearch: false,
+    showNotifications: false,
+    uppercaseTitle: false,
+    titleFontSize: 20,
   );
 
   int get _pendingRequestCount =>
@@ -386,34 +433,58 @@ class _FriendsScreenState extends State<FriendsScreen>
     ),
   );
 
-  Widget _friendSwitch() => Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(3),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF2F2F4),
-      borderRadius: BorderRadius.circular(10),
-    ),
+  Widget _connectionStats() => ClipRRect(
+    borderRadius: BorderRadius.circular(13),
     child: Row(
       children: [
         for (var index = 0; index < 2; index++)
           Expanded(
             child: Material(
-              color: _friendTab == index ? Colors.white : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              color: index == 0
+                  ? const Color(0xFFF9E9F0)
+                  : const Color(0xFFE7F1F8),
               child: InkWell(
                 key: ValueKey('friends-relation-${_relations[index]}'),
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => setState(() => _friendTab = index),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 9),
-                  child: Text(
-                    index == 0 ? 'Following' : 'Followers',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: _friendTab == index ? authRed : authMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                onTap: () => setState(() {
+                  _friendTab = index;
+                  _loadPeople();
+                }),
+                child: SizedBox(
+                  height: 64,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        index == 0
+                            ? Icons.person_add_alt_outlined
+                            : Icons.people_outline,
+                        size: 21,
+                        color: const Color(0xFF737588),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_counts?[_relations[index]] ?? '\u2014'}',
+                            style: const TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF17182D),
+                              height: 1.15,
+                            ),
+                          ),
+                          Text(
+                            index == 0 ? 'Following' : 'Followers',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF737588),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -449,166 +520,174 @@ class _FriendsScreenState extends State<FriendsScreen>
     final saved = _followStatus[id];
     final following = saved?.following ?? person['isFollowing'] == true;
     final requested = saved?.requested ?? person['followRequested'] == true;
-    final location = '${person['city'] ?? person['location'] ?? ''}'.trim();
     final saving = _busy.contains(id);
-    final suggestions = relationIndex == 2;
-    final followers = relationIndex == 1;
-
-    Widget action;
-    if (relationIndex == 0 && following) {
-      action = TextButton(
-        key: ValueKey('friend-message-$id'),
-        onPressed: saving ? null : () => _message(person),
-        style: TextButton.styleFrom(
-          foregroundColor: const Color(0xFF303137),
-          backgroundColor: const Color(0xFFF0F0F1),
-          minimumSize: const Size(72, 32),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-        ),
-        child: const Text('Message', style: TextStyle(fontSize: 11)),
-      );
-    } else if (following) {
-      action = OutlinedButton(
-        key: ValueKey('friend-follow-$id'),
-        onPressed: saving ? null : () => _follow(person),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: authMuted,
-          backgroundColor: const Color(0xFFF1F2F4),
-          side: const BorderSide(color: Colors.transparent),
-          minimumSize: const Size(72, 32),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-        ),
-        child: Text(
-          saving ? 'Saving…' : 'Following',
-          style: const TextStyle(fontSize: 11),
-        ),
-      );
-    } else {
-      action = OutlinedButton(
-        key: ValueKey('friend-follow-$id'),
-        onPressed: saving ? null : () => _follow(person),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: requested ? authMuted : authRed,
-          backgroundColor: requested ? const Color(0xFFF1F2F4) : Colors.white,
-          side: BorderSide(color: requested ? Colors.transparent : authRed),
-          minimumSize: const Size(72, 32),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-        ),
-        child: Text(
-          saving
-              ? 'Saving…'
-              : requested
-              ? 'Requested'
-              : followers
-              ? 'Follow back'
-              : 'Follow',
-          style: const TextStyle(fontSize: 11),
-        ),
-      );
-    }
-
+    final mutual = person['mutualCount'] ?? person['mutualFriends'];
+    final location = '${person['city'] ?? person['location'] ?? ''}'.trim();
+    final subtitle = mutual is num
+        ? '$mutual mutual ${mutual == 1 ? 'friend' : 'friends'}'
+        : location.isEmpty
+        ? 'Highlanders community'
+        : location;
+    final message = relationIndex == 0 && following;
+    final label = saving
+        ? 'Saving...'
+        : message
+        ? 'Message'
+        : requested
+        ? 'Requested'
+        : following
+        ? 'Following'
+        : relationIndex == 1
+        ? 'Follow back'
+        : 'Follow';
     return Container(
       key: ValueKey('friend-card-$id'),
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(10, 9, 8, 9),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFE5E5E8)),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0A000000),
+            color: Color(0x0B18132C),
             blurRadius: 5,
-            offset: Offset(0, 2),
+            offset: Offset(0, 3),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () async {
-              await openUserProfile(context, id);
-              if (mounted) setState(_load);
-            },
-            child: _avatar(person),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: InkWell(
-              onTap: () async {
-                await openUserProfile(context, id);
-                if (mounted) setState(_load);
-              },
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
+      child: Material(
+        type: MaterialType.transparency,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Row(
+            children: [
+              InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () async {
+                  await openUserProfile(context, id);
+                  if (mounted) setState(_load);
+                },
+                child: _avatar(person, radius: 21),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: InkWell(
+                  onTap: () async {
+                    await openUserProfile(context, id);
+                    if (mounted) setState(_load);
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        size: 12,
-                        color: authMuted,
-                      ),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          location.isEmpty ? 'Highlanders community' : location,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: authMuted,
-                            fontSize: 10,
-                          ),
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF16172D),
                         ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Icon(
+                            mutual is num
+                                ? Icons.people_outline
+                                : Icons.location_on_outlined,
+                            size: 13,
+                            color: const Color(0xFF7D7E92),
+                          ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF7D7E92),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 32,
+                child: FilledButton.icon(
+                  key: ValueKey(
+                    message ? 'friend-message-$id' : 'friend-follow-$id',
+                  ),
+                  onPressed: saving
+                      ? null
+                      : () => message ? _message(person) : _follow(person),
+                  style: FilledButton.styleFrom(
+                    foregroundColor: following || requested
+                        ? authRed
+                        : Colors.white,
+                    backgroundColor: following || requested
+                        ? const Color(0xFFF7E8EF)
+                        : brandAccent,
+                    minimumSize: const Size(78, 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: Icon(
+                    message
+                        ? Icons.chat_bubble_outline
+                        : following || requested
+                        ? Icons.check
+                        : Icons.person_add_alt_outlined,
+                    size: 13,
+                  ),
+                  label: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+              if (relationIndex == 0)
+                PopupMenuButton<String>(
+                  key: ValueKey('friend-menu-$id'),
+                  tooltip: 'More options for $name',
+                  enabled: !saving,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 30,
+                    minHeight: 36,
+                  ),
+                  icon: const Icon(Icons.more_vert, size: 18),
+                  onSelected: (_) => _follow(person),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'unfollow',
+                      child: Text('Unfollow'),
+                    ),
+                  ],
+                ),
+              if (relationIndex == 2 && canDismiss)
+                IconButton(
+                  tooltip: 'Dismiss suggestion for $name',
+                  onPressed: () => setState(() => _dismissed.add(id)),
+                  constraints: const BoxConstraints(
+                    minWidth: 26,
+                    minHeight: 32,
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  icon: const Icon(Icons.close, size: 16),
+                ),
+            ],
           ),
-          const SizedBox(width: 7),
-          action,
-          if (relationIndex == 0) ...[
-            const SizedBox(width: 1),
-            PopupMenuButton<String>(
-              key: ValueKey('friend-menu-$id'),
-              tooltip: 'More options for $name',
-              enabled: !saving,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 42),
-              icon: const Icon(Icons.more_vert, size: 19),
-              onSelected: (value) {
-                if (value == 'unfollow') _follow(person);
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'unfollow', child: Text('Unfollow')),
-              ],
-            ),
-          ],
-          if (suggestions && canDismiss)
-            IconButton(
-              tooltip: 'Dismiss suggestion for $name',
-              onPressed: () => setState(() => _dismissed.add(id)),
-              constraints: const BoxConstraints(minWidth: 30, minHeight: 42),
-              padding: const EdgeInsets.all(5),
-              icon: const Icon(Icons.close, size: 18),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -741,18 +820,19 @@ class _FriendsScreenState extends State<FriendsScreen>
       if (snapshot.hasError) {
         return _errorState('Could not load people.', () => setState(_load));
       }
-      final relationIndex = _tab == 2 ? 2 : _friendTab;
-      final people = (snapshot.data ?? [[], [], []])[relationIndex]
+      final dashboard = _tab == 0 && _friendTab < 0;
+      final relation = _tab == 2 || dashboard ? 2 : _friendTab;
+      final people = (snapshot.data ?? [[], [], []])[relation]
           .where(
-            (row) =>
-                relationIndex != 2 || !_dismissed.contains('${row['_id']}'),
+            (row) => relation != 2 || !_dismissed.contains('${row['_id']}'),
           )
           .toList();
-      final heading = relationIndex == 0
-          ? 'PEOPLE YOU FOLLOW'
-          : relationIndex == 1
-          ? 'YOUR FOLLOWERS'
-          : 'PEOPLE YOU MAY KNOW';
+      final shown = dashboard ? people.take(3).toList() : people;
+      final heading = relation == 0
+          ? 'People You Follow'
+          : relation == 1
+          ? 'Your Followers'
+          : 'People You May Know';
       return RefreshIndicator(
         onRefresh: () async {
           setState(_load);
@@ -761,41 +841,87 @@ class _FriendsScreenState extends State<FriendsScreen>
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            MediaQuery.paddingOf(context).bottom + 24,
+            14,
+            4,
+            14,
+            MediaQuery.paddingOf(context).bottom + 100,
           ),
           children: [
-            if (_tab == 0) _friendSwitch(),
-            Text(
-              heading,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-            const SizedBox(height: 11),
-            if (people.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 48),
-                child: Column(
-                  children: [
-                    Text(
-                      relationIndex == 0
-                          ? 'Follow fellow Highlanders from Suggestions.'
-                          : relationIndex == 1
-                          ? 'Your followers will appear here.'
-                          : 'No suggestions right now.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: authMuted, fontSize: 13),
-                    ),
-                    if (relationIndex != 2)
-                      TextButton(
-                        onPressed: () => _selectTab(2),
-                        child: const Text('Find people'),
-                      ),
-                  ],
+            if (_tab == 0) ...[
+              _connectionStats(),
+              const SizedBox(height: 14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: AspectRatio(
+                  aspectRatio: 378 / 129,
+                  child: Image.asset(
+                    'assets/images/friends-connect-banner.png',
+                    key: const ValueKey('friends-connect-banner'),
+                    fit: BoxFit.cover,
+                    semanticLabel: 'Connect with fellow Highlanders. Follow, engage and grow the club community.',
+                  ),
                 ),
               ),
-            for (final person in people) _person(person, relationIndex),
+              const SizedBox(height: 14),
+            ],
+            Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: brandAccent,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    heading,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF17182D),
+                    ),
+                  ),
+                ),
+                if (dashboard && people.isNotEmpty)
+                  TextButton(
+                    onPressed: () => _selectTab(2),
+                    style: TextButton.styleFrom(
+                      foregroundColor: brandAccent,
+                      minimumSize: Size.zero,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'View All \u2192',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (people.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 36),
+                child: Center(
+                  child: Text(
+                    relation == 0
+                        ? 'Follow fellow Highlanders from Suggestions.'
+                        : relation == 1
+                        ? 'Your followers will appear here.'
+                        : 'No suggestions right now.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: authMuted, fontSize: 13),
+                  ),
+                ),
+              ),
+            for (final person in shown)
+              _person(person, relation, canDismiss: !dashboard),
           ],
         ),
       );
@@ -861,37 +987,29 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xFFAA241C),
-    body: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF9E2118), Color(0xFFC82D22)],
-          begin: Alignment.topLeft,
-          end: Alignment.topRight,
-        ),
-      ),
-      child: Column(
-        children: [
-          _header(),
-          Expanded(
-            child: ClubPageBody(
-              child: Column(
-                children: [
-                  _tabsBar(),
-                  if (_tab != 1) _searchField(),
-                  Expanded(
-                    child: _tab == 1
-                        ? _requestsContent()
-                        : _query.isNotEmpty
-                        ? _searchContent()
-                        : _peopleContent(),
-                  ),
-                ],
-              ),
+    backgroundColor: const Color(0xFFFAF8F5),
+    body: Column(
+      children: [
+        _header(),
+        Expanded(
+          child: ClubPageBody(
+            color: const Color(0xFFFAF8F5),
+            child: Column(
+              children: [
+                _tabsBar(),
+                if (_tab != 1) _searchField(),
+                Expanded(
+                  child: _tab == 1
+                      ? _requestsContent()
+                      : _query.isNotEmpty
+                      ? _searchContent()
+                      : _peopleContent(),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     ),
   );
 }

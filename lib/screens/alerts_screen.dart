@@ -1,5 +1,9 @@
+import '../brand_colors.dart';
+import '../widgets/club_page_body.dart';
+import '../widgets/club_header.dart';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../app_navigation.dart';
@@ -172,11 +176,7 @@ class _AlertsScreenState extends State<AlertsScreen>
             builder: (_) => ChatScreen(
               title: roomName,
               kind: '${metadata['kind'] ?? 'groups'}',
-              room: {
-                '_id': groupId,
-                'name': roomName,
-                'membership': 'active',
-              },
+              room: {'_id': groupId, 'name': roomName, 'membership': 'active'},
             ),
           ),
         );
@@ -254,7 +254,7 @@ class _AlertsScreenState extends State<AlertsScreen>
   Color _iconColor(String type) {
     switch (type) {
       case 'group_invite':
-        return const Color(0xFFBA0C12);
+        return brandAccent;
       case 'direct_message':
         return const Color(0xFF2563EB);
       case 'post_like':
@@ -376,9 +376,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                   ),
                 ],
               ),
-              child: Center(
-                child: Icon(icon, color: badgeColor, size: 11),
-              ),
+              child: Center(child: Icon(icon, color: badgeColor, size: 11)),
             ),
           ),
       ],
@@ -403,7 +401,7 @@ class _AlertsScreenState extends State<AlertsScreen>
         boxShadow: [
           BoxShadow(
             color: unread
-                ? const Color(0xFFBA0C12).withValues(alpha: 0.05)
+                ? brandAccent.withValues(alpha: 0.05)
                 : Colors.black.withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
@@ -450,7 +448,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                             timeStr,
                             style: TextStyle(
                               color: unread
-                                  ? const Color(0xFFBA0C12)
+                                  ? brandAccent
                                   : const Color(0xFF94A3B8),
                               fontSize: 11,
                               fontWeight: unread
@@ -484,11 +482,11 @@ class _AlertsScreenState extends State<AlertsScreen>
                               vertical: 7,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFBA0C12),
+                              color: brandAccent,
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFBA0C12)
+                                  color: brandAccent
                                       .withValues(alpha: 0.25),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
@@ -533,7 +531,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                     height: 8,
                     margin: const EdgeInsets.only(top: 5),
                     decoration: const BoxDecoration(
-                      color: Color(0xFFBA0C12),
+                      color: brandAccent,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -557,17 +555,18 @@ class _AlertsScreenState extends State<AlertsScreen>
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFBA0C12) : Colors.white,
+            color: selected ? brandAccent : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color:
-                  selected ? const Color(0xFFBA0C12) : const Color(0xFFE2E8F0),
+              color: selected
+                  ? brandAccent
+                  : const Color(0xFFE2E8F0),
               width: 1,
             ),
             boxShadow: [
               if (selected)
                 BoxShadow(
-                  color: const Color(0xFFBA0C12).withValues(alpha: 0.25),
+                  color: brandAccent.withValues(alpha: 0.25),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -595,8 +594,10 @@ class _AlertsScreenState extends State<AlertsScreen>
               if (count > 0) ...[
                 const SizedBox(width: 6),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1.5,
+                  ),
                   decoration: BoxDecoration(
                     color: selected
                         ? Colors.white.withValues(alpha: 0.25)
@@ -649,7 +650,7 @@ class _AlertsScreenState extends State<AlertsScreen>
                 color: Color(0xFFFDE8E8),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 36, color: const Color(0xFFBA0C12)),
+              child: Icon(icon, size: 36, color: brandAccent),
             ),
             const SizedBox(height: 18),
             Text(
@@ -679,8 +680,9 @@ class _AlertsScreenState extends State<AlertsScreen>
   @override
   Widget build(BuildContext context) {
     final displayed = _filteredItems;
-    final inviteCount =
-        _items.where((i) => '${i['type']}' == 'group_invite').length;
+    final inviteCount = _items
+        .where((i) => '${i['type']}' == 'group_invite')
+        .length;
 
     // Group displayed items by date category while preserving chronological order
     final Map<String, List<Map<String, dynamic>>> grouped = {};
@@ -689,52 +691,17 @@ class _AlertsScreenState extends State<AlertsScreen>
       grouped.putIfAbsent(group, () => []).add(item);
     }
 
-    return Scaffold(
+    return ClubScaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        toolbarHeight: 56,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        backgroundColor: const Color(0xFFBA0C12),
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        leading: IconButton(
-          tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            const Text(
-              'Notifications',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.2,
-              ),
-            ),
-            if (_unreadCount > 0) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '$_unreadCount new',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
+      appBar: ClubHeader(
+        title: 'Notifications',
+        subtitle: _unreadCount > 0 ? '$_unreadCount new' : null,
+        showBack: false,
+        showSearch: false,
+        showSupport: false,
+        showNotifications: false,
+        uppercaseTitle: false,
+        trailing: [
           if (_unreadCount > 0)
             TextButton.icon(
               onPressed: _markAllRead,
@@ -769,10 +736,10 @@ class _AlertsScreenState extends State<AlertsScreen>
       ),
       body: _loading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFFBA0C12)),
+              child: CircularProgressIndicator(color: brandAccent),
             )
           : RefreshIndicator(
-              color: const Color(0xFFBA0C12),
+              color: brandAccent,
               onRefresh: _load,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),

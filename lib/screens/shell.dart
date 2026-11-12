@@ -16,6 +16,7 @@ import '../grounds_repository.dart';
 import 'swoofi_screen.dart';
 
 import '../widgets/app_bottom_navigation.dart';
+import '../widgets/feed_background.dart';
 import '../widgets/grounds_host.dart';
 import 'community_screen.dart';
 import 'create_post_screen.dart';
@@ -160,41 +161,45 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        systemNavigationBarColor: Color(0xFFF8F8F8),
+        systemNavigationBarColor: Color(0xFFFCF5F9),
         systemNavigationBarDividerColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
         systemNavigationBarContrastEnforced: false,
       ),
       child: GroundsHost(
-        child: Scaffold(
-          extendBody: true,
-          backgroundColor: const Color(0xFFF8F8F8),
-          body: IndexedStack(
-            index: _index,
-            children: [
-              FriendsScreen(
-                title: 'Friends',
-                showBack: false,
-                isActive: _index == 0,
+        child: FeedBackground(
+          child: ScrollNotificationObserver(
+            child: Scaffold(
+              extendBody: true,
+              backgroundColor: Colors.transparent,
+              body: IndexedStack(
+                index: _index,
+                children: [
+                  FriendsScreen(
+                    title: 'Friends',
+                    showBack: false,
+                    isActive: _index == 0,
+                  ),
+                  CommunityScreen(title: 'Huddles', isActive: _index == 1),
+                  TickerMode(enabled: _index == 2, child: const FeedScreen()),
+                  const ExploreScreen(),
+                  ProfileScreen(
+                    isActive: _index == 4,
+                    onBack: () => setState(() => _index = 2),
+                  ),
+                ],
               ),
-              CommunityScreen(title: 'Huddles', isActive: _index == 1),
-              TickerMode(enabled: _index == 2, child: const FeedScreen()),
-              const ExploreScreen(),
-              ProfileScreen(
-                isActive: _index == 4,
-                onBack: () => setState(() => _index = 2),
+              bottomNavigationBar: AppBottomNavigation(
+                selectedIndex: _index,
+                onSelect: (index) {
+                  if (index == 2) {
+                    _centerTap();
+                  } else {
+                    setState(() => _index = index);
+                  }
+                },
               ),
-            ],
-          ),
-          bottomNavigationBar: AppBottomNavigation(
-            selectedIndex: _index,
-            onSelect: (index) {
-              if (index == 2) {
-                _centerTap();
-              } else {
-                setState(() => _index = index);
-              }
-            },
+            ),
           ),
         ),
       ),

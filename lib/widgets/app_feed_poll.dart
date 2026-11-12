@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,10 @@ import 'package:flutter/material.dart';
 import '../app_poll_repository.dart';
 import '../realtime_client.dart';
 import '../theme.dart';
+import '../club_repository.dart';
+import 'poll_background_image.dart';
+
+const _pollRed = brandAccent;
 
 class AppFeedPoll extends StatefulWidget {
   const AppFeedPoll({super.key, this.repository});
@@ -36,7 +41,9 @@ class _AppFeedPollState extends State<AppFeedPoll> {
     _subscription = RealtimeClient.instance.settingsChanges.listen((event) {
       if (event['resource'] == 'feed-refresh') {
         RealtimeClient.instance.trackFeedRefresh(_load());
-      } else if (event['resource'] == 'all' || event['resource'] == 'poll') {
+      } else if (event['resource'] == 'all' ||
+          event['resource'] == 'poll' ||
+          event['resource'] == 'poll-background') {
         _load();
       }
     });
@@ -141,6 +148,7 @@ class _AppFeedPollState extends State<AppFeedPoll> {
     final results = poll.selectedOptionId != null || poll.expired;
     final selectedOptionId = _selectedOptionByPoll[poll.id];
     final hasMultiple = _polls.length > 1;
+    final backgroundImage = _repository.backgroundFor(poll);
 
     return GestureDetector(
       key: const ValueKey('feed-poll'),
@@ -169,10 +177,7 @@ class _AppFeedPollState extends State<AppFeedPoll> {
           layoutBuilder: (currentChild, previousChildren) {
             return Stack(
               alignment: Alignment.topCenter,
-              children: [
-                ...previousChildren,
-                if (currentChild != null) currentChild,
-              ],
+              children: [...previousChildren, ?currentChild],
             );
           },
           transitionBuilder: (child, animation) {
@@ -193,230 +198,239 @@ class _AppFeedPollState extends State<AppFeedPoll> {
                 position: (isIncoming ? inOffset : outOffset).animate(
                   animation,
                 ),
-                child: FadeTransition(
-                  opacity: animation,
-                  child: child,
-                ),
+                child: FadeTransition(opacity: animation, child: child),
               ),
             );
           },
           child: Container(
             key: ValueKey('feed-poll-card-${poll.id}'),
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               color: poll.cardBackgroundColor,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: poll.cardBorderColor),
+              borderRadius: BorderRadius.circular(22),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x09000000),
-                  offset: Offset(0, 2),
-                  blurRadius: 3,
+                  color: Color(0x18000000),
+                  offset: Offset(0, 5),
+                  blurRadius: 12,
                 ),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-              // Header Row
-              Row(
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: Stack(
                 children: [
-                  const Icon(
-                    Icons.bar_chart_rounded,
-                    color: Color(0xFFCD2921),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      (poll.pollName != null && poll.pollName!.isNotEmpty)
-                          ? poll.pollName!
-                          : 'FAN POLL',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFFBD261F),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: .3,
+                  if (backgroundImage.isNotEmpty)
+                    Positioned.fill(
+                      child: PollBackgroundImage(
+                        source: ClubRepository.mediaUrl(backgroundImage),
+                        key: ValueKey('poll-background-$backgroundImage'),
                       ),
                     ),
-                  ),
-                  if (hasMultiple) ...[
-                    // Dot Page Indicators
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (int i = 0; i < _polls.length; i++)
-                          GestureDetector(
-                            onTap: () {
-                              if (i == _currentIndex) return;
-                              setState(() {
-                                _slideForward = i > _currentIndex;
-                                _currentIndex = i;
-                                _error = '';
-                              });
-                              _scheduleExpiry();
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              width: i == _currentIndex ? 14 : 5,
-                              height: 5,
-                              margin: const EdgeInsets.symmetric(horizontal: 2),
-                              decoration: BoxDecoration(
-                                color: i == _currentIndex
-                                    ? const Color(0xFFBD261F)
-                                    : const Color(
-                                        0xFFBD261F,
-                                      ).withValues(alpha: 0.25),
-                                borderRadius: BorderRadius.circular(4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: .88),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x07000000),
+                                blurRadius: 6,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.bar_chart_rounded,
+                                color: _pollRed,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  poll.pollName?.isNotEmpty == true
+                                      ? poll.pollName!
+                                      : 'FAN POLL',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: _pollRed,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Your call, Highlander.',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -.4,
+                            color: Color(0xFF1C1C21),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          poll.question,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFF595664),
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        if (poll.expired)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'Voting closed',
+                              style: TextStyle(color: authMuted, fontSize: 12),
+                            ),
+                          ),
+                        if (!poll.started)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'Voting opens soon',
+                              style: TextStyle(color: authMuted, fontSize: 12),
+                            ),
+                          ),
+                        for (final option in poll.options)
+                          _option(poll, option, results, selectedOptionId),
+                        if (_error.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              _error,
+                              style: const TextStyle(
+                                color: authRed,
+                                fontSize: 12,
                               ),
                             ),
                           ),
+                        if (!results)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2, bottom: 8),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: _pollRed,
+                                  disabledBackgroundColor: _pollRed.withValues(
+                                    alpha: .45,
+                                  ),
+                                  foregroundColor: Colors.white,
+                                  disabledForegroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed:
+                                    _voting ||
+                                        selectedOptionId == null ||
+                                        !poll.started
+                                    ? null
+                                    : () => _vote(poll, selectedOptionId),
+                                child: Text(
+                                  _voting
+                                      ? 'Saving your vote...'
+                                      : poll.effectiveCtaText,
+                                ),
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            if (results) ...[
+                              Image.asset(
+                                'assets/icons/poll-voters.png',
+                                width: 18,
+                                height: 18,
+                                excludeFromSemantics: true,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${poll.totalVotes} votes',
+                                style: const TextStyle(
+                                  color: Color(0xFF595664),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                            const Spacer(),
+                            if (hasMultiple)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (var i = 0; i < _polls.length; i++)
+                                    Semantics(
+                                      label:
+                                          'Poll ${i + 1} of ${_polls.length}',
+                                      selected: i == _currentIndex,
+                                      button: true,
+                                      child: InkWell(
+                                        onTap: () {
+                                          if (i == _currentIndex) return;
+                                          setState(() {
+                                            _slideForward = i > _currentIndex;
+                                            _currentIndex = i;
+                                            _error = '';
+                                          });
+                                          _scheduleExpiry();
+                                        },
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 3,
+                                            vertical: 8,
+                                          ),
+                                          child: Container(
+                                            width: 6,
+                                            height: 6,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: i == _currentIndex
+                                                  ? _pollRed
+                                                  : const Color(0xFFA6A4AD),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                          ],
+                        ),
                       ],
                     ),
-                    const SizedBox(width: 6),
-                    // Navigation Arrows
-                    InkWell(
-                      onTap: _prevPoll,
-                      borderRadius: BorderRadius.circular(12),
-                      child: const Padding(
-                        padding: EdgeInsets.all(2),
-                        child: Icon(
-                          Icons.chevron_left_rounded,
-                          size: 18,
-                          color: Color(0xFFBD261F),
-                        ),
-                      ),
-                    ),
-                    InkWell(
-                      onTap: _nextPoll,
-                      borderRadius: BorderRadius.circular(12),
-                      child: const Padding(
-                        padding: EdgeInsets.all(2),
-                        child: Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                          color: Color(0xFFBD261F),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ],
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Your call, Highlander.',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.4,
-                  color: Color(0xFF151626),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                poll.question,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF151626)),
-              ),
-              const SizedBox(height: 10),
-              if (poll.expired)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    'Voting closed',
-                    style: TextStyle(color: authMuted, fontSize: 12),
-                  ),
-                ),
-              if (!poll.started)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    'Voting opens soon',
-                    style: TextStyle(color: authMuted, fontSize: 12),
-                  ),
-                ),
-              for (final option in poll.options)
-                _option(poll, option, results, selectedOptionId),
-              if (_error.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    _error,
-                    style: const TextStyle(color: authRed, fontSize: 12),
-                  ),
-                ),
-              if (!results)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFD64C43),
-                        disabledBackgroundColor: const Color(0xFFD64C43),
-                        disabledForegroundColor: Colors.white,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 9),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                      ),
-                      onPressed:
-                          _voting || selectedOptionId == null || !poll.started
-                          ? null
-                          : () => _vote(poll, selectedOptionId),
-                      child: Text(
-                        _voting ? 'Saving your vote...' : poll.effectiveCtaText,
-                      ),
-                    ),
-                  ),
-                ),
-              if (results) ...[
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${poll.totalVotes} votes',
-                      style: const TextStyle(color: authMuted, fontSize: 11),
-                    ),
-                    if (hasMultiple)
-                      Text(
-                        'Swipe for next poll',
-                        style: TextStyle(
-                          color: authMuted.withValues(alpha: 0.8),
-                          fontSize: 10,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                  ],
-                ),
-              ] else if (hasMultiple) ...[
-                const SizedBox(height: 4),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    'Swipe for next poll',
-                    style: TextStyle(
-                      color: authMuted.withValues(alpha: 0.8),
-                      fontSize: 10,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _option(
@@ -430,66 +444,86 @@ class _AppFeedPollState extends State<AppFeedPoll> {
         ? 0
         : (option.votes / poll.totalVotes * 100).round();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Material(
-        color: Colors.white,
+        color: selected
+            ? const Color(0xFFFCEBF0)
+            : Colors.white.withValues(alpha: .92),
+        elevation: 2,
+        shadowColor: const Color(0x16000000),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(14),
           side: BorderSide(
-            color: selected ? const Color(0xFFD64C43) : const Color(0xFFEAE8E5),
+            color: selected ? const Color(0xFFFFA9BE) : const Color(0xFFF3F1F8),
           ),
         ),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(10),
           onTap: _voting || results || !poll.started
               ? null
               : () =>
                     setState(() => _selectedOptionByPoll[poll.id] = option.id),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      selected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
-                      size: 18,
-                      color: selected ? authRed : const Color(0xFF9CA3AF),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        option.text,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF151626),
-                        ),
-                      ),
-                    ),
-                    if (results)
-                      Text(
-                        '$percent%',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                  ],
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  size: 18,
+                  color: selected ? _pollRed : const Color(0xFF858491),
                 ),
-                if (results) ...[
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: percent / 100,
-                      backgroundColor: const Color(0xFFF4EEEE),
-                      color: const Color(0xFFED444B),
-                      minHeight: 4,
-                    ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              option.text,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF1C1C21),
+                              ),
+                            ),
+                          ),
+                          if (results) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '$percent%',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: percent > 0
+                                    ? _pollRed
+                                    : const Color(0xFF302C45),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (results) ...[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            borderRadius: BorderRadius.circular(8),
+                            value: (percent / 100).clamp(0, 1),
+                            backgroundColor: selected
+                                ? const Color(0xFFEEDAE3)
+                                : const Color(0xFFDCD9E4),
+                            color: _pollRed,
+                            minHeight: 6,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
               ],
             ),
           ),

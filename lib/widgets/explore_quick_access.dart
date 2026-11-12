@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../club_repository.dart';
@@ -105,7 +106,7 @@ class _QuickCard extends StatelessWidget {
       item['backgroundColor'],
       const Color(0xFFF6F3EF),
     );
-    final accent = exploreColor(item['accentColor'], const Color(0xFFC92B20));
+    final accent = exploreColor(item['accentColor'], brandAccent);
     final art = '${item['art_url'] ?? ''}';
     return Material(
       color: background,

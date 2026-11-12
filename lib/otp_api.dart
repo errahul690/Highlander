@@ -12,6 +12,7 @@ class OtpApi {
   String emailVerificationToken = '';
   static OtpApi instance = OtpApi();
   static String _apiBase = '';
+  static String frontendUrl = '';
   static String get apiBase => _apiBase;
   static set apiBase(String value) {
     var base = value.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -35,26 +36,32 @@ class OtpApi {
   static Future<void> loadEnvironment() async {
     final raw = await rootBundle.loadString('.env');
     String? url;
+    String? frontend;
     for (final line in raw.split('\n')) {
       final trimmed = line.trim();
       if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
       final split = trimmed.indexOf('=');
       if (split <= 0) continue;
       final key = trimmed.substring(0, split).trim();
-      if (key != 'API_BASE_URL') continue;
+      if (key != 'API_BASE_URL' && key != 'FRONTEND_URL') continue;
       var value = trimmed.substring(split + 1).trim();
       if (value.length >= 2 &&
           ((value.startsWith('"') && value.endsWith('"')) ||
               (value.startsWith("'") && value.endsWith("'")))) {
         value = value.substring(1, value.length - 1);
       }
-      url = value.trim();
+      if (key == 'API_BASE_URL') {
+        url = value.trim();
+      } else {
+        frontend = value.trim();
+      }
     }
     if (url == null || url.isEmpty) {
       throw const OtpApiException('Set API_BASE_URL in the .env file.');
     }
     if (url.endsWith('/')) url = url.substring(0, url.length - 1);
     apiBase = url;
+    frontendUrl = frontend ?? '';
   }
 
   static List<String> get candidateBases {

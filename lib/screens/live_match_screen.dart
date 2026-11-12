@@ -1,3 +1,6 @@
+import '../widgets/club_page_body.dart';
+import '../widgets/club_header.dart';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -6,6 +9,7 @@ import '../theme.dart';
 import '../widgets/club_crest.dart';
 import '../widgets/match_highlights_player.dart';
 import '../widgets/match_highlights_source.dart';
+import '../widgets/web_video_fullscreen.dart';
 import 'match_detail_screen.dart';
 
 class LiveMatchScreen extends StatefulWidget {
@@ -68,6 +72,8 @@ class _LiveMatchScreenState extends State<LiveMatchScreen>
         throw const FormatException();
       final controller = WebViewController();
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      if (!mounted) return;
+      await configureWebVideoFullscreen(context, controller);
       await controller.setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (request) =>
@@ -116,49 +122,74 @@ class _LiveMatchScreenState extends State<LiveMatchScreen>
   @override
   Widget build(BuildContext context) {
     final playable = isPlayableHighlight(fixture.liveUrl);
-    return Scaffold(
+    return ClubScaffold(
       backgroundColor: const Color(0xFFF6F5F2),
-      appBar: AppBar(title: const Text('Watch live')),
-      body: Column(
+      appBar: const ClubHeader(
+        title: 'Watch live',
+        showBack: false,
+        showSearch: false,
+        showSupport: false,
+        uppercaseTitle: false,
+      ),
+      body: ListView(
+        key: const PageStorageKey('watch-live-scroll'),
         children: [
-          ColoredBox(
-            color: Colors.black,
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: playable
-                  ? MatchHighlightsPlayer(source: fixture.liveUrl)
-                  : _failed
-                  ? Center(
-                      child: TextButton(
-                        onPressed: () => Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (_) => MatchDetailScreen(fixture: fixture),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Container(
+              key: const ValueKey('live-stream-frame'),
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFDEDCE2)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x18000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: playable
+                    ? MatchHighlightsPlayer(source: fixture.liveUrl)
+                    : _failed
+                    ? Center(
+                        child: TextButton(
+                          onPressed: () => Navigator.of(context)
+                              .pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      MatchDetailScreen(fixture: fixture),
+                                ),
+                              ),
+                          child: const Text(
+                            'Stream unavailable. Follow match',
+                            style: TextStyle(color: Colors.white),
                           ),
                         ),
-                        child: const Text(
-                          'Stream unavailable. Follow match',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    )
-                  : Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (_controller != null)
-                          WebViewWidget(controller: _controller!),
-                        if (_loading)
-                          const Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
+                      )
+                    : Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (_controller != null)
+                            WebViewWidget(controller: _controller!),
+                          if (_loading)
+                            const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
+                        ],
+                      ),
+              ),
             ),
           ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+            child: Column(
               children: [_header(), const SizedBox(height: 14), _lineups()],
             ),
           ),

@@ -7,47 +7,57 @@ import '../screens/search_screen.dart';
 import 'customer_support_button.dart';
 import 'header_action_icon.dart';
 
-/// The same club branding, navigation and live profile photo on every page.
+/// Shared club branding, navigation, search, support and notifications.
 class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
   const ClubHeader({
     super.key,
     required this.title,
+    this.titleWidget,
     this.subtitle,
     this.showBack = false,
     this.onBack,
     this.backKey,
     this.embedded = false,
     this.showNotifications = true,
-    this.showProfile = true,
+    this.showSearch = true,
     this.showLogo = true,
+    this.showSupport = true,
+    this.uppercaseTitle = true,
+    this.titleFontSize,
+    this.backButtonWidth = 36,
     this.actions = const [],
     this.trailing = const [],
   });
 
   final String title;
+  final Widget? titleWidget;
   final String? subtitle;
-  final bool showBack, embedded, showNotifications, showProfile, showLogo;
+  final bool showBack, embedded, showNotifications, showSearch, showLogo;
+  final bool showSupport, uppercaseTitle;
+  final double? titleFontSize;
+  final double backButtonWidth;
   final VoidCallback? onBack;
   final Key? backKey;
   final List<Widget> actions;
   final List<Widget> trailing;
 
   @override
-  Size get preferredSize => Size.fromHeight(64 + (actions.isEmpty ? 0 : 44));
+  Size get preferredSize => Size.fromHeight(80 + (actions.isEmpty ? 0 : 44));
 
   @override
   Widget build(BuildContext context) {
     final bar = AppBar(
-      toolbarHeight: 64,
+      toolbarHeight: 72,
       elevation: 0,
       scrolledUnderElevation: 0,
-      backgroundColor: const Color(0xFF991C24),
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       foregroundColor: Colors.white,
       systemOverlayStyle: SystemUiOverlayStyle.light,
       automaticallyImplyLeading: false,
       centerTitle: false,
-      titleSpacing: showBack ? 0 : 12,
-      leadingWidth: 36,
+      titleSpacing: showBack ? 0 : 18,
+      leadingWidth: backButtonWidth,
       leading: showBack
           ? IconButton(
               key: backKey,
@@ -57,70 +67,83 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
               icon: const Icon(Icons.arrow_back, size: 22),
             )
           : null,
-      flexibleSpace: const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF831B20), Color(0xFFB52626), Color(0xFF991C24)],
-            stops: [0, .55, 1],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-        ),
-      ),
-      title: Row(
+      flexibleSpace: Stack(
+        fit: StackFit.expand,
         children: [
-          if (showLogo) ...[
-            Image.asset(
-              'assets/images/club-logo.png',
-              width: 30,
-              height: 38,
-              fit: BoxFit.contain,
-              semanticLabel: 'NorthEast United FC logo',
-            ),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    title.toUpperCase(),
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: showLogo ? 17 : 22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: showLogo ? .2 : .4,
-                    ),
-                  ),
-                ),
-                if (subtitle?.isNotEmpty == true) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                      letterSpacing: .15,
-                    ),
-                  ),
-                ],
-              ],
+          Image.asset(
+            'assets/images/header-edge.png',
+            fit: BoxFit.fill,
+            excludeFromSemantics: true,
+          ),
+          Positioned.fill(
+            bottom: 4,
+            child: Image.asset(
+              'assets/images/header-background.png',
+              fit: BoxFit.fill,
+              excludeFromSemantics: true,
             ),
           ),
+          const CustomPaint(painter: _HeaderStripes()),
         ],
       ),
+      title:
+          titleWidget ??
+          Row(
+            children: [
+              if (showLogo) ...[
+                Image.asset(
+                  'assets/images/header-logo.png',
+                  width: 38,
+                  height: 38,
+                  fit: BoxFit.contain,
+                  semanticLabel: 'Highlanders logo',
+                ),
+                const SizedBox(width: 12),
+                Container(width: 1, height: 26, color: Colors.white54),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        uppercaseTitle ? title.toUpperCase() : title,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: titleFontSize ?? (showLogo ? 18 : 22),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: showLogo ? .2 : .4,
+                        ),
+                      ),
+                    ),
+                    if (subtitle?.isNotEmpty == true) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
+                          letterSpacing: .15,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
       actions: [
         ...trailing,
-        if (showProfile)
+        if (showSearch)
           HeaderActionVisibility(
             kind: 'search',
             child: IconButton(
@@ -143,7 +166,7 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ),
-        const CustomerSupportButton(),
+        if (showSupport) const CustomerSupportButton(),
         if (showNotifications)
           HeaderActionVisibility(
             kind: 'notifications',
@@ -180,23 +203,28 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 16),
       ],
-      bottom: actions.isEmpty
-          ? null
-          : PreferredSize(
-              preferredSize: const Size.fromHeight(44),
-              child: SizedBox(
+      bottom: PreferredSize(
+        preferredSize: Size.fromHeight(8 + (actions.isEmpty ? 0 : 44)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (actions.isNotEmpty)
+              SizedBox(
                 height: 44,
                 child: IconTheme(
                   data: const IconThemeData(color: Colors.white, size: 22),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
-                    children: [...actions, const SizedBox(width: 8)],
+                    children: [...actions, const SizedBox(width: 16)],
                   ),
                 ),
               ),
-            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
     );
     return embedded
         ? SizedBox(
@@ -205,4 +233,27 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
           )
         : bar;
   }
+}
+
+class _HeaderStripes extends CustomPainter {
+  const _HeaderStripes();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height - 40));
+    for (final start in [.38, .72]) {
+      canvas.drawPath(
+        Path()
+          ..moveTo(size.width * start, size.height - 40)
+          ..lineTo(size.width * (start + .23), 0)
+          ..lineTo(size.width * (start + .39), 0)
+          ..lineTo(size.width * (start + .16), size.height - 40)
+          ..close(),
+        Paint()..color = const Color(0x188F193F),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HeaderStripes oldDelegate) => false;
 }

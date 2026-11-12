@@ -10,6 +10,7 @@ import '../posts_api.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets/city_field.dart';
+import '../widgets/profile_form_header.dart';
 import 'shell.dart';
 
 class _Dial {
@@ -59,7 +60,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   _Dial _dial = _dials.first;
   DateTime? _dob;
   XFile? _photo;
-  String? _gender;
+  String? _gender = 'Male';
   bool _saving = false;
   String? _error;
 
@@ -253,15 +254,15 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   }
 
   Widget _label(String text, {String? trailing}) => Padding(
-    padding: const EdgeInsets.only(top: 16, bottom: 8),
+    padding: const EdgeInsets.only(top: 18, bottom: 7),
     child: Row(
       children: [
         Text(
           text,
-          style: const TextStyle(
-            fontSize: 14,
+          style: TextStyle(
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: authRed,
+            color: text == 'Gender' ? authRed : clubInk,
           ),
         ),
         const Spacer(),
@@ -279,358 +280,275 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   );
 
   InputDecoration _field({String? hint, Widget? prefix, Widget? suffix}) =>
-      InputDecoration(
-        hintText: hint,
-        prefixIcon: prefix,
-        suffixIcon: suffix,
-        hintStyle: const TextStyle(
-          color: Color(0xFF9AA1AD),
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
-      );
-
-  Widget _photoCard() {
-    final avatar = CircleAvatar(
-      radius: 30,
-      backgroundColor: const Color(0xFFF3D6D4),
-      child: ClipOval(
-        child: SizedBox.square(
-          dimension: 60,
-          child: _photo == null
-              ? const Icon(Icons.person_rounded, size: 32, color: authRed)
-              : Image.file(File(_photo!.path), fit: BoxFit.cover),
-        ),
-      ),
-    );
-    return Material(
-      color: const Color(0xFFFFF6F6),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        key: const ValueKey('signup-photo'),
-        borderRadius: BorderRadius.circular(16),
-        onTap: _saving ? null : _showPhotoOptions,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
-          child: Row(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  avatar,
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: authRed,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                      child: const Icon(
-                        Icons.photo_camera_rounded,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _photo == null ? 'Add photo' : 'Change photo',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: clubInk,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    const Text(
-                      'Optional',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF8E95A1),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Make it yours. Add a photo anytime.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.3,
-                        color: Color(0xFF8E95A1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+      profileFormField(hint: hint, prefix: prefix, suffix: suffix);
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
-    appBar: AppBar(
+  Widget build(BuildContext context) => AuthTheme(
+    child: Scaffold(
       backgroundColor: Colors.white,
-      foregroundColor: clubInk,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-    ),
-    body: SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-        child: Form(
-          key: _form,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 4),
-              const Text(
-                'Complete your profile',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.4,
-                  height: 1.15,
-                  color: clubInk,
+      appBar: AppBar(
+      automaticallyImplyLeading: false,
+
+        backgroundColor: Colors.white,
+        foregroundColor: clubInk,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          child: Form(
+            key: _form,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ProfileFormHeader(
+                  action: 'Create',
+                  photoKey: const ValueKey('signup-photo'),
+                  photoLabel: _photo == null ? 'Add photo' : 'Change photo',
+                  onPhotoTap: _saving ? null : _showPhotoOptions,
+                  photo: _photo == null
+                      ? const Icon(
+                          Icons.person_rounded,
+                          size: 72,
+                          color: Color(0xFFF39DA6),
+                        )
+                      : Image.file(File(_photo!.path), fit: BoxFit.cover),
                 ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Help us get to know you better.',
-                style: TextStyle(
-                  color: Color(0xFF8E95A1),
-                  fontSize: 15,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _photoCard(),
-              _label('Full name'),
-              TextFormField(
-                key: const ValueKey('signup-name'),
-                controller: _name,
-                readOnly: _saving,
-                maxLength: 100,
-                textCapitalization: TextCapitalization.words,
-                autofillHints: const [AutofillHints.name],
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: clubInk,
-                ),
-                decoration: _field(hint: 'Your full name').copyWith(
-                  counterText: '',
-                ),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Enter your full name'
-                    : null,
-              ),
-              _label('Gender'),
-              FormField<String>(
-                key: const ValueKey('signup-gender'),
-                initialValue: _gender,
-                validator: (value) =>
-                    value == null ? 'Select your gender' : null,
-                builder: (field) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        for (final gender in ['Male', 'Female', 'Other']) ...[
-                          if (gender != 'Male') const SizedBox(width: 8),
-                          Expanded(
-                            child: ChoiceChip(
-                              key: ValueKey('signup-gender-$gender'),
-                              label: SizedBox(
-                                width: double.infinity,
-                                child: Text(
-                                  gender,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    color: field.value == gender
-                                        ? authRed
-                                        : clubInk,
-                                  ),
-                                ),
-                              ),
-                              showCheckmark: false,
-                              selected: field.value == gender,
-                              selectedColor: const Color(0xFFFFF4F3),
-                              backgroundColor: Colors.white,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              labelPadding: EdgeInsets.zero,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(
-                                color: field.value == gender
-                                    ? authRed
-                                    : const Color(0xFFE4E4E4),
-                                width: field.value == gender ? 1.4 : 1,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              onSelected: _saving
-                                  ? null
-                                  : (_) {
-                                      _gender = gender;
-                                      field.didChange(gender);
-                                    },
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (field.hasError)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          field.errorText!,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              _label('Date of birth'),
-              TextFormField(
-                key: const ValueKey('signup-dob'),
-                controller: _dobText,
-                readOnly: true,
-                onTap: _saving ? null : _pickDob,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: clubInk,
-                ),
-                decoration: _field(
-                  hint: 'DD / MM / YYYY',
-                  suffix: const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 18,
-                    color: Color(0xFF8A8F98),
-                  ),
-                ),
-                validator: (_) =>
-                    _dob == null ? 'Select your date of birth' : null,
-              ),
-              _label('City', trailing: 'Optional'),
-              CityField(
-                controller: _city,
-                readOnly: _saving,
-                decoration: _field(hint: 'Search your city'),
-              ),
-              _label('Mobile number'),
-              _PhoneField(
-                dial: _dial,
-                controller: _phone,
-                readOnly: _saving,
-                onPick: _saving ? null : _pickDial,
-                validator: (value) {
-                  final digits = (value ?? '').trim();
-                  if (digits.isEmpty) return null;
-                  if (_dial.code == '91') {
-                    return RegExp(r'^[6-9]\d{9}$').hasMatch(digits)
-                        ? null
-                        : 'Enter a valid 10-digit mobile number';
-                  }
-                  return RegExp(r'^\d{6,14}$').hasMatch(digits)
-                      ? null
-                      : 'Enter a valid mobile number';
-                },
-              ),
-              _label('E-mail ID'),
-              InputDecorator(
-                decoration: _field(
-                  suffix: const Padding(
-                    padding: EdgeInsets.only(right: 12),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          color: Color(0xFF22A55A),
-                          size: 18,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Verified',
-                          style: TextStyle(
-                            color: Color(0xFF22A55A),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ).copyWith(
-                  suffixIconConstraints: const BoxConstraints(
-                    minWidth: 0,
-                    minHeight: 0,
-                  ),
-                ),
-                child: Text(
-                  Session.email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                _label('Full name'),
+                TextFormField(
+                  key: const ValueKey('signup-name'),
+                  controller: _name,
+                  readOnly: _saving,
+                  maxLength: 100,
+                  textCapitalization: TextCapitalization.words,
+                  autofillHints: const [AutofillHints.name],
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: clubInk,
                   ),
+                  decoration: _field(hint: 'Enter your full name')
+                      .copyWith(counterText: ''),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Enter your full name'
+                      : null,
                 ),
-              ),
-              if (_error != null)
-                Container(
-                  margin: const EdgeInsets.only(top: 18),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFDECEC),
-                    borderRadius: BorderRadius.circular(12),
+                _label('Gender'),
+                FormField<String>(
+                  key: const ValueKey('signup-gender'),
+                  initialValue: _gender,
+                  validator: (value) =>
+                      value == null ? 'Select your gender' : null,
+                  builder: (field) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          for (final gender in ['Male', 'Female', 'Other']) ...[
+                            if (gender != 'Male') const SizedBox(width: 8),
+                            Expanded(
+                              child: ChoiceChip(
+                                key: ValueKey('signup-gender-$gender'),
+                                label: SizedBox(
+                                  width: double.infinity,
+                                  child: Text(
+                                    gender,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontWeight: field.value == gender
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
+                                      fontSize: 15,
+                                      color: field.value == gender
+                                          ? authRed
+                                          : authMuted,
+                                    ),
+                                  ),
+                                ),
+                                showCheckmark: false,
+                                selected: field.value == gender,
+                                selectedColor: const Color(0xFFFFF4F3),
+                                backgroundColor: Colors.white,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                labelPadding: EdgeInsets.zero,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 5,
+                                ),
+                                side: BorderSide(
+                                  color: field.value == gender
+                                      ? authRed
+                                      : const Color(0xFFE4E4E4),
+                                  width: 1,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                onSelected: _saving
+                                    ? null
+                                    : (_) {
+                                        _gender = gender;
+                                        field.didChange(gender);
+                                      },
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (field.hasError)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            field.errorText!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
+                ),
+                _label('Date of birth'),
+                TextFormField(
+                  key: const ValueKey('signup-dob'),
+                  controller: _dobText,
+                  readOnly: true,
+                  onTap: _saving ? null : _pickDob,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: clubInk,
+                  ),
+                  decoration: _field(
+                    hint: 'DD / MM / YYYY',
+                    suffix: const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 18,
+                      color: Color(0xFF8A8F98),
+                    ),
+                  ),
+                  validator: (_) =>
+                      _dob == null ? 'Select your date of birth' : null,
+                ),
+                _label('Email address'),
+                InputDecorator(
+                  decoration:
+                      _field(
+                        suffix: const Padding(
+                          padding: EdgeInsets.only(right: 12),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                color: Color(0xFF22A55A),
+                                size: 15,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Verified',
+                                style: TextStyle(
+                                  color: Color(0xFF22A55A),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ).copyWith(
+                        fillColor: const Color(0xFFF0F1F3),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE7E9ED),
+                          ),
+                        ),
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 0,
+                          minHeight: 0,
+                        ),
+                      ),
                   child: Text(
-                    _error!,
-                    style: const TextStyle(color: authRed, fontSize: 13),
-                  ),
-                ),
-              const SizedBox(height: 28),
-              FilledButton(
-                style: authButtonStyle().copyWith(
-                  minimumSize: const WidgetStatePropertyAll(Size.fromHeight(52)),
-                  textStyle: const WidgetStatePropertyAll(
-                    TextStyle(
-                      fontFamily: clubFontFamily,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                    Session.email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      color: clubInk,
                     ),
                   ),
                 ),
-                onPressed: _saving ? null : _join,
-                child: Text(
-                  _saving ? 'Creating account...' : 'Join Highlanders',
+                _label('Mobile number'),
+                _PhoneField(
+                  dial: _dial,
+                  controller: _phone,
+                  readOnly: _saving,
+                  onPick: _saving ? null : _pickDial,
+                  validator: (value) {
+                    final digits = (value ?? '').trim();
+                    if (digits.isEmpty) return null;
+                    if (_dial.code == '91') {
+                      return RegExp(r'^[6-9]\d{9}$').hasMatch(digits)
+                          ? null
+                          : 'Enter a valid 10-digit mobile number';
+                    }
+                    return RegExp(r'^\d{6,14}$').hasMatch(digits)
+                        ? null
+                        : 'Enter a valid mobile number';
+                  },
                 ),
-              ),
-            ],
+                _label('City'),
+                CityField(
+                  controller: _city,
+                  readOnly: _saving,
+                  decoration: _field(
+                    hint: 'Search for your city',
+                    suffix: const Icon(
+                      Icons.search_rounded,
+                      size: 22,
+                      color: authMuted,
+                    ),
+                  ),
+                ),
+                if (_error != null)
+                  Container(
+                    margin: const EdgeInsets.only(top: 18),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDECEC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: authRed, fontSize: 13),
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  style: authButtonStyle(fontFamily: authFontFamily).copyWith(
+                    minimumSize: const WidgetStatePropertyAll(
+                      Size.fromHeight(52),
+                    ),
+                    textStyle: const WidgetStatePropertyAll(
+                      TextStyle(
+                        fontFamily: authFontFamily,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  onPressed: _saving ? null : _join,
+                  child: Text(
+                    _saving ? 'Creating account...' : 'Create profile',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -668,7 +586,17 @@ class _PhoneField extends StatelessWidget {
     ),
     decoration: InputDecoration(
       counterText: '',
-      hintText: dial.code == '91' ? '98765 43210' : 'Mobile number',
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFC9CED8)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: authRed),
+      ),
+      hintText: 'Enter mobile number',
       hintStyle: const TextStyle(
         color: Color(0xFF9AA1AD),
         fontSize: 15,
@@ -691,11 +619,8 @@ class _PhoneField extends StatelessWidget {
                   color: clubInk,
                 ),
               ),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 18,
-                color: Color(0xFF8A8F98),
-              ),
+              const SizedBox(width: 12),
+              Container(width: 1, height: 24, color: const Color(0xFFC9CED8)),
             ],
           ),
         ),

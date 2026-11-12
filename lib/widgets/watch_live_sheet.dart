@@ -6,7 +6,9 @@ import '../models.dart';
 import '../club_identity.dart';
 import '../screens/live_match_screen.dart';
 import '../theme.dart';
-import 'club_crest.dart';
+
+import 'match_team_crest.dart';
+import 'match_versus.dart';
 
 Future<void> showWatchLiveSheet(BuildContext context, Fixture fixture) {
   return showDialog<void>(
@@ -225,10 +227,6 @@ class WatchLiveCard extends StatelessWidget {
                                   name: fixture.home,
                                   logo: fixture.homeLogo,
                                   enterFromLeft: true,
-                                  background: logoDisc(
-                                    fixture.homeLogoBackground,
-                                    home: true,
-                                  ),
                                 ),
                               ),
                               const _Versus(),
@@ -237,10 +235,6 @@ class WatchLiveCard extends StatelessWidget {
                                   name: fixture.away,
                                   logo: fixture.awayLogo,
                                   enterFromLeft: false,
-                                  background: logoDisc(
-                                    fixture.awayLogoBackground,
-                                    home: false,
-                                  ),
                                 ),
                               ),
                             ],
@@ -273,11 +267,11 @@ class _Side extends StatelessWidget {
   const _Side({
     required this.name,
     required this.logo,
-    this.background = ClubCrest.homeBackground,
+
     required this.enterFromLeft,
   });
   final String name, logo;
-  final Color background;
+
   final bool enterFromLeft;
   @override
   Widget build(BuildContext context) => Column(
@@ -285,12 +279,9 @@ class _Side extends StatelessWidget {
       Expanded(
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          child: ClubCrest(
-            team: name,
-            enterFromLeft: enterFromLeft,
-            logo: logo,
-            size: 72,
-            background: background,
+          child: TeamLogoEntrance(
+            fromLeft: enterFromLeft,
+            child: MatchTeamCrest(team: name, logo: logo, size: 72),
           ),
         ),
       ),
@@ -328,9 +319,18 @@ String _twoLines(String name) {
 class _Versus extends StatelessWidget {
   const _Versus();
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 4),
-    child: FaceoffVersus(style: TextStyle(fontFamily: clubFontFamily)),
+  Widget build(BuildContext context) => const SizedBox(
+    width: 70,
+    child: Column(
+      children: [
+        Expanded(
+          child: Center(
+            child: FittedBox(fit: BoxFit.contain, child: MatchVersus()),
+          ),
+        ),
+        SizedBox(height: 36),
+      ],
+    ),
   );
 }
 

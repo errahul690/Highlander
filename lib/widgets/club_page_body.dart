@@ -38,14 +38,19 @@ class ClubScaffold extends StatelessWidget {
   final bool? resizeToAvoidBottomInset;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: appBar,
-    backgroundColor: backgroundColor,
-    resizeToAvoidBottomInset: resizeToAvoidBottomInset,
-    bottomNavigationBar: bottomNavigationBar,
-    floatingActionButton: floatingActionButton,
-    body: appBar == null
-        ? body
-        : ClubPageBody(color: backgroundColor, child: body),
-  );
+  Widget build(BuildContext context) {
+    final scaffold = Scaffold(
+      appBar: appBar,
+      backgroundColor: backgroundColor,
+      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
+      bottomNavigationBar: bottomNavigationBar,
+      floatingActionButton: floatingActionButton,
+      body: appBar == null
+          ? body
+          : ClubPageBody(color: backgroundColor, child: body),
+    );
+    return bottomNavigationBar == null
+        ? scaffold
+        : ScrollNotificationObserver(child: scaffold);
+  }
 }

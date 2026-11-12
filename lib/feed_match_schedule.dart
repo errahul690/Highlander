@@ -17,25 +17,45 @@ FeedMatchSelection? selectFeedMatch(List<Fixture> fixtures, DateTime now) {
   final today = indiaDate(now);
   final choices = <(int, Fixture, FeedMatchPhase)>[];
   for (final fixture in fixtures) {
-    if (['cancelled', 'postponed'].contains(fixture.matchStatus.toLowerCase()))
-      continue;
-    // Live, then before kick-off, then the next match. A finished match stays off.
-    if (fixture.journeyStage == 'report' || fixture.section == 'completed') {
+    if ([
+      'cancelled',
+      'postponed',
+    ].contains(fixture.matchStatus.trim().toLowerCase())) {
       continue;
     }
-    final manual = {
-      'live': (0, FeedMatchPhase.live),
-      'preview': (1, FeedMatchPhase.preview),
-      'upcoming': (2, FeedMatchPhase.upcoming),
-    }[fixture.journeyStage];
-    if (manual != null) {
-      choices.add((manual.$1, fixture, manual.$2));
+    // Yesterday's confirmed result follows live/preview and precedes next match.
+    final status = fixture.matchStatus.trim().toLowerCase();
+    final stage = fixture.journeyStage.trim().toLowerCase();
+    final section = fixture.section.trim().toLowerCase();
+    final completed =
+        stage == 'report' ||
+        section == 'completed' ||
+        [
+          'completed',
+          'finished',
+          'full time',
+          'full-time',
+          'ft',
+        ].contains(status);
+    if (completed) {
+      final date = DateTime.tryParse('${fixture.date}T00:00:00Z');
+      if (date != null &&
+          date.toIso8601String().substring(0, 10) == fixture.date &&
+          today.difference(date).inDays == 1) {
+        choices.add((2, fixture, FeedMatchPhase.report));
+      }
+      continue;
+    }
+    if (stage == 'live' || section == 'live' || status == 'live') {
+      choices.add((0, fixture, FeedMatchPhase.live));
       continue;
     }
     if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(fixture.date)) continue;
     final date = DateTime.tryParse('${fixture.date}T00:00:00Z');
-    if (date == null || date.toIso8601String().substring(0, 10) != fixture.date)
+    if (date == null ||
+        date.toIso8601String().substring(0, 10) != fixture.date) {
       continue;
+    }
     final day = date.difference(today).inDays;
     final validTime = RegExp(r'^([01]\d|2[0-3]):[0-5]\d$')
         .hasMatch(fixture.time);
@@ -43,29 +63,34 @@ FeedMatchSelection? selectFeedMatch(List<Fixture> fixtures, DateTime now) {
         ? DateTime.tryParse('${fixture.date}T${fixture.time}:00+05:30')
         : null;
     if (kickoff == null) {
-      if (day == 0) {
+      if (day == -1) {
+        choices.add((2, fixture, FeedMatchPhase.report));
+      } else if (day == 0 || day == 1) {
         choices.add((1, fixture, FeedMatchPhase.preview));
       } else if (day > 0) {
-        choices.add((2, fixture, FeedMatchPhase.upcoming));
+        choices.add((3, fixture, FeedMatchPhase.upcoming));
       }
       continue;
     }
     final remaining = kickoff.difference(now);
     if (remaining > const Duration(hours: 24)) {
-      choices.add((2, fixture, FeedMatchPhase.upcoming));
+      choices.add((3, fixture, FeedMatchPhase.upcoming));
     } else if (remaining > Duration.zero) {
       choices.add((1, fixture, FeedMatchPhase.preview));
     } else if (remaining > const Duration(hours: -6)) {
       // A source-confirmed final result, rather than the clock, ends the live stage.
       choices.add((0, fixture, FeedMatchPhase.live));
+    } else if (day == -1) {
+      // Show yesterday's match even if the source still labels it Upcoming.
+      choices.add((2, fixture, FeedMatchPhase.report));
     }
   }
   choices.sort((a, b) {
     final rank = a.$1.compareTo(b.$1);
     if (rank != 0) return rank;
-    return '${a.$2.date} ${a.$2.time} ${a.$2.home} ${a.$2.away}'.compareTo(
-      '${b.$2.date} ${b.$2.time} ${b.$2.home} ${b.$2.away}',
-    );
+    final chronological = '${a.$2.date} ${a.$2.time} ${a.$2.home} ${a.$2.away}'
+        .compareTo('${b.$2.date} ${b.$2.time} ${b.$2.home} ${b.$2.away}');
+    return a.$3 == FeedMatchPhase.report ? -chronological : chronological;
   });
   return choices.isEmpty
       ? null

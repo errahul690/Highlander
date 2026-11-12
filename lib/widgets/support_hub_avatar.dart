@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import 'package:flutter/material.dart';
 
 class SupportHubAvatar extends StatelessWidget {
@@ -12,7 +13,7 @@ class SupportHubAvatar extends StatelessWidget {
     child: Icon(
       Icons.support_agent_rounded,
       size: radius * 1.3,
-      color: const Color(0xFFC92922),
+      color: brandAccent,
     ),
   );
 }

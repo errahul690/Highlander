@@ -18,6 +18,12 @@ class CommunityApi {
   Future<List<Map<String, dynamic>>> list(String path) async =>
       (await request(path) as List)
           .map((row) => Map<String, dynamic>.from(row as Map))
+          .where(
+            (row) =>
+                path.split('?').first != '/groups' ||
+                row['membership'] == 'active' ||
+                row['canManage'] == true,
+          )
           .toList();
 
   Future<Map<String, dynamic>> uploadAttachment(Map<String, dynamic> picked) =>

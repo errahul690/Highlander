@@ -1,3 +1,4 @@
+import '../widgets/club_header.dart';
 import '../widgets/club_page_body.dart';
 
 import 'package:flutter/material.dart';
@@ -14,9 +15,11 @@ import '../chat_dates.dart';
 import '../theme.dart';
 import '../widgets/chat_wallpaper.dart';
 import '../widgets/highlander_care_chat.dart';
+import '../widgets/earlier_messages_button.dart';
 import '../widgets/user_avatar.dart';
 import '../widgets/invite_members_sheet.dart';
 import 'chat_settings_screen.dart';
+import 'group_info_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
@@ -46,8 +49,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _loading = true, _sending = false, _uploadingAttachment = false;
   String? _loadError;
   late String _permission;
+  late Map<String, dynamic> _roomInfo;
   io.Socket? _socket;
   int _loadVersion = 0;
+  static const _pageSize = 20;
+  bool _hasOlder = false, _loadingOlder = false, _olderError = false;
+  int _historyEpoch = 0;
   bool _careBlocked = false, _careCleared = false, _careOnline = false;
   bool _blockedBy = false;
   bool _careBusy = false;
@@ -122,14 +129,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       !_careBusy &&
       (_direct ||
           (_permission != 'off' &&
-              (_permission != 'admins' || widget.room?['canManage'] == true)));
+              (_permission != 'admins' || _roomInfo['canManage'] == true)));
   String get _path => _direct
       ? '/direct/messages'
       : '/${widget.kind}/${widget.room!['_id']}/messages';
   @override
   void initState() {
     super.initState();
+    _roomInfo = {...?widget.room};
     _permission = '${widget.room?['chatPermission'] ?? 'all'}';
+    if (widget.kind == 'groups') _refreshGroupInfo();
     WidgetsBinding.instance.addObserver(this);
     _load();
     if (_direct) _loadCareStatus();
@@ -223,12 +232,89 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  String _historyPath({Map<String, dynamic>? before}) {
+    final query = <String, String>{
+      if (_direct) 'email': widget.recipientEmail!,
+      'limit': '${_pageSize + 1}',
+      if (before != null) ...{
+        'before': messageDate(before)!.toUtc().toIso8601String(),
+        'beforeId': '${before['_id']}',
+      },
+    };
+    return '$_path?${Uri(queryParameters: query).query}';
+  }
+
+  void _mergeHistory(List<Map<String, dynamic>> rows) {
+    final byId = <String, Map<String, dynamic>>{
+      for (final message in _messages) '${message['_id']}': message,
+      for (final message in rows) '${message['_id']}': message,
+    };
+    _messages = byId.values.toList()
+      ..sort((first, second) {
+        final a = messageDate(first);
+        final b = messageDate(second);
+        final dateOrder = a != null && b != null ? a.compareTo(b) : 0;
+        return dateOrder != 0
+            ? dateOrder
+            : '${first['_id']}'.compareTo('${second['_id']}');
+      });
+  }
+
+  Future<void> _loadOlder() async {
+    if (_loadingOlder || !_hasOlder || _messages.isEmpty) return;
+    final epoch = _historyEpoch;
+    setState(() {
+      _loadingOlder = true;
+      _olderError = false;
+    });
+    try {
+      final rows = await CommunityApi.instance.list(
+        _historyPath(before: _messages.first),
+      );
+      if (!mounted || epoch != _historyEpoch) return;
+      setState(() {
+        _hasOlder = rows.length > _pageSize;
+        _mergeHistory(
+          rows
+              .skip(rows.length > _pageSize ? rows.length - _pageSize : 0)
+              .toList(),
+        );
+      });
+    } catch (_) {
+      if (mounted && epoch == _historyEpoch) {
+        setState(() => _olderError = true);
+      }
+    } finally {
+      if (mounted && epoch == _historyEpoch) {
+        setState(() => _loadingOlder = false);
+      }
+    }
+  }
+
   Future<void> _load() async {
     final version = ++_loadVersion;
     try {
-      final rows = await CommunityApi.instance.list(
-        '$_path${_direct ? '?email=${Uri.encodeComponent(widget.recipientEmail!)}' : ''}',
-      );
+      final page = await CommunityApi.instance.list(_historyPath());
+      final hasOlder = page.length > _pageSize;
+      final rows = page.skip(hasOlder ? page.length - _pageSize : 0).toList();
+      // Catch up after reconnecting without leaving a gap before loaded history.
+      final existingIds = _messages.map((message) => message['_id']).toSet();
+      var nextPage = page;
+      while (existingIds.isNotEmpty &&
+          nextPage.length > _pageSize &&
+          !nextPage.any((message) => existingIds.contains(message['_id']))) {
+        final oldest = rows.first;
+        if (messageDate(oldest) == null || oldest['_id'] == null) break;
+        nextPage = await CommunityApi.instance.list(
+          _historyPath(before: oldest),
+        );
+        if (!mounted || version != _loadVersion) return;
+        final earlier = nextPage
+            .skip(nextPage.length > _pageSize ? nextPage.length - _pageSize : 0)
+            .toList();
+        if (earlier.isEmpty || earlier.first['_id'] == oldest['_id']) break;
+        rows.insertAll(0, earlier);
+      }
       rows.sort((first, second) {
         final firstDate = messageDate(first);
         final secondDate = messageDate(second);
@@ -244,7 +330,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           (rows.isNotEmpty &&
               (_messages.isEmpty || rows.last['_id'] != _messages.last['_id']));
       setState(() {
-        _messages = rows;
+        if (_messages.isEmpty) _hasOlder = hasOlder;
+        _mergeHistory(rows);
         _loading = false;
         _loadError = null;
       });
@@ -357,8 +444,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         content: Text(
           clear
               ? widget.isCare
-                  ? 'Messages will be cleared only for you. $contactName will keep its copy.'
-                  : 'Messages will be cleared only for you. $contactName will still have this chat.'
+                    ? 'Messages will be cleared only for you. $contactName will keep its copy.'
+                    : 'Messages will be cleared only for you. $contactName will still have this chat.'
               : _careBlocked
               ? 'You can send and receive messages with $contactName again.'
               : 'You will stop receiving messages from $contactName. They will see that you blocked them. You can unblock them from this chat.',
@@ -392,6 +479,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (clear) {
           ++_loadVersion;
           _messages = [];
+          ++_historyEpoch;
+          _hasOlder = false;
+          _loadingOlder = false;
+          _olderError = false;
           _careCleared = true;
         } else {
           _careBlocked = result['blocked'] == true;
@@ -575,21 +666,65 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _settings() async {
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(
-        builder: (_) =>
-            ChatSettingsScreen(kind: widget.kind, room: widget.room),
+        builder: (_) => ChatSettingsScreen(
+          kind: widget.kind,
+          room: widget.kind == 'groups' ? _roomInfo : widget.room,
+        ),
       ),
     );
     if (mounted && result != null) {
       if (result['deleted'] == true) {
         Navigator.of(context).pop(result);
       } else {
-        setState(() => _permission = '${result['chatPermission'] ?? 'all'}');
+        setState(() {
+          _permission = '${result['chatPermission'] ?? 'all'}';
+          _roomInfo.addAll(result);
+          if (widget.kind == 'groups') {
+            _roomInfo['canInvite'] =
+                _roomInfo['canManage'] == true ||
+                result['allowMemberInvites'] == true;
+          }
+        });
       }
     }
   }
 
+  Future<void> _refreshGroupInfo() async {
+    if (widget.kind != 'groups' || widget.room == null) return;
+    try {
+      final data = await CommunityApi.instance.request(
+        '/groups/${widget.room!['_id']}/info',
+      );
+      if (mounted && data is Map)
+        setState(() {
+          _roomInfo = Map<String, dynamic>.from(data);
+          _permission = '${data['chatPermission'] ?? _permission}';
+        });
+    } catch (_) {
+      /* Existing message history can still render while info retries. */
+    }
+  }
+
+  Future<void> _openGroupInfo() async {
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => GroupInfoScreen(groupId: '${widget.room!['_id']}'),
+      ),
+    );
+    if (!mounted) return;
+    if (result?['left'] == true || result?['deleted'] == true) {
+      Navigator.pop(context, result);
+      return;
+    }
+    await _refreshGroupInfo();
+  }
+
   Future<void> _inviteMembers() async {
     if (widget.room == null) return;
+    if (widget.kind == 'groups' &&
+        _roomInfo['canManage'] != true &&
+        _roomInfo['canInvite'] != true)
+      return;
     await InviteMembersSheet.show(
       context,
       roomId: '${widget.room!['_id']}',
@@ -657,7 +792,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
-                    'Group Invitation',
+                    'Group membership',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -839,78 +974,64 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     required String image,
     required List<Widget> actions,
     String? subtitle,
-  }) => AppBar(
-    toolbarHeight: 64,
-    elevation: 0,
-    scrolledUnderElevation: 0,
-    backgroundColor: const Color(0xFF991C24),
-    foregroundColor: Colors.white,
-    systemOverlayStyle: SystemUiOverlayStyle.light,
-    titleSpacing: 0,
-    leadingWidth: 42,
-    flexibleSpace: const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF831B20), Color(0xFFB52626), Color(0xFF991C24)],
-          stops: [0, .55, 1],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-      ),
-    ),
-    leading: IconButton(
-      tooltip: 'Back',
-      padding: EdgeInsets.zero,
-      icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
-      onPressed: () => Navigator.of(context).maybePop(),
-    ),
-    title: Row(
-      children: [
-        UserAvatar(
-          email: widget.recipientEmail ?? '',
-          name: widget.title,
-          image: image,
-          radius: 18,
-          backgroundColor: const Color(0xFFFFF0EE),
-          foregroundColor: const Color(0xFF8C1E24),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                widget.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 2),
+  }) => ClubHeader(
+    title: widget.title,
+    showSearch: false,
+    showSupport: false,
+    showNotifications: false,
+    titleWidget: InkWell(
+      key: widget.kind == 'groups' ? const ValueKey('group-info-open') : null,
+      onTap: widget.kind == 'groups' ? _openGroupInfo : null,
+      child: Row(
+        children: [
+          UserAvatar(
+            email: widget.recipientEmail ?? '',
+            name: widget.title,
+            image: image,
+            radius: 18,
+            backgroundColor: const Color(0xFFFFF0EE),
+            foregroundColor: const Color(0xFF8C1E24),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Text(
-                  subtitle,
+                  widget.kind == 'groups'
+                      ? '${_roomInfo['name'] ?? widget.title}'
+                      : widget.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: .78),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    height: 1.1,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
                   ),
                 ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: .78),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
-    actions: actions,
+    trailing: actions,
   );
 
   Widget _chatMenu({
@@ -978,6 +1099,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         onClear: () => _careAction(clear: true),
         onBlock: () => _careAction(clear: false),
         onRefresh: _refreshCare,
+        earlierMessages: _hasOlder
+            ? EarlierMessagesButton(
+                loading: _loadingOlder,
+                error: _olderError,
+                onPressed: _loadOlder,
+              )
+            : null,
         attachmentBuilder: _attachment,
         attachmentName: _attachmentDraft?['name']?.toString(),
         onRemoveAttachment: () => setState(() => _attachmentDraft = null),
@@ -1001,14 +1129,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       actions: [
         if (isGroup) ...[
           IconButton(
-            tooltip: 'Invite members',
-            icon: const Icon(Icons.person_add_alt_1, color: Colors.white, size: 22),
-            onPressed: _inviteMembers,
+            tooltip: 'Group info',
+            onPressed: _openGroupInfo,
+            icon: const Icon(Icons.info_outline),
           ),
-          if (widget.room?['canManage'] == true)
+          if (_roomInfo['canManage'] == true || _roomInfo['canInvite'] == true)
+            IconButton(
+              tooltip: 'Add members',
+              icon: const Icon(
+                Icons.person_add_alt_1,
+                color: Colors.white,
+                size: 22,
+              ),
+              onPressed: _inviteMembers,
+            ),
+          if (_roomInfo['canManage'] == true)
             IconButton(
               tooltip: 'Group settings',
-              icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 22),
+              icon: const Icon(
+                Icons.settings_outlined,
+                color: Colors.white,
+                size: 22,
+              ),
               onPressed: _settings,
             ),
         ] else if (_direct)
@@ -1046,8 +1188,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 enabled: !_careBusy,
                 danger: true,
               ),
-              if (widget.room?['canManage'] == true)
-                _menuItem('settings', 'Huddle settings', Icons.settings_outlined),
+              if (_roomInfo['canManage'] == true)
+                _menuItem(
+                  'settings',
+                  'Huddle settings',
+                  Icons.settings_outlined,
+                ),
             ],
           ),
         const SizedBox(width: 6),
@@ -1084,13 +1230,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         controller: _scroll,
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
-                        itemCount: _messages.length,
+                        itemCount: _messages.length + (_hasOlder ? 1 : 0),
                         itemBuilder: (context, reverseIndex) {
+                          if (reverseIndex == _messages.length) {
+                            return EarlierMessagesButton(
+                              loading: _loadingOlder,
+                              error: _olderError,
+                              onPressed: _loadOlder,
+                            );
+                          }
                           final index = _messages.length - 1 - reverseIndex;
                           return Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (messageDate(_messages[index]) case final date?)
+                              if (messageDate(_messages[index])
+                                  case final date?)
                                 if (index == 0 ||
                                     !sameChatDay(
                                       date,
@@ -1114,7 +1268,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                       child: Text(
                                         chatDateLabel(date),
                                         style: const TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 14,
                                           fontWeight: FontWeight.w600,
                                           color: authMuted,
                                         ),
@@ -1191,16 +1345,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                     ),
                                     tooltip: 'Remove attachment',
                                     visualDensity: VisualDensity.compact,
-                                    onPressed: () => setState(
-                                      () => _attachmentDraft = null,
-                                    ),
+                                    onPressed: () =>
+                                        setState(() => _attachmentDraft = null),
                                     icon: const Icon(Icons.close, size: 18),
                                   ),
                                 ],
                               ),
                             ),
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Expanded(
                                 child: Container(
@@ -1217,12 +1370,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                         onPressed: _sending
                                             ? null
                                             : _chooseEmoji,
-                                        constraints: const BoxConstraints.tightFor(
-                                          width: 40,
-                                          height: 44,
-                                        ),
+                                        constraints:
+                                            const BoxConstraints.tightFor(
+                                              width: 40,
+                                              height: 44,
+                                            ),
                                         icon: const Icon(
-                                          Icons.sentiment_satisfied_alt_outlined,
+                                          Icons
+                                              .sentiment_satisfied_alt_outlined,
                                           color: authRed,
                                         ),
                                       ),
@@ -1238,10 +1393,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                             filled: true,
                                             fillColor: Colors.white,
                                             isDense: true,
-                                            contentPadding: EdgeInsets.symmetric(
-                                              horizontal: 4,
-                                              vertical: 12,
-                                            ),
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  horizontal: 4,
+                                                  vertical: 12,
+                                                ),
                                             border: InputBorder.none,
                                             enabledBorder: InputBorder.none,
                                             focusedBorder: InputBorder.none,
@@ -1251,26 +1407,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                       ),
                                       IconButton(
                                         key: const ValueKey('chat-attachment'),
-                                        tooltip: 'Upload file',
+                                        tooltip: 'Attach file',
                                         visualDensity: VisualDensity.compact,
                                         onPressed:
                                             _sending || _uploadingAttachment
                                             ? null
                                             : _pickAttachment,
-                                        constraints: const BoxConstraints.tightFor(
-                                          width: 36,
-                                          height: 44,
-                                        ),
+                                        constraints:
+                                            const BoxConstraints.tightFor(
+                                              width: 36,
+                                              height: 44,
+                                            ),
                                         icon: _uploadingAttachment
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : const Icon(
-                                                Icons.upload_file_outlined,
+                                                Icons.attach_file_rounded,
                                                 color: authRed,
                                               ),
                                       ),
@@ -1282,11 +1440,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                             _sending || _uploadingAttachment
                                             ? null
                                             : _pickCamera,
-                                        constraints: const BoxConstraints.tightFor(
-                                          width: 36,
-                                          height: 44,
+                                        constraints:
+                                            const BoxConstraints.tightFor(
+                                              width: 36,
+                                              height: 44,
+                                            ),
+                                        padding: const EdgeInsets.only(
+                                          right: 4,
                                         ),
-                                        padding: const EdgeInsets.only(right: 4),
                                         icon: const Icon(
                                           Icons.photo_camera_outlined,
                                           color: authRed,
@@ -1298,12 +1459,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               ),
                               const SizedBox(width: 6),
                               Padding(
-                                padding: const EdgeInsets.only(bottom: 2),
+                                padding: EdgeInsets.zero,
                                 child: IconButton.filled(
                                   tooltip: 'Send message',
                                   style: IconButton.styleFrom(
                                     backgroundColor: authRed,
-                                    minimumSize: const Size(46, 46),
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(48, 48),
+                                    maximumSize: const Size(48, 48),
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   onPressed: _sending || _uploadingAttachment
                                       ? null
@@ -1314,9 +1480,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                           height: 20,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
+                                            color: Colors.white,
                                           ),
                                         )
-                                      : const Icon(Icons.send),
+                                      : const Icon(Icons.send, color: Colors.white),
                                 ),
                               ),
                             ],

@@ -21,6 +21,7 @@ class SplashScreen extends StatefulWidget {
     this.client,
     this.sessionReady,
     this.initialSplash,
+    this.feedReady,
   }) : assert(nextScreen != null || resolveNext != null);
 
   final Widget? nextScreen;
@@ -28,6 +29,7 @@ class SplashScreen extends StatefulWidget {
   final http.Client? client;
   final Future<void>? sessionReady;
   final Map<String, dynamic>? initialSplash;
+  final Future<void>? feedReady;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -45,11 +47,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
   WebViewController? _webController;
   VideoPlayerController? _videoController;
+  late final Future<void> _feedReady;
 
   @override
   void initState() {
     super.initState();
-    if (widget.client == null) unawaited(FeedStartup.ready());
+    _feedReady =
+        widget.feedReady ??
+        (widget.client == null
+            ? FeedStartup.prepareForDisplay(widget.sessionReady)
+            : Future<void>.value());
+    unawaited(_feedReady.catchError((Object _) {}));
     _nativeSplash.setMethodCallHandler((call) async {
       if (call.method == 'skip') _proceed();
     });
@@ -324,6 +332,12 @@ class _SplashScreenState extends State<SplashScreen> {
       try {
         await ready;
       } catch (_) {}
+    }
+    if (!mounted) return;
+    try {
+      await _feedReady.timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // Keep startup usable offline; remaining requests finish in the feed.
     }
     if (!mounted) return;
     final next = widget.resolveNext?.call() ?? widget.nextScreen!;

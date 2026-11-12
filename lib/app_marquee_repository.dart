@@ -13,8 +13,9 @@ class AppMarquee {
     this.enabled = true,
     this.icon = 'notifications',
     this.iconUrl = '',
+    this.backgroundColor = '#FBF0F0',
   });
-  final String text, id, link, icon, iconUrl;
+  final String text, id, link, icon, iconUrl, backgroundColor;
   final bool enabled;
 }
 
@@ -33,14 +34,18 @@ class AppMarqueeRepository {
     final version = ++_loadVersion;
     try {
       final response = await _client
-          .get(Uri.parse('${OtpApi.apiBase}/api/public/app-settings'))
+          .get(
+            Uri.parse('${OtpApi.apiBase}/api/public/app-settings'),
+            headers: const {'Cache-Control': 'no-cache'},
+          )
           .timeout(const Duration(seconds: 5));
       if (response.statusCode != 200) return _current;
       final data = jsonDecode(response.body);
       if (data is! Map ||
           data['success'] != true ||
-          !data.containsKey('marquee'))
+          !data.containsKey('marquee')) {
         return _current;
+      }
       if (version != _loadVersion) return _current;
       final value = data['marquee'];
       if (value == null) {
@@ -49,8 +54,9 @@ class AppMarqueeRepository {
         if (value is! Map ||
             value['text'] is! String ||
             (value['enabled'] != false &&
-                (value['text'] as String).trim().isEmpty))
+                (value['text'] as String).trim().isEmpty)) {
           return _current;
+        }
         _current = AppMarquee(
           text: value['text'] as String,
           id: value['_id'] as String? ?? '',
@@ -58,6 +64,12 @@ class AppMarqueeRepository {
           enabled: value['enabled'] != false,
           icon: value['icon'] as String? ?? 'notifications',
           iconUrl: value['icon_url'] as String? ?? '',
+          backgroundColor:
+              value['background_color'] is String &&
+                  RegExp(r'^#[0-9a-fA-F]{6}$')
+                      .hasMatch(value['background_color'])
+              ? value['background_color'] as String
+              : '#FBF0F0',
         );
       }
     } catch (_) {

@@ -70,9 +70,9 @@ class _PostPhotoCarouselState extends State<PostPhotoCarousel> {
       children: [
         Flexible(
           child: AspectRatio(
-            aspectRatio: 1.68,
+            aspectRatio: 1.3,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(18),
               child: ColoredBox(
                 color: widget.isDark
                     ? const Color(0xFF191B20)

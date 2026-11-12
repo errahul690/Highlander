@@ -18,6 +18,22 @@ class GroundGalleryItem {
   final int displayOrder;
 }
 
+class GroundFacility {
+  const GroundFacility({
+    required this.name,
+    this.icon = 'auto',
+    this.iconUrl = '',
+  });
+
+  final String name, icon, iconUrl;
+
+  factory GroundFacility.fromJson(Map<String, dynamic> json) => GroundFacility(
+    name: '${json['name'] ?? ''}'.trim(),
+    icon: '${json['icon'] ?? 'auto'}',
+    iconUrl: ClubRepository.mediaUrl(json['icon_url']),
+  );
+}
+
 class GroundRecord {
   const GroundRecord({
     required this.id,
@@ -33,6 +49,7 @@ class GroundRecord {
     required this.gallery,
     required this.galleryLayout,
     required this.facilities,
+    this.facilityDetails = const [],
   });
 
   final String id;
@@ -48,6 +65,11 @@ class GroundRecord {
   final List<String> gallery;
   final List<GroundGalleryItem> galleryLayout;
   final List<String> facilities;
+  final List<GroundFacility> facilityDetails;
+
+  List<GroundFacility> get displayFacilities => facilityDetails.isNotEmpty
+      ? facilityDetails
+      : facilities.map((name) => GroundFacility(name: name)).toList();
 
   factory GroundRecord.fromJson(Map<String, dynamic> json) {
     final legacyGallery = (json['gallery'] as List? ?? const [])
@@ -101,6 +123,13 @@ class GroundRecord {
           .map((value) => '$value')
           .where((value) => value.isNotEmpty)
           .toList(),
+      facilityDetails: (json['facility_details'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (item) => GroundFacility.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .where((item) => item.name.isNotEmpty)
+          .toList(),
     );
   }
 
@@ -111,7 +140,7 @@ class GroundRecord {
 class GroundsContent {
   const GroundsContent({
     required this.title,
-    required this.subtitle,
+    this.subtitle = '',
     required this.mapImage,
     required this.mapHtml,
     required this.mapHtmlHeight,
@@ -234,7 +263,6 @@ class GroundsRepository {
         : <String, dynamic>{};
     return GroundsContent(
       title: '${settings['title'] ?? 'GROUNDS'}',
-      subtitle: '${settings['subtitle'] ?? 'The Home Of The Highlanders'}',
       mapImage: ClubRepository.mediaUrl(settings['map_image']),
       mapHtml: ClubRepository.mediaUrl(settings['map_html']),
       mapHtmlContent: html,

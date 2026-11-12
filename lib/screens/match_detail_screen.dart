@@ -2,8 +2,8 @@ import '../widgets/club_page_body.dart';
 
 import 'package:flutter/material.dart';
 
-import '../widgets/club_crest.dart';
-import '../widgets/match_card_veil.dart';
+import '../widgets/match_page_cards.dart';
+
 import '../app_navigation.dart';
 import '../models.dart';
 import '../feed_match_schedule.dart';
@@ -12,8 +12,8 @@ import '../theme.dart';
 import '../widgets/club_bar.dart';
 import '../widgets/match_insights.dart';
 import '../widgets/story_html.dart';
-import 'matches_screen.dart';
 import 'match_report_screen.dart';
+import 'live_match_screen.dart';
 
 class MatchDetailScreen extends StatefulWidget {
   const MatchDetailScreen({
@@ -31,8 +31,15 @@ class MatchDetailScreen extends StatefulWidget {
 
 class _MatchDetailScreenState extends State<MatchDetailScreen> {
   String _lineupTeam = 'HOME'; // 'HOME' or 'AWAY'
+  final _overviewKey = GlobalKey();
 
   Fixture get fixture => widget.fixture;
+  bool get _isLive =>
+      fixture.section.trim().toLowerCase() != 'completed' &&
+      fixture.journeyStage.trim().toLowerCase() != 'report' &&
+      (fixture.matchStatus.trim().toLowerCase() == 'live' ||
+          fixture.section.trim().toLowerCase() == 'live' ||
+          fixturePhase(fixture, DateTime.now()) == FeedMatchPhase.live);
 
   // Parse fixture date to friendly format e.g. "SAT, 20 SEP"
   String _getFormattedDate() {
@@ -106,12 +113,13 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (fixture.played)
+    if (fixture.played && !_isLive) {
       return MatchReportScreen(
         fixture: fixture,
         lineups: _buildLineUpsTab(),
         playHighlights: widget.playHighlights,
       );
+    }
     return ClubScaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: const ClubBar(title: 'MATCH CENTRE'),
@@ -132,7 +140,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
               ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildOverviewTab(),
+              child: KeyedSubtree(
+                key: _overviewKey,
+                child: _buildOverviewTab(),
+              ),
             ),
 
             const SizedBox(height: 32),
@@ -145,246 +156,26 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   // ---------------------------------------------------------
   // Hero Next Match / Match Banner Card
   // ---------------------------------------------------------
-  Widget _buildHeroMatchCard() {
-    final phase = fixturePhase(fixture, DateTime.now());
-    final headerTitle = fixture.played
-        ? 'MATCH RESULT'
-        : phase == FeedMatchPhase.live
-        ? 'LIVE MATCH'
-        : phase == FeedMatchPhase.report
-        ? 'RESULT'
-        : 'NEXT MATCH';
-
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF101014),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: Stack(
-          children: [
-            // Stadium background image with atmospheric darkening
-            const Positioned.fill(child: MatchCardPhoto()),
-
-            // Dark gradient overlay to preserve contrast and text clarity
-            const Positioned.fill(child: MatchCardVeil()),
-
-            // Custom stadium floodlight & crowd silhouette painter
-
-            // Card Content
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Match status follows the same phase as the Feed card.
-                  Text(
-                    headerTitle,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: 34,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: clubRed,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Teams clash row (Home Crest vs Away Crest)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Home Team
-                      Expanded(
-                        child: Column(
-                          children: [
-                            _buildTeamShield(
-                              fixture.home,
-                              fixture.homeLogo,
-                              background: logoDisc(
-                                fixture.homeLogoBackground,
-                                home: true,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              fixture.home.toUpperCase(),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 11.5,
-                                letterSpacing: 0.4,
-                                height: 1.25,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Center: VS or Score
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        child: fixture.played
-                            ? Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    fixture.score,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 22,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.15,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Text(
-                                      'FT',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : const Text(
-                                'VS',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                      ),
-
-                      // Away Team
-                      Expanded(
-                        child: Column(
-                          children: [
-                            _buildTeamShield(
-                              fixture.away,
-                              fixture.awayLogo,
-                              background: logoDisc(
-                                fixture.awayLogoBackground,
-                                home: false,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              fixture.away.toUpperCase(),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 11.5,
-                                letterSpacing: 0.4,
-                                height: 1.25,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  // Date and Time Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.calendar_month_outlined,
-                        size: 15,
-                        color: Colors.white70,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _getDateAndTimeDisplay(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  // Venue Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        size: 15,
-                        color: Colors.white70,
-                      ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          fixture.venue.toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+  Widget _buildHeroMatchCard() => MatchPageHero(
+    fixture: fixture,
+    live: _isLive,
+    onWatchLive: _isLive && fixture.liveUrl.trim().isNotEmpty
+        ? () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => LiveMatchScreen(fixture: fixture),
             ),
-          ],
-        ),
-      ),
-    );
-  }
+          )
+        : null,
+    onOpen: () {
+      final overview = _overviewKey.currentContext;
+      if (overview == null) return;
+      Scrollable.ensureVisible(
+        overview,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    },
+  );
 
   // ---------------------------------------------------------
   // Upcoming match details
@@ -1007,69 +798,6 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
               ),
           ]),
       ],
-    );
-  }
-
-  Widget _buildTeamShield(
-    String teamName,
-    String logoUrl, {
-    Color background = ClubCrest.homeBackground,
-  }) {
-    return ClubCrest(
-      team: teamName,
-      logo: logoUrl,
-      size: 52,
-      background: background,
-    );
-  }
-
-  Widget _buildCrestShield(String teamName, double size) {
-    final colors = getTeamColors(teamName);
-
-    return Container(
-      width: size,
-      height: size * 1.08,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [colors.primary, colors.secondary],
-        ),
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(size * 0.16),
-          bottom: Radius.circular(size * 0.48),
-        ),
-        boxShadow: const [
-          BoxShadow(color: Colors.black45, blurRadius: 8, offset: Offset(0, 3)),
-        ],
-        border: Border.all(color: Colors.white, width: 1.5),
-      ),
-      child: Center(
-        child: Container(
-          width: size * 0.72,
-          height: size * 0.78,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1E),
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(size * 0.12),
-              bottom: Radius.circular(size * 0.38),
-            ),
-          ),
-          child: Center(
-            child: Text(
-              colors.shortCode,
-              style: TextStyle(
-                color: colors.primary == const Color(0xFFE5A823)
-                    ? const Color(0xFFFFDF7D)
-                    : colors.text,
-                fontWeight: FontWeight.w900,
-                fontSize: colors.shortCode.length > 2 ? 11 : 16,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

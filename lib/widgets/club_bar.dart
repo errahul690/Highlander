@@ -6,7 +6,7 @@ class ClubBar extends StatelessWidget implements PreferredSizeWidget {
   const ClubBar({
     super.key,
     required this.title,
-    this.showBack = true,
+    this.showBack = false,
     this.actions = const [],
   });
 
@@ -15,7 +15,7 @@ class ClubBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget> actions;
 
   @override
-  Size get preferredSize => Size.fromHeight(64 + (actions.isEmpty ? 0 : 44));
+  Size get preferredSize => ClubHeader(title: title, actions: actions).preferredSize;
 
   @override
   Widget build(BuildContext context) {

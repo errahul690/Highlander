@@ -1,3 +1,6 @@
+import '../widgets/club_page_body.dart';
+import '../widgets/club_header.dart';
+
 import 'package:flutter/material.dart';
 
 import '../app_navigation.dart';
@@ -94,24 +97,19 @@ class _MatchPreviewScreenState extends State<MatchPreviewScreen> {
     final clips = fixture.previewVideos
         .where((clip) => clip.url.trim().isNotEmpty)
         .toList();
-    return Scaffold(
+    return ClubScaffold(
+      appBar: const ClubHeader(
+        title: 'Match preview',
+        showBack: false,
+        showSearch: false,
+        showSupport: false,
+        uppercaseTitle: false,
+      ),
       backgroundColor: clubCloud,
       body: CustomScrollView(
         slivers: [
-          SliverAppBar(
-            pinned: true,
-            expandedHeight: 332,
-            backgroundColor: const Color(0xFF14161C),
-            foregroundColor: Colors.white,
-            title: const Text(
-              'Match preview',
-              style: TextStyle(
-                fontFamily: clubFontFamily,
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
-            ),
-            flexibleSpace: FlexibleSpaceBar(background: _heroImage(_hero)),
+          SliverToBoxAdapter(
+            child: SizedBox(height: 252, child: _heroImage(_hero)),
           ),
           SliverToBoxAdapter(
             child: Padding(

@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import '../widgets/club_page_body.dart';
 
 import 'package:flutter/material.dart';
@@ -35,7 +36,7 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen>
     with WidgetsBindingObserver {
-  static const _red = Color(0xFFCB2921);
+  static const _red = brandAccent;
   Map<String, dynamic>? _profile;
   late final PostPager _pager;
   String? _error;

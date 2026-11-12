@@ -16,6 +16,7 @@ import 'screens/swoofi_screen.dart';
 import 'media_cache.dart';
 import 'otp_api.dart';
 import 'session.dart';
+import 'widgets/quick_card_image.dart';
 
 /// Starts Feed requests at launch for a saved login, or alongside sign-in and sign-up.
 class FeedStartup {
@@ -23,6 +24,7 @@ class FeedStartup {
   static String? _postsForToken;
   static bool _publicStarted = false;
   static Future<void>? _ready;
+  static Future<void>? _publicReady;
   static final http.Client _client = http.Client();
 
   /// Banner pictures and gallery thumbnails started at launch.
@@ -34,14 +36,38 @@ class FeedStartup {
   static Future<void> _waitForFeed() async {
     try {
       await Future.wait<void>([
+        _publicReady!,
         AppBannersRepository.instance.whenImagesReady(),
         _prepareMatchLogos(),
-        GalleryRepository.instance
-            .loadGallery(type: 'videos', useFallback: false)
-            .then((_) {}),
-        GalleryRepository.instance.loadGallery(type: 'images').then((_) {}),
+        _prepareQuickLinks(),
       ]);
     } catch (_) {}
+  }
+
+  static Future<void> prepareForDisplay(Future<void>? sessionReady) async {
+    final public = ready();
+    final posts = () async {
+      try {
+        await sessionReady;
+        if (!Session.isSignedIn) return;
+        start();
+        await _posts;
+      } catch (_) {}
+    }();
+    await Future.wait<void>([public, posts]);
+  }
+
+  static Future<void> _prepareQuickLinks() async {
+    await _publicReady;
+    await Future.wait([
+      for (final button in AppSettingsRepository.instance.current)
+        for (final url in [
+          button.imageUrl,
+          button.iconUrl,
+          button.backgroundImageUrl,
+        ])
+          if (url.isNotEmpty) QuickCardImageCache.instance.load(url),
+    ]);
   }
 
   static Future<void> _prepareMatchLogos() async {
@@ -51,9 +77,16 @@ class FeedStartup {
         for (final fixture in content.fixtures) ...[
           fixture.homeLogo,
           fixture.awayLogo,
+          fixture.feedThumbnail,
+          fixture.previewThumbnail,
+          fixture.liveThumbnail,
+          fixture.reportThumbnail,
         ],
+        content.defaultMatchThumbnail,
       };
-      await MediaCache.instance.prefetch(urls);
+      await MediaCache.instance.prefetch(
+        urls.where((url) => !url.startsWith('assets/')),
+      );
     } catch (_) {}
   }
 
@@ -73,18 +106,19 @@ class FeedStartup {
   static void _startPublic() {
     if (_publicStarted) return;
     _publicStarted = true;
-    unawaited(AppBannersRepository.instance.load());
-    unawaited(AppSettingsRepository.instance.load());
-    unawaited(AppMarqueeRepository.instance.load());
-    unawaited(FeedFocusRepository.instance.load());
-    unawaited(SupportHubRepository.instance.load());
-    unawaited(
+    _publicReady = Future.wait([
+      AppBannersRepository.instance.load(),
+      AppSettingsRepository.instance.load(),
+      AppMarqueeRepository.instance.load(),
+      FeedFocusRepository.instance.load(),
+      SupportHubRepository.instance.load(),
       GalleryRepository.instance.loadGallery(
         type: 'videos',
         useFallback: false,
       ),
-    );
-    unawaited(GalleryRepository.instance.loadGallery(type: 'images'));
+      GalleryRepository.instance.loadGallery(type: 'images'),
+    ]).then<void>((_) {}).catchError((Object _) {});
+    unawaited(_publicReady!);
   }
 
   static bool _othersStarted = false;

@@ -1,10 +1,12 @@
+import '../widgets/club_page_body.dart';
+import '../widgets/club_header.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
@@ -165,68 +167,19 @@ class _SwoofiScreenState extends State<SwoofiScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scale = math.min(MediaQuery.sizeOf(context).width, 600) / 471;
     return Theme(
       data: Theme.of(context).copyWith(
         textTheme: Theme.of(context).textTheme.apply(fontFamily: 'Gilroy'),
       ),
-      child: Scaffold(
+      child: ClubScaffold(
         backgroundColor: const Color(0xFFF7F4EF),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFFAD0C0E),
-          foregroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          toolbarHeight: 70 * scale,
-          centerTitle: true,
-          automaticallyImplyLeading: false,
-          systemOverlayStyle: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.light,
-            statusBarBrightness: Brightness.dark,
-          ),
-          flexibleSpace: const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(0, -.15),
-                radius: .85,
-                colors: [Color(0xFFD10F11), Color(0xFFAA0C0E)],
-              ),
-            ),
-          ),
-          leading: IconButton(
-            tooltip: 'Back',
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          title: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Swoofi',
-                style: TextStyle(
-                  fontFamily: 'Gilroy',
-                  fontSize: math.max(20.0, 24 * scale),
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(height: 3 * scale),
-              Text(
-                'ABOUT THE APP',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: math.max(12.5, 14 * scale),
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: math.max(2.5, 3.0 * scale),
-                  height: 1.4,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
+        appBar: const ClubHeader(
+          title: 'Swoofi',
+          subtitle: 'ABOUT THE APP',
+          showBack: false,
+          showSearch: false,
+          showSupport: false,
+          uppercaseTitle: false,
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())

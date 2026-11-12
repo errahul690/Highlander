@@ -1,6 +1,6 @@
+import '../brand_colors.dart';
 import '../widgets/club_page_body.dart';
 
-import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -29,7 +29,7 @@ class CommunityScreen extends StatefulWidget {
     super.key,
     this.title = 'Huddles',
     this.initialIndex = 0,
-    this.showBack,
+    this.showBack = false,
     this.isActive = true,
   });
   final String title;
@@ -176,26 +176,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
-  Future<void> _decline(Map<String, dynamic> row) async {
-    final id = '${row['_id']}';
-    setState(() => _joining.add(id));
-    try {
-      await CommunityApi.instance.request('/$_kind/$id/leave', method: 'POST');
-    } catch (_) {
-      // Allow graceful UI dismissal
-    } finally {
-      if (mounted) {
-        setState(() {
-          _joining.remove(id);
-          _reload();
-        });
-      }
-    }
-  }
-
   Future<void> _createGroup() async {
-    final created = await showDialog<Map<String, dynamic>>(
+    final created = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
       builder: (_) => const _CreateGroup(),
     );
     if (created != null && mounted) {
@@ -234,7 +222,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFC82D22),
+              backgroundColor: brandAccent,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Delete'),
@@ -278,7 +266,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFC82D22),
+              backgroundColor: brandAccent,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Leave'),
@@ -306,8 +294,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Widget _header() => ClubHeader(
     title: widget.title,
     embedded: true,
-    showBack: widget.showBack ?? Navigator.of(context).canPop(),
-    showProfile: false,
+    showBack: false,
+    showSearch: false,
     showNotifications: false,
     trailing: [
       if (_tab == 1)
@@ -350,14 +338,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
             if (i > 0) const SizedBox(width: 8),
             Expanded(
               child: Material(
-                color: _tab == i ? const Color(0xFFC82D22) : Colors.white,
+                color: _tab == i ? brandAccent : Colors.white,
                 elevation: _tab == i ? 2 : 0,
                 shadowColor: const Color(0x33C82D22),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22),
                   side: BorderSide(
                     color: _tab == i
-                        ? const Color(0xFFC82D22)
+                        ? brandAccent
                         : const Color(0xFFE5E7EB),
                     width: 1.2,
                   ),
@@ -451,7 +439,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
             prefixIcon: const Icon(
               Icons.search,
-              color: Color(0xFFC82D22),
+              color: brandAccent,
               size: 20,
             ),
             border: InputBorder.none,
@@ -482,17 +470,23 @@ class _CommunityScreenState extends State<CommunityScreen> {
     if (_tab == 2) {
       return Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const _FootballCrewIllustration(),
+              Image.asset(
+                'assets/images/groups-empty.png',
+                key: const ValueKey('groups-empty-illustration'),
+                width: 320,
+                height: 212,
+                fit: BoxFit.contain,
+              ),
               const SizedBox(height: 24),
               const Text(
                 'No groups yet',
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                   color: Color(0xFF111827),
                 ),
               ),
@@ -516,7 +510,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   size: 20,
                 ),
                 label: const Text(
-                  'Create group',
+                  'Create Group',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -524,9 +518,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFC82D22),
+                  backgroundColor: brandAccent,
                   foregroundColor: Colors.white,
-                  elevation: 3,
+                  elevation: 0,
                   shadowColor: const Color(0x3DC82D22),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 32,
@@ -558,7 +552,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 ),
                 child: const Icon(
                   Icons.chat_bubble_outline,
-                  color: Color(0xFFC82D22),
+                  color: brandAccent,
                   size: 38,
                 ),
               ),
@@ -589,7 +583,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFC82D22),
+                  backgroundColor: brandAccent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
@@ -619,7 +613,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
               ),
               child: const Icon(
                 Icons.groups_outlined,
-                color: Color(0xFFC82D22),
+                color: brandAccent,
                 size: 42,
               ),
             ),
@@ -644,163 +638,36 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  Widget _groupTile(
-    Map<String, dynamic> row, {
-    required bool isInvitation,
-    bool isDiscover = false,
-  }) {
+  Widget _groupTile(Map<String, dynamic> row) {
     final name = '${row['name']}';
     final id = '${row['_id']}';
-    final isJoined = row['membership'] == 'active' || row['canManage'] == true;
-    final subtitle1 = isInvitation
-        ? 'Invited by ${row['creatorName'] ?? row['creatorEmail']?.split('@').first ?? 'Highlander'}'
-        : null;
-    return InkWell(
-      onTap: isInvitation || isDiscover ? null : () => _open(row),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundColor: const Color(0xFFFDE8E7),
-                  foregroundImage:
-                      row['image'] != null && '${row['image']}'.isNotEmpty
-                      ? NetworkImage('${row['image']}')
-                      : null,
-                  child: const Icon(
-                    Icons.sports_soccer,
-                    color: Color(0xFFC82D22),
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF111827),
-                        ),
-                      ),
-                      if (subtitle1 != null) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle1,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6B7280),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (isInvitation) ...[
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFC82D22),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 4,
-                      ),
-                      minimumSize: const Size(60, 32),
-                    ),
-                    onPressed: _joining.contains(id) ? null : () => _join(row),
-                    child: Text(
-                      _joining.contains(id) ? '…' : 'Accept',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFC82D22),
-                      side: const BorderSide(color: Color(0xFFC82D22)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      minimumSize: const Size(60, 32),
-                    ),
-                    onPressed: _joining.contains(id)
-                        ? null
-                        : () => _decline(row),
-                    child: const Text(
-                      'Decline',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ] else if (isDiscover) ...[
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFC82D22),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      minimumSize: const Size(64, 32),
-                    ),
-                    onPressed: _joining.contains(id) ? null : () => _join(row),
-                    child: Text(
-                      _joining.contains(id) ? 'Joining…' : 'Join',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ] else if (isJoined) ...[
-                  IconButton(
-                    tooltip: 'Invite members',
-                    icon: const Icon(
-                      Icons.person_add_alt_1,
-                      color: Color(0xFFC82D22),
-                      size: 20,
-                    ),
-                    onPressed: () => InviteMembersSheet.show(
-                      context,
-                      roomId: id,
-                      roomTitle: name,
-                      kind: 'groups',
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(left: 68, right: 16),
-            child: Divider(height: 1, color: Color(0xFFF3F4F6)),
-          ),
-        ],
+    return ListTile(
+      leading: CircleAvatar(
+        radius: 25,
+        backgroundColor: const Color(0xFFF7E4EB),
+        foregroundImage: row['image'] != null && '${row['image']}'.isNotEmpty
+            ? NetworkImage('${row['image']}')
+            : null,
+        child: const Icon(Icons.groups_outlined, color: brandAccent),
       ),
+      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text('${row['memberCount'] ?? 0} members'),
+      onTap: () => _open(row),
+      trailing: row['canManage'] == true || row['canInvite'] == true
+          ? IconButton(
+              tooltip: 'Add members',
+              icon: const Icon(
+                Icons.person_add_alt_1,
+                color: brandAccent,
+              ),
+              onPressed: () => InviteMembersSheet.show(
+                context,
+                roomId: id,
+                roomTitle: name,
+                kind: 'groups',
+              ),
+            )
+          : null,
     );
   }
 
@@ -812,11 +679,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       return CircleAvatar(
         radius: 25,
         backgroundColor: const Color(0xFFFDE8E7),
-        child: ImageIcon(
-          _icons[0],
-          color: const Color(0xFFC82D22),
-          size: 26,
-        ),
+        child: ImageIcon(_icons[0], color: brandAccent, size: 26),
       );
     }
     return UserAvatar(
@@ -824,7 +687,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       image: image,
       radius: 25,
       backgroundColor: const Color(0xFFFDE8E7),
-      foregroundColor: const Color(0xFFC82D22),
+      foregroundColor: brandAccent,
     );
   }
 
@@ -872,7 +735,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 )
               : FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFC82D22),
+                    backgroundColor: brandAccent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -991,7 +854,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       if (snapshot.connectionState != ConnectionState.done) {
                         return const Center(
                           child: CircularProgressIndicator(
-                            color: Color(0xFFC82D22),
+                            color: brandAccent,
                           ),
                         );
                       }
@@ -1014,19 +877,32 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       final rows = allRows
                           .where(
                             (row) =>
+                                _tab != 2 ||
+                                row['membership'] == 'active' ||
+                                row['canManage'] == true,
+                          )
+                          .where(
+                            (row) =>
                                 _rowName(row).toLowerCase().contains(query),
                           )
                           .toList();
 
                       if (rows.isEmpty) {
-                        return RefreshIndicator(
-                          onRefresh: () async {
-                            setState(_reload);
-                            await _rows;
-                          },
-                          child: ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            children: [_emptyState()],
+                        return LayoutBuilder(
+                          builder: (context, constraints) => RefreshIndicator(
+                            onRefresh: () async {
+                              setState(_reload);
+                              await _rows;
+                            },
+                            child: SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight,
+                                ),
+                                child: Center(child: _emptyState()),
+                              ),
+                            ),
                           ),
                         );
                       }
@@ -1066,82 +942,15 @@ class _CommunityScreenState extends State<CommunityScreen> {
     ),
   );
 
-  Widget _buildGroupsView(List<Map<String, dynamic>> rows) {
-    final yourGroups = rows
-        .where((r) => r['membership'] == 'active' || r['canManage'] == true)
-        .toList();
-    final invitations = rows
-        .where((r) => r['membership'] == 'pending')
-        .toList();
-    final discover = rows
-        .where(
-          (r) =>
-              r['membership'] != 'active' &&
-              r['membership'] != 'pending' &&
-              r['canManage'] != true,
-        )
-        .toList();
-
-    final showHeaders = invitations.isNotEmpty || discover.isNotEmpty;
-
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(
-        0,
-        4,
-        0,
-        MediaQuery.paddingOf(context).bottom + 180,
-      ),
-      children: [
-        if (yourGroups.isNotEmpty) ...[
-          if (showHeaders)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 6),
-              child: Text(
-                'Your groups',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF111827),
-                ),
-              ),
-            ),
-          for (final group in yourGroups)
-            _groupTile(group, isInvitation: false),
-        ],
-        if (invitations.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 6),
-            child: Text(
-              'Invitations',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
-              ),
-            ),
-          ),
-          for (final group in invitations)
-            _groupTile(group, isInvitation: true),
-        ],
-        if (discover.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 6),
-            child: Text(
-              'Discover groups',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
-              ),
-            ),
-          ),
-          for (final group in discover)
-            _groupTile(group, isInvitation: false, isDiscover: true),
-        ],
-      ],
-    );
-  }
+  Widget _buildGroupsView(List<Map<String, dynamic>> rows) => ListView.builder(
+    physics: const AlwaysScrollableScrollPhysics(),
+    padding: EdgeInsets.only(
+      top: 4,
+      bottom: MediaQuery.paddingOf(context).bottom + 180,
+    ),
+    itemCount: rows.length,
+    itemBuilder: (context, index) => _groupTile(rows[index]),
+  );
 }
 
 class _CreateGroup extends StatefulWidget {
@@ -1153,7 +962,7 @@ class _CreateGroup extends StatefulWidget {
 class _CreateGroupState extends State<_CreateGroup> {
   final _name = TextEditingController();
   final _description = TextEditingController();
-  bool _auto = false, _busy = false;
+  bool _busy = false, _allowMemberInvites = false;
   String _permission = 'all';
   String? _error;
   @override
@@ -1179,7 +988,8 @@ class _CreateGroupState extends State<_CreateGroup> {
         body: {
           'name': _name.text.trim(),
           'description': _description.text.trim(),
-          'autoApprove': _auto,
+          'autoApprove': false,
+          'allowMemberInvites': _allowMemberInvites,
           'chatPermission': _permission,
         },
       );
@@ -1195,65 +1005,185 @@ class _CreateGroupState extends State<_CreateGroup> {
     }
   }
 
+  InputDecoration _field(String label, String hint) => InputDecoration(
+    labelText: label,
+    hintText: hint,
+    filled: true,
+    fillColor: const Color(0xFFF7F5F9),
+    contentPadding: const EdgeInsets.all(16),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: Color(0xFFE9E2EA)),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: Color(0xFFE9E2EA)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: brandAccent),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy,
-    child: AlertDialog(
-      title: const Text('Create group'),
-      content: SizedBox(
-        width: 400,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _name,
-                maxLength: 80,
-                enabled: !_busy,
-                decoration: const InputDecoration(labelText: 'Group name'),
-              ),
-              TextField(
-                controller: _description,
-                maxLength: 500,
-                enabled: !_busy,
-                decoration: const InputDecoration(labelText: 'Description'),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Auto approve requests'),
-                value: _auto,
-                onChanged: _busy ? null : (v) => setState(() => _auto = v),
-              ),
-              DropdownButtonFormField<String>(
-                initialValue: _permission,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Who can send messages?',
+    child: Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * .94,
+      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5DFE7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
                 ),
-                items: chatPermissionItems,
-                onChanged: _busy
-                    ? null
-                    : (v) => setState(() => _permission = v!),
-              ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(_error!, style: const TextStyle(color: authRed)),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7E4EB),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.group_add_outlined,
+                        color: brandAccent,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Text(
+                        'Create a group',
+                        style: TextStyle(
+                          fontSize: 23,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF171717),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: _busy ? null : () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, size: 22),
+                    ),
+                  ],
                 ),
-            ],
+                const SizedBox(height: 12),
+                const Text(
+                  'Bring your football crew together.',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF737584)),
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _name,
+                  maxLength: 80,
+                  enabled: !_busy,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: _field('Group name', 'Give your crew a name'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _description,
+                  maxLength: 500,
+                  minLines: 3,
+                  maxLines: 4,
+                  enabled: !_busy,
+                  decoration: _field(
+                    'Description',
+                    'What is this group about?',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _permission,
+                  isExpanded: true,
+                  decoration: _field('Who can send messages?', ''),
+                  items: chatPermissionItems,
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _permission = value!),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeThumbColor: brandAccent,
+                  title: const Text(
+                    'Members can invite',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'Let members add people to the group.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  value: _allowMemberInvites,
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _allowMemberInvites = value),
+                ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: authRed),
+                    ),
+                  ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _create,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: brandAccent,
+                    minimumSize: const Size.fromHeight(50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  icon: _busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.add, size: 20),
+                  label: Text(
+                    _busy ? 'Creating...' : 'Create group',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _create,
-          child: Text(_busy ? 'Creating…' : 'Create'),
-        ),
-      ],
     ),
   );
 }
@@ -1263,7 +1193,7 @@ class CommunityPeopleScreen extends StatefulWidget {
     super.key,
     this.title = 'New chat',
     this.relation,
-    this.showBack = true,
+    this.showBack = false,
     this.initialQuery = '',
   });
   final String title;
@@ -1324,7 +1254,7 @@ class _PeopleScreenState extends State<CommunityPeopleScreen> {
   @override
   Widget build(BuildContext context) => ClubScaffold(
     backgroundColor: Colors.white,
-    appBar: ClubHeader(title: widget.title, showBack: widget.showBack),
+    appBar: ClubHeader(title: widget.title, showBack: false),
     body: Column(
       children: [
         Padding(
@@ -1420,341 +1350,4 @@ class _PeopleScreenState extends State<CommunityPeopleScreen> {
       ],
     ),
   );
-}
-
-class _FootballCrewIllustration extends StatelessWidget {
-  const _FootballCrewIllustration();
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(200, 150),
-      painter: _FootballCrewPainter(),
-    );
-  }
-}
-
-class _FootballCrewPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final strokePaint = Paint()
-      ..color = const Color(0xFFC82D22)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.9
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final fillPaint = Paint()
-      ..color = const Color(0xFFC82D22)
-      ..style = PaintingStyle.fill;
-
-    final double cx = size.width / 2;
-    const double groundY = 136;
-
-    // Dashed ground baseline
-    double startX = cx - 74;
-    const double dashW = 4.5;
-    const double spaceW = 3.5;
-    while (startX < cx + 74) {
-      canvas.drawLine(
-        Offset(startX, groundY),
-        Offset(math.min(startX + dashW, cx + 74), groundY),
-        strokePaint,
-      );
-      startX += dashW + spaceW;
-    }
-
-    // --- Center Player (Player 2) ---
-    const double cHeadY = groundY - 96;
-    // Head & hair
-    canvas.drawCircle(Offset(cx, cHeadY), 10, strokePaint);
-    final cHair = Path()
-      ..moveTo(cx - 9, cHeadY - 3)
-      ..cubicTo(cx - 8, cHeadY - 14, cx + 8, cHeadY - 14, cx + 9, cHeadY - 3)
-      ..close();
-    canvas.drawPath(cHair, fillPaint);
-
-    // Torso / Jersey
-    final cJersey = Path()
-      ..moveTo(cx - 15, groundY - 80)
-      ..lineTo(cx - 13, groundY - 50)
-      ..lineTo(cx + 13, groundY - 50)
-      ..lineTo(cx + 15, groundY - 80)
-      ..close();
-    canvas.drawPath(cJersey, strokePaint);
-    // V-neck
-    canvas.drawLine(
-      Offset(cx - 4, groundY - 80),
-      Offset(cx, groundY - 74),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(cx + 4, groundY - 80),
-      Offset(cx, groundY - 74),
-      strokePaint,
-    );
-
-    // Arms around left and right teammate
-    // Left arm
-    final cArmL = Path()
-      ..moveTo(cx - 15, groundY - 80)
-      ..quadraticBezierTo(cx - 30, groundY - 84, cx - 40, groundY - 78);
-    canvas.drawPath(cArmL, strokePaint);
-    // Right arm
-    final cArmR = Path()
-      ..moveTo(cx + 15, groundY - 80)
-      ..quadraticBezierTo(cx + 30, groundY - 84, cx + 40, groundY - 78);
-    canvas.drawPath(cArmR, strokePaint);
-
-    // Shorts
-    final cShorts = Path()
-      ..moveTo(cx - 13, groundY - 50)
-      ..lineTo(cx - 15, groundY - 34)
-      ..lineTo(cx - 2, groundY - 34)
-      ..lineTo(cx, groundY - 40)
-      ..lineTo(cx + 2, groundY - 34)
-      ..lineTo(cx + 15, groundY - 34)
-      ..lineTo(cx + 13, groundY - 50)
-      ..close();
-    canvas.drawPath(cShorts, strokePaint);
-
-    // Legs & Cleats
-    // Left leg
-    canvas.drawLine(
-      Offset(cx - 10, groundY - 34),
-      Offset(cx - 10, groundY - 14),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(cx - 5, groundY - 34),
-      Offset(cx - 5, groundY - 14),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(cx - 10, groundY - 18),
-      Offset(cx - 5, groundY - 18),
-      strokePaint,
-    ); // sock
-    canvas.drawRect(Rect.fromLTWH(cx - 12, groundY - 5, 8, 5), fillPaint);
-    // Right leg
-    canvas.drawLine(
-      Offset(cx + 5, groundY - 34),
-      Offset(cx + 5, groundY - 14),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(cx + 10, groundY - 34),
-      Offset(cx + 10, groundY - 14),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(cx + 5, groundY - 18),
-      Offset(cx + 10, groundY - 18),
-      strokePaint,
-    ); // sock
-    canvas.drawRect(Rect.fromLTWH(cx + 4, groundY - 5, 8, 5), fillPaint);
-
-    // --- Left Player (Player 1) ---
-    final double lHeadX = cx - 38;
-    const double lHeadY = groundY - 90;
-    canvas.drawCircle(Offset(lHeadX, lHeadY), 9.5, strokePaint);
-    final lHair = Path()
-      ..moveTo(lHeadX - 9, lHeadY - 2)
-      ..cubicTo(
-        lHeadX - 8,
-        lHeadY - 13,
-        lHeadX + 8,
-        lHeadY - 13,
-        lHeadX + 9,
-        lHeadY - 2,
-      )
-      ..close();
-    canvas.drawPath(lHair, fillPaint);
-
-    // Left player Jersey
-    final lJersey = Path()
-      ..moveTo(lHeadX - 14, groundY - 74)
-      ..lineTo(lHeadX - 12, groundY - 47)
-      ..lineTo(lHeadX + 12, groundY - 47)
-      ..lineTo(lHeadX + 14, groundY - 74)
-      ..close();
-    canvas.drawPath(lJersey, strokePaint);
-    // Outer arm bent
-    final lArmOuter = Path()
-      ..moveTo(lHeadX - 14, groundY - 74)
-      ..lineTo(lHeadX - 20, groundY - 58)
-      ..lineTo(lHeadX - 12, groundY - 50);
-    canvas.drawPath(lArmOuter, strokePaint);
-
-    // Left player shorts
-    final lShorts = Path()
-      ..moveTo(lHeadX - 12, groundY - 47)
-      ..lineTo(lHeadX - 14, groundY - 32)
-      ..lineTo(lHeadX - 2, groundY - 32)
-      ..lineTo(lHeadX, groundY - 38)
-      ..lineTo(lHeadX + 2, groundY - 32)
-      ..lineTo(lHeadX + 14, groundY - 32)
-      ..lineTo(lHeadX + 12, groundY - 47)
-      ..close();
-    canvas.drawPath(lShorts, strokePaint);
-
-    // Left player legs & boots
-    canvas.drawLine(
-      Offset(lHeadX - 9, groundY - 32),
-      Offset(lHeadX - 9, groundY - 12),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(lHeadX - 4, groundY - 32),
-      Offset(lHeadX - 4, groundY - 12),
-      strokePaint,
-    );
-    canvas.drawRect(Rect.fromLTWH(lHeadX - 11, groundY - 5, 8, 5), fillPaint);
-
-    canvas.drawLine(
-      Offset(lHeadX + 4, groundY - 32),
-      Offset(lHeadX + 4, groundY - 12),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(lHeadX + 9, groundY - 32),
-      Offset(lHeadX + 9, groundY - 12),
-      strokePaint,
-    );
-    canvas.drawRect(Rect.fromLTWH(lHeadX + 3, groundY - 5, 8, 5), fillPaint);
-
-    // --- Right Player (Player 3) ---
-    final double rHeadX = cx + 38;
-    const double rHeadY = groundY - 90;
-    canvas.drawCircle(Offset(rHeadX, rHeadY), 9.5, strokePaint);
-    final rHair = Path()
-      ..moveTo(rHeadX - 9, rHeadY - 2)
-      ..cubicTo(
-        rHeadX - 8,
-        rHeadY - 13,
-        rHeadX + 8,
-        rHeadY - 13,
-        rHeadX + 9,
-        rHeadY - 2,
-      )
-      ..close();
-    canvas.drawPath(rHair, fillPaint);
-
-    // Right player Jersey
-    final rJersey = Path()
-      ..moveTo(rHeadX - 14, groundY - 74)
-      ..lineTo(rHeadX - 12, groundY - 47)
-      ..lineTo(rHeadX + 12, groundY - 47)
-      ..lineTo(rHeadX + 14, groundY - 74)
-      ..close();
-    canvas.drawPath(rJersey, strokePaint);
-    // Outer arm bent
-    final rArmOuter = Path()
-      ..moveTo(rHeadX + 14, groundY - 74)
-      ..lineTo(rHeadX + 20, groundY - 58)
-      ..lineTo(rHeadX + 12, groundY - 50);
-    canvas.drawPath(rArmOuter, strokePaint);
-
-    // Right player shorts
-    final rShorts = Path()
-      ..moveTo(rHeadX - 12, groundY - 47)
-      ..lineTo(rHeadX - 14, groundY - 32)
-      ..lineTo(rHeadX - 2, groundY - 32)
-      ..lineTo(rHeadX, groundY - 38)
-      ..lineTo(rHeadX + 2, groundY - 32)
-      ..lineTo(rHeadX + 14, groundY - 32)
-      ..lineTo(rHeadX + 12, groundY - 47)
-      ..close();
-    canvas.drawPath(rShorts, strokePaint);
-
-    // Right player legs & boots
-    canvas.drawLine(
-      Offset(rHeadX - 9, groundY - 32),
-      Offset(rHeadX - 9, groundY - 12),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(rHeadX - 4, groundY - 32),
-      Offset(rHeadX - 4, groundY - 12),
-      strokePaint,
-    );
-    canvas.drawRect(Rect.fromLTWH(rHeadX - 11, groundY - 5, 8, 5), fillPaint);
-
-    canvas.drawLine(
-      Offset(rHeadX + 4, groundY - 32),
-      Offset(rHeadX + 4, groundY - 12),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(rHeadX + 9, groundY - 32),
-      Offset(rHeadX + 9, groundY - 12),
-      strokePaint,
-    );
-    canvas.drawRect(Rect.fromLTWH(rHeadX + 3, groundY - 5, 8, 5), fillPaint);
-
-    // --- Football at Center feet ---
-    final double ballX = cx - 1;
-    const double ballY = groundY - 9;
-    const double ballR = 9.0;
-    canvas.drawCircle(Offset(ballX, ballY), ballR, strokePaint);
-    // Ball inner pentagon
-    final pentagon = Path();
-    for (int i = 0; i < 5; i++) {
-      final angle = (i * 72 - 90) * math.pi / 180;
-      final px = ballX + 4.2 * math.cos(angle);
-      final py = ballY + 4.2 * math.sin(angle);
-      if (i == 0) {
-        pentagon.moveTo(px, py);
-      } else {
-        pentagon.lineTo(px, py);
-      }
-    }
-    pentagon.close();
-    canvas.drawPath(pentagon, fillPaint);
-    // Radiating lines from pentagon to perimeter
-    for (int i = 0; i < 5; i++) {
-      final angle = (i * 72 - 90) * math.pi / 180;
-      final px1 = ballX + 4.2 * math.cos(angle);
-      final py1 = ballY + 4.2 * math.sin(angle);
-      final px2 = ballX + ballR * math.cos(angle);
-      final py2 = ballY + ballR * math.sin(angle);
-      canvas.drawLine(Offset(px1, py1), Offset(px2, py2), strokePaint);
-    }
-
-    // --- Radiating burst celebration lines ---
-    // Left burst
-    canvas.drawLine(
-      Offset(cx - 58, groundY - 94),
-      Offset(cx - 67, groundY - 100),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(cx - 62, groundY - 82),
-      Offset(cx - 72, groundY - 84),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(cx - 60, groundY - 70),
-      Offset(cx - 70, groundY - 69),
-      strokePaint,
-    );
-    // Right burst
-    canvas.drawLine(
-      Offset(cx + 58, groundY - 94),
-      Offset(cx + 67, groundY - 100),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(cx + 62, groundY - 82),
-      Offset(cx + 72, groundY - 84),
-      strokePaint,
-    );
-    canvas.drawLine(
-      Offset(cx + 60, groundY - 70),
-      Offset(cx + 70, groundY - 69),
-      strokePaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

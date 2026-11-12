@@ -231,7 +231,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     embedded: true,
     showLogo: true,
     showNotifications: _config['showNotifications'] != false,
-    showProfile: _config['showProfile'] != false,
+    // Keep the existing admin setting key for saved Explore configurations.
+    showSearch: _config['showProfile'] != false,
   );
   Widget _feature(Map<String, dynamic> item, double width) {
     final accent = _tone('cardAccent', authRed);

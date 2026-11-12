@@ -1,5 +1,8 @@
+import '../brand_colors.dart';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import 'club_header.dart';
 
 import '../chat_dates.dart';
 import '../session.dart';
@@ -8,7 +11,7 @@ import 'care_verified_badge.dart';
 import 'chat_wallpaper.dart';
 import 'support_hub_avatar.dart';
 
-const careRed = Color(0xFFC92922);
+const careRed = brandAccent;
 const _background = Color(0xFFFFFAFA);
 
 class HighlanderCareChat extends StatelessWidget {
@@ -35,6 +38,7 @@ class HighlanderCareChat extends StatelessWidget {
     required this.onRemoveAttachment,
     this.attachmentName,
     this.error,
+    this.earlierMessages,
   });
 
   final List<Map<String, dynamic>> messages;
@@ -47,6 +51,7 @@ class HighlanderCareChat extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final Widget? Function(Map<String, dynamic>) attachmentBuilder;
   final String? attachmentName, error;
+  final Widget? earlierMessages;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -56,26 +61,33 @@ class HighlanderCareChat extends StatelessWidget {
 
   Widget _view(BuildContext context, String name) => Scaffold(
     backgroundColor: _background,
-    appBar: AppBar(
-      toolbarHeight: 72,
-      titleSpacing: 0,
-      foregroundColor: Colors.white,
-      backgroundColor: const Color(0xFFA32118),
-      surfaceTintColor: Colors.transparent,
-      elevation: 2,
-      shadowColor: Colors.black26,
-      systemOverlayStyle: SystemUiOverlayStyle.light,
-      leading: BackButton(onPressed: () => Navigator.maybePop(context)),
-      flexibleSpace: const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF932017), Color(0xFFBB2920), Color(0xFF941E17)],
-          ),
+    appBar: ClubHeader(
+      title: name,
+      showSearch: false,
+      showSupport: false,
+      showNotifications: false,
+      trailing: [
+        PopupMenuButton<String>(
+          key: const ValueKey('support-chat-menu'),
+          tooltip: 'Chat options',
+          enabled: !busy && !uploading && !loading,
+          icon: const Icon(Icons.more_vert, color: Colors.white),
+          onSelected: (_) => onClear(),
+          itemBuilder: (_) => const [
+            PopupMenuItem(
+              value: 'clear',
+              child: Row(
+                children: [
+                  Icon(Icons.delete_outline, color: careRed, size: 20),
+                  SizedBox(width: 10),
+                  Text('Clear chat'),
+                ],
+              ),
+            ),
+          ],
         ),
-      ),
-      title: Row(
+      ],
+      titleWidget: Row(
         children: [
           const SupportHubAvatar(radius: 20),
           const SizedBox(width: 12),
@@ -89,7 +101,7 @@ class HighlanderCareChat extends StatelessWidget {
                       child: Text(
                         name,
                         style: const TextStyle(
-                          fontSize: 17,
+                          fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -128,123 +140,91 @@ class HighlanderCareChat extends StatelessWidget {
           ),
         ],
       ),
-      actions: [
-        PopupMenuButton<String>(
-          tooltip: 'Chat options',
-          enabled: !busy,
-          icon: const Icon(Icons.more_vert),
-          color: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          position: PopupMenuPosition.under,
-          onSelected: (action) => action == 'clear' ? onClear() : onBlock(),
-          itemBuilder: (_) => [
-            const PopupMenuItem(
-              value: 'clear',
-              child: Row(
-                children: [
-                  Icon(Icons.delete_outline, color: Colors.black87, size: 21),
-                  SizedBox(width: 10),
-                  Text('Clear Chat'),
-                ],
-              ),
-            ),
-            const PopupMenuDivider(height: 1),
-            PopupMenuItem(
-              value: 'block',
-              child: Row(
-                children: [
-                  const Icon(Icons.block, color: Colors.black87, size: 21),
-                  const SizedBox(width: 10),
-                  Text(blocked ? 'Unblock' : 'Block'),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 6),
-      ],
     ),
     body: ChatWallpaper(
       child: Column(
-      children: [
-        if (error != null)
-          MaterialBanner(
-            content: Text(error!),
-            actions: [
-              TextButton(onPressed: onRefresh, child: const Text('Retry')),
-            ],
-          ),
-        Expanded(
-          child: loading
-              ? const Center(child: CircularProgressIndicator(color: careRed))
-              : RefreshIndicator(
-                  color: careRed,
-                  onRefresh: onRefresh,
-                  child: ListView.builder(
-                    reverse: messages.isNotEmpty,
-                    controller: scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
-                    itemCount: messages.isEmpty ? 1 : messages.length,
-                    itemBuilder: (context, reverseIndex) {
-                      if (messages.isEmpty) {
-                        if (cleared || error != null)
-                          return const SizedBox.shrink();
-                        return CareMessageBubble(
-                          own: false,
-                          child: Text(
-                            'Hi ${Session.name.trim().isEmpty ? 'Highlander' : Session.name.trim().split(RegExp(r'\s+')).first}! \u{1F44B}\nWelcome to $name. How can we help you today?',
-                          ),
-                        );
-                      }
-                      final index = messages.length - 1 - reverseIndex;
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (messageDate(messages[index]) case final date?)
-                            if (index == 0 ||
-                                !sameChatDay(
-                                  date,
-                                  messageDate(messages[index - 1]),
-                                ))
-                              Center(
-                                child: Container(
-                                  margin: const EdgeInsets.only(
-                                    bottom: 18,
-                                    top: 4,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(9),
-                                  ),
-                                  child: Text(
-                                    chatDateLabel(date),
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF777777),
+        children: [
+          if (error != null)
+            MaterialBanner(
+              content: Text(error!),
+              actions: [
+                TextButton(onPressed: onRefresh, child: const Text('Retry')),
+              ],
+            ),
+          Expanded(
+            child: loading
+                ? const Center(child: CircularProgressIndicator(color: careRed))
+                : RefreshIndicator(
+                    color: careRed,
+                    onRefresh: onRefresh,
+                    child: ListView.builder(
+                      reverse: messages.isNotEmpty,
+                      controller: scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+                      itemCount: messages.isEmpty
+                          ? 1
+                          : messages.length + (earlierMessages != null ? 1 : 0),
+                      itemBuilder: (context, reverseIndex) {
+                        if (messages.isNotEmpty &&
+                            reverseIndex == messages.length) {
+                          return earlierMessages!;
+                        }
+                        if (messages.isEmpty) {
+                          if (cleared || error != null)
+                            return const SizedBox.shrink();
+                          return CareMessageBubble(
+                            own: false,
+                            child: Text(
+                              'Hi ${Session.name.trim().isEmpty ? 'Highlander' : Session.name.trim().split(RegExp(r'\s+')).first}! \u{1F44B}\nWelcome to $name. How can we help you today?',
+                            ),
+                          );
+                        }
+                        final index = messages.length - 1 - reverseIndex;
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (messageDate(messages[index]) case final date?)
+                              if (index == 0 ||
+                                  !sameChatDay(
+                                    date,
+                                    messageDate(messages[index - 1]),
+                                  ))
+                                Center(
+                                  child: Container(
+                                    margin: const EdgeInsets.only(
+                                      bottom: 18,
+                                      top: 4,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(9),
+                                    ),
+                                    child: Text(
+                                      chatDateLabel(date),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF777777),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          _message(messages[index]),
-                        ],
-                      );
-                    },
+                            _message(messages[index]),
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-        ),
-        _composer(context, name),
-      ],
+          ),
+          _composer(context, name),
+        ],
+      ),
     ),
-  ),
-);
+  );
 
   Widget _message(Map<String, dynamic> message) => CareMessageBubble(
     key: ValueKey('chat-message-${message['_id'] ?? message['id']}'),
@@ -345,10 +325,11 @@ class HighlanderCareChat extends StatelessWidget {
                     ),
                   ),
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
                       child: Container(
+                        constraints: const BoxConstraints(minHeight: 48),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(26),
@@ -376,6 +357,7 @@ class HighlanderCareChat extends StatelessWidget {
                                 minLines: 1,
                                 maxLines: 4,
                                 maxLength: 10000,
+                                textAlignVertical: TextAlignVertical.center,
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: Color(0xFF282828),
@@ -391,13 +373,15 @@ class HighlanderCareChat extends StatelessWidget {
                                     vertical: 12,
                                   ),
                                   border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
                                 ),
                                 onSubmitted: (_) => onSend(),
                               ),
                             ),
                             IconButton(
                               key: const ValueKey('chat-attachment'),
-                              tooltip: 'Upload file',
+                              tooltip: 'Attach file',
                               onPressed: busy || uploading ? null : onAttach,
                               constraints: const BoxConstraints.tightFor(
                                 width: 36,
@@ -413,7 +397,7 @@ class HighlanderCareChat extends StatelessWidget {
                                       ),
                                     )
                                   : const Icon(
-                                      Icons.upload_file_outlined,
+                                      Icons.attach_file_rounded,
                                       size: 23,
                                       color: careRed,
                                     ),
@@ -439,9 +423,18 @@ class HighlanderCareChat extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
+                      padding: EdgeInsets.zero,
                       child: IconButton(
                         tooltip: 'Send message',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 48,
+                          height: 48,
+                        ),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                         onPressed: busy || uploading || loading ? null : onSend,
                         icon: CircleAvatar(
                           radius: 22,
@@ -500,7 +493,7 @@ class CareMessageBubble extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(own ? 14 : 23, 10, own ? 23 : 9, 5),
           child: DefaultTextStyle(
             style: const TextStyle(
-              fontFamily: 'SwoofiSans',
+              fontFamily: 'Gilroy',
               fontFamilyFallback: ['Segoe UI Emoji'],
               fontSize: 16,
               height: 1.45,

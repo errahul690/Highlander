@@ -1,8 +1,9 @@
+import '../brand_colors.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../app_navigation.dart';
 import '../club_repository.dart';
 import '../media_cache.dart';
 import '../feed_match_schedule.dart';
@@ -10,11 +11,11 @@ import '../models.dart';
 import '../screens/match_detail_screen.dart';
 import '../screens/matches_screen.dart';
 import '../screens/match_preview_screen.dart';
+import '../screens/match_report_screen.dart';
 import '../theme.dart';
 import 'club_crest.dart';
-import 'feed_match_matchup.dart';
-import 'hero_latest_result_card.dart';
-import 'hero_next_match_card.dart';
+import 'feed_match_report_card.dart';
+import 'match_page_cards.dart';
 import 'match_card_veil.dart';
 import 'watch_live_sheet.dart';
 
@@ -42,21 +43,6 @@ class _FeedMatchFeatureState extends State<FeedMatchFeature> {
     super.dispose();
   }
 
-  void _open(Fixture f, String url) {
-    if (f.section != 'completed' && f.previewContent.isNotEmpty) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => MatchPreviewScreen(fixture: f)));
-      return;
-    }
-    if (url.isNotEmpty) {
-      openAppDestination(context, url);
-      return;
-    }
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => MatchDetailScreen(fixture: f)));
-  }
-
   @override
   Widget build(BuildContext context) => FutureBuilder<ClubContent>(
     future: widget.content,
@@ -70,7 +56,20 @@ class _FeedMatchFeatureState extends State<FeedMatchFeature> {
       if (selection == null) return const SizedBox.shrink();
       final f = selection.fixture;
       final phase = selection.phase;
-      if (phase == FeedMatchPhase.report) return const SizedBox.shrink();
+      if (phase == FeedMatchPhase.report) {
+        return FeedMatchReportCard(
+          fixture: f,
+          background: _AdminMatchThumbnail(
+            url: f.reportThumbnail,
+            fallback: 'assets/images/match-report-background.png',
+          ),
+          onReadReport: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => MatchReportScreen(fixture: f)),
+          ),
+          onViewAll: () => Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const MatchesScreen())),
+        );
+      }
       final thumbnail = feedMatchThumbnail(
         f,
         phase,
@@ -82,17 +81,12 @@ class _FeedMatchFeatureState extends State<FeedMatchFeature> {
             ? 'assets/images/matchday_live_default.png'
             : content.defaultMatchThumbnail,
       );
-      if (phase == FeedMatchPhase.upcoming ||
-          (phase == FeedMatchPhase.preview &&
-              f.previewContent.trim().isEmpty)) {
+      if (phase == FeedMatchPhase.upcoming) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: HeroNextMatchCard(
+          child: MatchPageHero(
             fixture: f,
-            badgeText: phase == FeedMatchPhase.preview
-                ? 'BEFORE KICK-OFF'
-                : 'NEXT MATCH',
-            onViewMatch: () => Navigator.of(context).push(
+            onOpen: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => MatchDetailScreen(fixture: f)),
             ),
           ),
@@ -108,196 +102,11 @@ class _FeedMatchFeatureState extends State<FeedMatchFeature> {
             fallback: 'assets/images/before_kickoff_default.png',
           ),
           onOpen: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => MatchPreviewScreen(fixture: f)),
-          ),
-        );
-      }
-      if (phase == FeedMatchPhase.report &&
-          f.reportUrl.isEmpty &&
-          f.reportTitle.isEmpty) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: HeroLatestResultCard(
-            fixture: f,
-            onViewMatch: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => MatchDetailScreen(fixture: f)),
+            MaterialPageRoute(
+              builder: (_) => f.previewContent.trim().isEmpty
+                  ? MatchDetailScreen(fixture: f)
+                  : MatchPreviewScreen(fixture: f),
             ),
-            onHighlights: () {
-              final video = f.highlightsUrl.isNotEmpty
-                  ? f.highlightsUrl
-                  : f.videoUrl;
-              if (video.isNotEmpty) {
-                openAppDestination(context, video);
-              } else {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        MatchDetailScreen(fixture: f, playHighlights: true),
-                  ),
-                );
-              }
-            },
-          ),
-        );
-      }
-      if (phase != FeedMatchPhase.live) {
-        final upcoming = phase == FeedMatchPhase.upcoming;
-        final preview = false;
-        final url = preview ? f.previewUrl : f.reportUrl;
-        final title = preview ? f.previewTitle : f.reportTitle;
-        final summary = preview ? f.previewDescription : f.summary;
-        return Container(
-          key: ValueKey(preview ? 'feed-match-preview' : 'feed-match-report'),
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: preview ? const Color(0xFFE5F4FD) : const Color(0xFFF0F5EE),
-            borderRadius: BorderRadius.circular(17),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    preview ? Icons.menu_book_outlined : Icons.article_outlined,
-                    size: 18,
-                    color: const Color(0xFF15263C),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    upcoming
-                        ? 'Upcoming matches'
-                        : preview
-                        ? 'Before Kick-Off'
-                        : 'Match Report',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF15263C),
-                    ),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 26, top: 2, bottom: 12),
-                child: Text(
-                  upcoming
-                      ? '${f.date} · ${f.time.isEmpty ? 'Time to be confirmed' : '${f.time} IST'}'
-                      : preview
-                      ? 'The build-up to matchday'
-                      : 'From our last match',
-                  style: const TextStyle(
-                    color: Color(0xFF748397),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              FeedMatchMatchup(
-                fixture: f,
-                onTap: () => upcoming
-                    ? Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => MatchDetailScreen(fixture: f),
-                        ),
-                      )
-                    : _open(f, url),
-              ),
-              Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => upcoming
-                      ? Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => MatchDetailScreen(fixture: f),
-                          ),
-                        )
-                      : _open(f, url),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            width: 96,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: image,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    upcoming
-                                        ? 'UPCOMING'
-                                        : preview
-                                        ? 'MATCH PREVIEW'
-                                        : 'MATCH REPORT',
-                                    style: const TextStyle(
-                                      fontSize: 9,
-                                      color: Color(0xFF1463FF),
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    upcoming || title.isEmpty
-                                        ? '${f.home} vs ${f.away}'
-                                        : title,
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      height: 1.3,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF14253D),
-                                    ),
-                                  ),
-                                  if (!upcoming && summary.isNotEmpty) ...[
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      summary,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        height: 1.4,
-                                        color: Color(0xFF748397),
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    upcoming
-                                        ? 'View match →'
-                                        : preview
-                                        ? 'Read Preview →'
-                                        : 'Read Report →',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF1463FF),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ),
         );
       }
@@ -324,7 +133,7 @@ class _FeedMatchFeatureState extends State<FeedMatchFeature> {
                   ),
                   child: const Text(
                     'View all →',
-                    style: TextStyle(color: Color(0xFFE11924)),
+                    style: TextStyle(color: brandAccent),
                   ),
                 ),
               ],
@@ -550,7 +359,7 @@ class _BeforeKickoffCard extends StatelessWidget {
                                   fontFamily: clubFontFamily,
                                   fontSize: 10,
                                   letterSpacing: 0.3,
-                                  color: Color(0xFF1463FF),
+                                  color: brandAccent,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -605,7 +414,7 @@ class _BeforeKickoffCard extends StatelessWidget {
                                   fontFamily: clubFontFamily,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF1463FF),
+                                  color: brandAccent,
                                 ),
                               ),
                             ],
@@ -685,7 +494,7 @@ class _LiveAction extends StatelessWidget {
                 height: 26,
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFE11924),
+                  color: brandAccent,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -779,21 +588,32 @@ class _AdminMatchThumbnail extends StatelessWidget {
   const _AdminMatchThumbnail({required this.url, required this.fallback});
   final String url, fallback;
   Widget _empty() => const ColoredBox(color: Color(0xFF33483F));
-  Widget _image(String source, Widget Function() failed) =>
-      source.startsWith('assets/')
-      ? Image.asset(
-          source,
-          fit: BoxFit.cover,
-          errorBuilder: (_, error, stack) => failed(),
-        )
-      : Image.network(
-          ClubRepository.mediaUrl(source),
-          key: ValueKey(
-            'match-thumb-$source-${MediaCache.instance.generation.value}',
-          ),
-          fit: BoxFit.cover,
-          errorBuilder: (_, error, stack) => failed(),
-        );
+  Widget _image(String source, Widget Function() failed) {
+    if (source.startsWith('assets/')) {
+      return Image.asset(
+        source,
+        fit: BoxFit.cover,
+        errorBuilder: (_, error, stack) => failed(),
+      );
+    }
+    final bytes = MediaCache.instance.bytesFor(source);
+    if (bytes != null) {
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        errorBuilder: (_, error, stack) => failed(),
+      );
+    }
+    return Image.network(
+      ClubRepository.mediaUrl(source),
+      key: ValueKey(
+        'match-thumb-$source-${MediaCache.instance.generation.value}',
+      ),
+      fit: BoxFit.cover,
+      errorBuilder: (_, error, stack) => failed(),
+    );
+  }
+
   Widget _fallback() => fallback.isNotEmpty && fallback != url
       ? _image(fallback, _empty)
       : _empty();

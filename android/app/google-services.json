@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "213470650101",
-    "project_id": "highlander-a81a4",
-    "storage_bucket": "highlander-a81a4.firebasestorage.app"
+    "project_number": "410391336363",
+    "project_id": "highlanders-79b8c",
+    "storage_bucket": "highlanders-79b8c.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:213470650101:android:8bc776bb6791a64f9eefbc",
+        "mobilesdk_app_id": "1:410391336363:android:41aea806d0987520ae6eee",
         "android_client_info": {
           "package_name": "com.highlander"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBkHCUaJJ4JqCG2W0wRXPN7B8bSPHd2kQA"
+          "current_key": "AIzaSyDI-Lm-KXIKo5XkmRP9pM_KhzmPXI_LrHQ"
         }
       ],
       "services": {

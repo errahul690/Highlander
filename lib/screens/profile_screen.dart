@@ -1,5 +1,4 @@
-import '../widgets/club_page_body.dart';
-
+import '../brand_colors.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -28,7 +27,12 @@ import 'chat_screen.dart';
 import 'shell.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, this.client, this.onBack, this.isActive = false});
+  const ProfileScreen({
+    super.key,
+    this.client,
+    this.onBack,
+    this.isActive = false,
+  });
   final http.Client? client;
   final VoidCallback? onBack;
   final bool isActive;
@@ -68,7 +72,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     )..addListener(_pageChanged);
     _loadUserPosts();
     _loadCounts();
-    _postsSubscription = RealtimeClient.instance.settingsChanges.listen((event) {
+    _postsSubscription = RealtimeClient.instance.settingsChanges.listen((
+      event,
+    ) {
       if ((event['resource'] == 'posts' || event['resource'] == 'all') &&
           event['action'] != 'liked') {
         _loadUserPosts();
@@ -317,7 +323,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
-            prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF8B8F97)),
+            prefixIcon: const Icon(
+              Icons.search,
+              size: 20,
+              color: Color(0xFF8B8F97),
+            ),
             filled: true,
             fillColor: Colors.white,
             isDense: true,
@@ -332,7 +342,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFC82D22)),
+              borderSide: const BorderSide(color: brandAccent),
             ),
           ),
         ),
@@ -503,14 +513,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     key: key,
     tooltip: tooltip,
     onPressed: onPressed,
-    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+    constraints: const BoxConstraints.tightFor(width: 44, height: 44),
     padding: EdgeInsets.zero,
     style: IconButton.styleFrom(
-      foregroundColor: const Color(0xFF7A1820),
-      backgroundColor: const Color(0xFFFFF1EF),
+      foregroundColor: brandAccent,
+      backgroundColor: const Color(0xFFF7E4EB),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
-    icon: Icon(icon, size: 18),
+    icon: Icon(icon, size: 22),
   );
 
   Widget _profileActions() => Row(
@@ -522,7 +533,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         icon: Icons.edit_outlined,
         onPressed: _openEditProfile,
       ),
-      const SizedBox(width: 6),
+      const SizedBox(width: 8),
       _profileAction(
         key: const ValueKey('profile-settings-btn'),
         tooltip: 'Settings',
@@ -568,15 +579,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  String _formatMaskedPhone() {
-    final phone = Session.phone.trim();
-    if (phone.length >= 4) {
-      final last4 = phone.substring(phone.length - 4);
-      return '+91 • • • • • • $last4';
-    }
-    return '';
-  }
-
   String _getDisplayName() {
     if (Session.name.isNotEmpty && Session.name != 'Highlander') {
       return Session.name;
@@ -599,321 +601,260 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          _handleBack();
-        }
-      },
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light.copyWith(
-          statusBarColor: Colors.transparent,
-        ),
-        child: Scaffold(
-          backgroundColor: const Color(0xFFF7F8FA),
-          body: Stack(
+  Widget _profileHero(BuildContext context) {
+    final headerHeight =
+        MediaQuery.paddingOf(context).top +
+        const ClubHeader(title: 'Profile').preferredSize.height;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 360;
+        final radius = compact ? 34.0 : 42.0;
+        return SizedBox(
+          key: const ValueKey('profile-hero'),
+          height: headerHeight + 180,
+          child: Stack(
             children: [
-              Column(
-                children: [
-                  // ================================================================
-                  // HEADER BAR (Club Red with Back, Edit, and Settings Button)
-                  // ================================================================
-                  ClubHeader(
-                    title: 'Profile',
-                    embedded: true,
-                  ),
-                  // ================================================================
-                  // BODY (User Info Card, Stats, and My Posts Feed)
-                  // ================================================================
-                  Expanded(
-                    child: ClubPageBody(
-                      color: const Color(0xFFF7F8FA),
-                      child: RefreshIndicator(
-                        onRefresh: _refresh,
-                        color: const Color(0xFF881A1A),
-                        child: PostListView(
-                          pager: _pager,
-                          onChanged: _loadUserPosts,
-                          showPosts: _section == 'posts',
-                          alternative: _section == 'posts'
-                              ? null
-                              : _sectionContent(),
-                          padding: EdgeInsets.fromLTRB(
-                            12,
-                            10,
-                            12,
-                            MediaQuery.paddingOf(context).bottom + 24,
-                          ),
-                          header: [
-                            Container(
-                              padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(22),
-                                border: Border.all(color: const Color(0xFFE7E4DE)),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x12000000),
-                                    blurRadius: 18,
-                                    offset: Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(2.5),
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Color(0xFFE23A30),
-                                          Color(0xFF8E1618),
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                    ),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: const BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white,
-                                      ),
-                                      child: const UserAvatar(
-                                        currentUser: true,
-                                        radius: 30,
-                                        backgroundColor: Color(0xFF7A1820),
-                                        foregroundColor: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          crossAxisAlignment:
-                                              Session.email.trim().isEmpty &&
-                                                  Session.city.trim().isEmpty &&
-                                                  _formatMaskedPhone().isEmpty
-                                              ? CrossAxisAlignment.center
-                                              : CrossAxisAlignment.start,
-                                          children: [
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Text(
-                                                    _getDisplayName(),
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                      color: Color(0xFF10141A),
-                                                      letterSpacing: -.3,
-                                                      height: 1.15,
-                                                    ),
-                                                  ),
-                                                  if (Session.email
-                                                      .trim()
-                                                      .isNotEmpty) ...[
-                                                    const SizedBox(height: 3),
-                                                    Text(
-                                                      Session.email.trim(),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: const TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: Color(
-                                                          0xFF5A6372,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                  if (_formatMaskedPhone()
-                                                      .isNotEmpty) ...[
-                                                    const SizedBox(height: 3),
-                                                    FittedBox(
-                                                      fit: BoxFit.scaleDown,
-                                                      alignment: Alignment
-                                                          .centerLeft,
-                                                      child: Text(
-                                                        _formatMaskedPhone(),
-                                                        maxLines: 1,
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          color: Color(
-                                                            0xFF5A6372,
-                                                          ),
-                                                          letterSpacing: .2,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            _profileActions(),
-                                          ],
-                                        ),
-                                        if (Session.city.trim().isNotEmpty) ...[
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.location_on_outlined,
-                                                size: 14,
-                                                color: Color(0xFFC82D22),
-                                              ),
-                                              const SizedBox(width: 3),
-                                              Flexible(
-                                                child: Text(
-                                                  Session.city.trim(),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Color(0xFF5A6372),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            Container(
-                              clipBehavior: Clip.antiAlias,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: const Color(0xFFE7E4DE),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _StatCard(
-                                      icon: Icons.grid_view_rounded,
-                                      count: _postCount?.toString() ?? '—',
-                                      label: 'Posts',
-                                      selected: _section == 'posts',
-                                      onTap: () => _selectSection('posts'),
-                                    ),
-                                  ),
-                                  const _StatDivider(),
-                                  Expanded(
-                                    child: _StatCard(
-                                      icon: Icons.group_outlined,
-                                      count:
-                                          _followersCount?.toString() ?? '—',
-                                      label: 'Followers',
-                                      selected: _section == 'followers',
-                                      onTap: () => _selectSection('followers'),
-                                    ),
-                                  ),
-                                  const _StatDivider(),
-                                  Expanded(
-                                    child: _StatCard(
-                                      icon: Icons.person_add_alt_outlined,
-                                      count:
-                                          _followingCount?.toString() ?? '—',
-                                      label: 'Following',
-                                      selected: _section == 'following',
-                                      onTap: () => _selectSection('following'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Container(
-                                  width: 3,
-                                  height: 16,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFC82D22),
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _section == 'posts'
-                                      ? 'My posts'
-                                      : _section == 'followers'
-                                      ? 'Followers'
-                                      : 'Following',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -.2,
-                                    color: Color(0xFF10141A),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // Accessible shortcut for automated logout test
               Positioned(
-                bottom: 0,
+                top: headerHeight - 24,
                 left: 0,
-                child: SizedBox(
-                  width: 80,
-                  height: 36,
-                  child: TextButton(
-                    onPressed: _logout,
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.transparent,
-                    ),
-                    child: const Text(
-                      'Log out',
-                      style: TextStyle(color: Colors.transparent, fontSize: 1),
+                right: 0,
+                height: 140,
+                child: Image.asset(
+                  'assets/images/profile-cover.png',
+                  key: const ValueKey('profile-cover'),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                ),
+              ),
+              Positioned(
+                top: headerHeight + 104,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF7F6FB),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
                     ),
                   ),
                 ),
               ),
+              Positioned(
+                top: headerHeight + 82,
+                left: 18,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: UserAvatar(
+                    currentUser: true,
+                    radius: radius,
+                    backgroundColor: brandAccent,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: headerHeight + 118,
+                left: compact ? 102 : 126,
+                right: 18,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _getDisplayName(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                              height: 1.15,
+                              color: Color(0xFF171717),
+                            ),
+                          ),
+                          if (Session.email.trim().isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              Session.email.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF737584),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _profileActions(),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
+
+  Widget _profileStats() => Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x160F172A),
+          blurRadius: 12,
+          offset: Offset(0, 5),
+        ),
+      ],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Row(
+        children: [
+          Expanded(
+            child: _StatCard(
+              iconAsset: 'assets/icons/profile-posts.png',
+              count: _postCount?.toString() ?? '—',
+              label: 'Posts',
+              selected: _section == 'posts',
+              onTap: () => _selectSection('posts'),
+            ),
+          ),
+          const _StatDivider(),
+          Expanded(
+            child: _StatCard(
+              iconAsset: 'assets/icons/profile-followers.png',
+              count: _followersCount?.toString() ?? '—',
+              label: 'Followers',
+              selected: _section == 'followers',
+              onTap: () => _selectSection('followers'),
+            ),
+          ),
+          const _StatDivider(),
+          Expanded(
+            child: _StatCard(
+              iconAsset: 'assets/icons/profile-following.png',
+              count: _followingCount?.toString() ?? '—',
+              label: 'Following',
+              selected: _section == 'following',
+              onTap: () => _selectSection('following'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, result) {
+      if (!didPop) _handleBack();
+    },
+    child: AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF7F6FB),
+        body: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _refresh,
+              color: brandAccent,
+              edgeOffset: MediaQuery.paddingOf(context).top + 80,
+              child: PostListView(
+                pager: _pager,
+                onChanged: _loadUserPosts,
+                showPosts: _section == 'posts',
+                alternative: _section == 'posts' ? null : _sectionContent(),
+                beforeHeader: _profileHero(context),
+                padding: EdgeInsets.fromLTRB(
+                  18,
+                  8,
+                  18,
+                  MediaQuery.paddingOf(context).bottom + 24,
+                ),
+                spacing: 16,
+                header: [
+                  _profileStats(),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 23,
+                        decoration: BoxDecoration(
+                          color: brandAccent,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                      const SizedBox(width: 9),
+                      Text(
+                        _section == 'posts'
+                            ? 'My Posts'
+                            : _section == 'followers'
+                            ? 'Followers'
+                            : 'Following',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF171717),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: ClubHeader(
+                title: 'Profile',
+                embedded: true,
+                showSearch: false,
+                showNotifications: false,
+                showSupport: false,
+                uppercaseTitle: false,
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              child: SizedBox(
+                width: 80,
+                height: 36,
+                child: TextButton(
+                  onPressed: _logout,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.transparent,
+                  ),
+                  child: const Text(
+                    'Log out',
+                    style: TextStyle(color: Colors.transparent, fontSize: 1),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 // ============================================================================
@@ -921,14 +862,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 // ============================================================================
 class _StatCard extends StatelessWidget {
   const _StatCard({
-    required this.icon,
+    required this.iconAsset,
     required this.count,
     required this.label,
     required this.onTap,
     this.selected = false,
   });
 
-  final IconData icon;
+  final String iconAsset;
   final String count;
   final String label;
   final VoidCallback onTap;
@@ -936,22 +877,28 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = Color(0xFFC82D22);
+    const accent = brandAccent;
     return Material(
-      color: selected ? const Color(0xFFFFF4F2) : Colors.white,
+      color: selected ? const Color(0xFFFCEEF3) : Colors.white,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
           child: Column(
             children: [
-              Icon(icon, color: selected ? accent : const Color(0xFF8A92A0), size: 16),
-              const SizedBox(height: 6),
+              Image.asset(
+                iconAsset,
+                width: 18,
+                height: 18,
+                color: selected ? accent : const Color(0xFF737584),
+                filterQuality: FilterQuality.high,
+              ),
+              const SizedBox(height: 5),
               Text(
                 count,
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                   color: selected ? accent : const Color(0xFF1E2229),
                   height: 1.1,
                 ),
@@ -962,9 +909,9 @@ class _StatCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: selected ? accent : const Color(0xFF8A92A0),
+                  color: selected ? accent : const Color(0xFF737584),
                 ),
               ),
             ],
@@ -982,11 +929,7 @@ class _StatDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SizedBox(
       height: 36,
-      child: VerticalDivider(
-        width: 1,
-        thickness: 1,
-        color: Color(0xFFE7E4DE),
-      ),
+      child: VerticalDivider(width: 1, thickness: 1, color: Color(0xFFE7E4DE)),
     );
   }
 }

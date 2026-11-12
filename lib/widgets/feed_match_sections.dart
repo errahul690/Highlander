@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import '../brand_colors.dart';
 
 import 'club_crest.dart';
 export 'feed_match_feature.dart';
@@ -22,7 +23,7 @@ import '../screens/match_detail_screen.dart';
 import '../screens/matches_screen.dart'
     show MatchesScreen, MatchOutcome, getMatchOutcome;
 
-const _red = Color(0xFF29388C);
+const _red = brandAccent;
 const _ink = Color(0xFF191B24);
 
 void _openMatch(BuildContext context, Fixture fixture) => Navigator.of(

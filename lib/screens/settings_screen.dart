@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import '../widgets/club_page_body.dart';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../otp_api.dart';
 import '../feed_store.dart';
 import '../message_alerts.dart';
 import '../theme.dart';
+import '../legal_documents.dart';
 import 'chat_settings_screen.dart';
 import 'follow_settings_screen.dart';
 import 'follow_requests_screen.dart';
@@ -25,7 +27,7 @@ class SettingsScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: const ClubHeader(
         title: 'Settings',
-        showBack: true,
+        showBack: false,
         backKey: ValueKey('settings-back-btn'),
       ),
       body: ListView(
@@ -36,21 +38,21 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _SettingsTile(
             icon: Icons.chat_bubble_outline_rounded,
-            iconColor: const Color(0xFFE01F1B),
+            iconColor: brandAccent,
             title: 'Chat Settings',
             subtitle: 'Direct messages, permissions & safety',
             onTap: () => _open(context, const ChatSettingsScreen()),
           ),
           _SettingsTile(
             icon: Icons.manage_accounts_outlined,
-            iconColor: const Color(0xFFE01F1B),
+            iconColor: brandAccent,
             title: 'Follow Settings',
             subtitle: 'Follow approval and privacy controls',
             onTap: () => _open(context, const FollowSettingsScreen()),
           ),
           _SettingsTile(
             icon: Icons.person_add_alt_1_outlined,
-            iconColor: const Color(0xFFE01F1B),
+            iconColor: brandAccent,
             title: 'Follow Requests',
             subtitle: 'Pending requests from other fans',
             onTap: () => _open(context, const FollowRequestsScreen()),
@@ -63,7 +65,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _SettingsTile(
             icon: Icons.people_outline_rounded,
-            iconColor: const Color(0xFF1E3A5F),
+            iconColor: brandAccent,
             title: 'Followers List',
             subtitle: 'Fans who follow your activity',
             onTap: () =>
@@ -71,7 +73,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           _SettingsTile(
             icon: Icons.person_search_outlined,
-            iconColor: const Color(0xFF1E3A5F),
+            iconColor: brandAccent,
             title: 'Following List',
             subtitle: 'Highlanders you follow',
             onTap: () =>
@@ -79,14 +81,14 @@ class SettingsScreen extends StatelessWidget {
           ),
           _SettingsTile(
             icon: Icons.favorite_border_rounded,
-            iconColor: const Color(0xFF1E3A5F),
+            iconColor: brandAccent,
             title: 'Close Friends',
-            subtitle: 'Mutual connections & inner circle',
+            subtitle: 'Mutual connections & your huddles',
             onTap: () => _open(context, const FriendsScreen(title: 'Friends')),
           ),
           _SettingsTile(
             icon: Icons.edit_note_rounded,
-            iconColor: const Color(0xFF1E3A5F),
+            iconColor: brandAccent,
             title: 'Create a Post',
             subtitle: 'Share highlights with the community',
             onTap: () => _open(context, const CreatePostScreen()),
@@ -97,52 +99,62 @@ class SettingsScreen extends StatelessWidget {
           // Section 3: About
           _buildSectionHeader('ABOUT'),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFEFEFEF)),
+          for (final document in LegalDocument.values)
+            _SettingsTile(
+              icon: document == LegalDocument.terms
+                  ? Icons.description_outlined
+                  : Icons.privacy_tip_outlined,
+              iconColor: brandAccent,
+              title: document.title,
+              subtitle: 'Read on the Highlanders website',
+              onTap: () => openLegalDocument(context, document),
             ),
-            child: Row(
-              children: [
-                Image.asset(
-                  'assets/images/club-logo.png',
-                  width: 36,
-                  height: 36,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.shield_outlined,
-                    color: Color(0xFF881A1A),
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'NorthEast United FC',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          color: Color(0xFF1E2229),
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Official Highlanders Fan Experience • v1.0.0',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF8A92A0),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Container(
+          //   padding: const EdgeInsets.all(16),
+          //   decoration: BoxDecoration(
+          //     color: Colors.white,
+          //     borderRadius: BorderRadius.circular(16),
+          //     border: Border.all(color: const Color(0xFFEFEFEF)),
+          //   ),
+          //   child: Row(
+          //     children: [
+          //       Image.asset(
+          //         'assets/images/club-logo.png',
+          //         width: 36,
+          //         height: 36,
+          //         errorBuilder: (_, __, ___) => const Icon(
+          //           Icons.shield_outlined,
+          //           color: Color(0xFF881A1A),
+          //           size: 32,
+          //         ),
+          //       ),
+          //       const SizedBox(width: 14),
+          //       const Expanded(
+          //         child: Column(
+          //           crossAxisAlignment: CrossAxisAlignment.start,
+          //           children: [
+          //             Text(
+          //               'NorthEast United FC',
+          //               style: TextStyle(
+          //                 fontWeight: FontWeight.w800,
+          //                 fontSize: 14,
+          //                 color: Color(0xFF1E2229),
+          //               ),
+          //             ),
+          //             SizedBox(height: 2),
+          //             Text(
+          //               'Official Highlanders Fan Experience • v1.0.0',
+          //               style: TextStyle(
+          //                 fontSize: 11,
+          //                 color: Color(0xFF8A92A0),
+          //               ),
+          //             ),
+          //           ],
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
 
           const SizedBox(height: 32),
 
@@ -153,9 +165,9 @@ class SettingsScreen extends StatelessWidget {
             child: OutlinedButton.icon(
               key: const ValueKey('logout-button'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFE01F1B),
-                side: const BorderSide(color: Color(0xFFFFD5D5), width: 1.5),
-                backgroundColor: const Color(0xFFFFF7F7),
+                foregroundColor: brandAccent,
+                side: const BorderSide(color: brandAccent, width: 1.5),
+                backgroundColor: brandAccentLight,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -212,7 +224,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFE01F1B),
+              backgroundColor: brandAccent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),

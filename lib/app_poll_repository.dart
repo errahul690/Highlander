@@ -28,6 +28,7 @@ class AppPoll {
     this.backgroundColor,
     this.ctaText,
     this.pollName,
+    this.backgroundImage = '',
   });
   final String id, question;
   final List<AppPollOption> options;
@@ -38,20 +39,23 @@ class AppPoll {
   final String? backgroundColor;
   final String? ctaText;
   final String? pollName;
+  final String backgroundImage;
 
   bool get expired => expiresAt != null && !expiresAt!.isAfter(DateTime.now());
   bool get started => startsAt == null || !startsAt!.isAfter(DateTime.now());
 
   Color get cardBackgroundColor {
-    if (backgroundColor == null || backgroundColor!.trim().isEmpty) {
-      return const Color(0xFFFCF4F4);
+    if (backgroundColor == null ||
+        backgroundColor!.trim().isEmpty ||
+        backgroundColor!.toUpperCase() == '#FCF4F4') {
+      return const Color(0xFFF1EDFC);
     }
     try {
       var hex = backgroundColor!.replaceAll('#', '').trim();
       if (hex.length == 6) hex = 'FF$hex';
       if (hex.length == 8) return Color(int.parse(hex, radix: 16));
     } catch (_) {}
-    return const Color(0xFFFCF4F4);
+    return const Color(0xFFF1EDFC);
   }
 
   Color get cardBorderColor {
@@ -85,6 +89,7 @@ class AppPoll {
       totalVotes: (value['total_votes'] as num?)?.toInt() ?? 0,
       selectedOptionId: value['selected_option_id'] as String?,
       backgroundColor: value['background_color'] as String?,
+      backgroundImage: value['background_image'] as String? ?? '',
       ctaText: value['cta_text'] as String?,
       startsAt: value['starts_at'] is String
           ? DateTime.tryParse(value['starts_at'] as String)
@@ -115,6 +120,11 @@ class AppPollRepository {
   List<AppPoll> _polls = [];
   List<AppPoll> get polls => _polls;
   AppPoll? _current;
+  String _backgroundImage = '';
+  String get backgroundImage => _backgroundImage;
+  String backgroundFor(AppPoll poll) => poll.backgroundImage.trim().isNotEmpty
+      ? poll.backgroundImage
+      : _backgroundImage;
   AppPoll? get current => _current ?? (_polls.isNotEmpty ? _polls.first : null);
   int _loadVersion = 0;
 
@@ -147,6 +157,9 @@ class AppPollRepository {
       }
 
       if (version == _loadVersion) {
+        if (data['poll_background_image'] is String) {
+          _backgroundImage = data['poll_background_image'] as String;
+        }
         _polls = loaded;
         _current = loaded.isNotEmpty ? loaded.first : null;
       }

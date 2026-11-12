@@ -406,14 +406,14 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 8),
-                            Text(
-                              '${index + 1}/${_posts.length}  ·  Swipe up for next video',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 11,
-                              ),
-                            ),
+                            // const SizedBox(height: 8),
+                            // Text(
+                            //   '${index + 1}/${_posts.length}  ·  Swipe up for next video',
+                            //   style: const TextStyle(
+                            //     color: Colors.white70,
+                            //     fontSize: 11,
+                            //   ),
+                            // ),
                           ],
                         ),
                       ),
@@ -492,12 +492,6 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
               right: 8,
               child: Row(
                 children: [
-                  IconButton(
-                    tooltip: 'Close reels',
-                    onPressed: () => Navigator.of(context).pop(),
-                    color: Colors.white,
-                    icon: const Icon(Icons.arrow_back),
-                  ),
                   const Text(
                     'Reels',
                     style: TextStyle(

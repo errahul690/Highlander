@@ -32,11 +32,13 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
   Widget _announcementIcon() {
     final fallback = Icon(
       _icons[_marquee.icon] ?? Icons.notifications_active_outlined,
-      color: authRed,
+      color: _darkBackground ? Colors.white : authRed,
       size: 18,
     );
     if (_marquee.iconUrl.isEmpty) return fallback;
-    final iconUrl = Uri.parse(OtpApi.apiBase).resolve(_marquee.iconUrl).toString();
+    final iconUrl = Uri.parse(OtpApi.apiBase)
+        .resolve(_marquee.iconUrl)
+        .toString();
     return Image.network(
       iconUrl,
       key: ValueKey('$iconUrl-${MediaCache.instance.generation.value}'),
@@ -50,6 +52,11 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
   AppMarqueeRepository get _repository =>
       widget.repository ?? AppMarqueeRepository.instance;
   late AppMarquee _marquee;
+  Color get _background => Color(
+    int.parse(_marquee.backgroundColor.substring(1), radix: 16) | 0xFF000000,
+  );
+  bool get _darkBackground =>
+      ThemeData.estimateBrightnessForColor(_background) == Brightness.dark;
   StreamSubscription<Map<String, dynamic>>? _settingsSubscription;
   bool _reloadAgain = false;
   void _listenForUpdates() {
@@ -69,7 +76,7 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
   double _distance = 0;
   String? _dismissedAnnouncement;
   String _announcementKey(AppMarquee value) =>
-      '${value.id}\n${value.text}\n${value.link}\n${value.icon}\n${value.iconUrl}';
+      '${value.id}\n${value.text}\n${value.link}\n${value.icon}\n${value.iconUrl}\n${value.backgroundColor}';
   void _dismiss() {
     _animation.stop();
     setState(() => _dismissedAnnouncement = _announcementKey(_marquee));
@@ -98,6 +105,19 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
     if (state == AppLifecycleState.resumed) _reload();
   }
 
+  @override
+  void reassemble() {
+    super.reassemble();
+    // Retained widget state must also pick up admin changes during hot reload.
+    _reload();
+  }
+
+  @override
+  void didUpdateWidget(covariant AppFeedMarquee oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.repository != widget.repository) _reload();
+  }
+
   Future<void> _reload() async {
     if (_loading) {
       _reloadAgain = true;
@@ -112,8 +132,9 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
     _distance = 0;
     setState(() {
       _marquee = marquee;
-      if (_announcementKey(_marquee) != _dismissedAnnouncement)
+      if (_announcementKey(_marquee) != _dismissedAnnouncement) {
         _dismissedAnnouncement = null;
+      }
     });
     if (_reloadAgain && mounted) {
       _reloadAgain = false;
@@ -149,19 +170,19 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
       return const SizedBox.shrink();
     }
     final style = DefaultTextStyle.of(context).style.merge(
-      const TextStyle(
+      TextStyle(
         fontFamily: clubFontFamily,
         fontSize: 14,
         height: 1.5,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF171717),
+        color: _darkBackground ? Colors.white : const Color(0xFF171717),
       ),
     );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
         key: const ValueKey('app-marquee'),
-        color: const Color(0xFFFBF0F0),
+        color: _background,
         elevation: 1,
         shadowColor: const Color(0x16000000),
         shape: RoundedRectangleBorder(
@@ -193,13 +214,14 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
                           width > constraints.maxWidth &&
                           !MediaQuery.disableAnimationsOf(context);
                       _configureMotion(moving, width + 48);
-                      if (!moving)
+                      if (!moving) {
                         return Text(
                           _marquee.text,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: style,
                         );
+                      }
                       return Semantics(
                         label: _marquee.text,
                         child: ExcludeSemantics(
@@ -240,7 +262,11 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
                   key: const ValueKey('dismiss-marquee'),
                   tooltip: 'Hide announcement',
                   onPressed: _dismiss,
-                  icon: const Icon(Icons.close, color: authRed, size: 18),
+                  icon: Icon(
+                    Icons.close,
+                    color: _darkBackground ? Colors.white : authRed,
+                    size: 18,
+                  ),
                   constraints: const BoxConstraints(
                     minWidth: 44,
                     minHeight: 44,

@@ -30,7 +30,6 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _openKeyboard());
     if (widget.sendOnOpen) {
       _sending = true;
       _startTimer();
@@ -200,11 +199,10 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   String get _otpHint {
-    if (_sending || Session.emailOtpRequestId.isEmpty) return '';
     if (Session.emailOtpDeliverySkipped) {
       return 'Test mode: enter the master OTP. No email was sent.';
     }
-    return 'Enter the 6-digit code sent to your email';
+    return 'Enter the 6-digit code sent to';
   }
 
   void _help() {
@@ -220,286 +218,326 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     final masked = Session.email;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
+    return AuthTheme(
+      child: Scaffold(
         backgroundColor: Colors.white,
-        foregroundColor: clubInk,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text.rich(
-                TextSpan(
+        appBar: AppBar(
+      automaticallyImplyLeading: false,
+
+          backgroundColor: Colors.white,
+          foregroundColor: clubInk,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+        ),
+        body: SafeArea(
+          top: false,
+          child: LayoutBuilder(
+            builder: (context, viewport) {
+              // Reduce artwork and whitespace before making the form scroll.
+              // Keep text, OTP cells and touch targets at their normal sizes.
+              final spacingScale = ((viewport.maxHeight - 560) / 260).clamp(
+                0.0,
+                1.0,
+              );
+              return SingleChildScrollView(
+                key: const ValueKey('otp-scroll'),
+                physics: const ClampingScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  27,
+                  12 + 20 * spacingScale,
+                  27,
+                  12 + 16 * spacingScale,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextSpan(text: 'Verify your email '),
-                    TextSpan(
-                      text: 'code',
-                      style: TextStyle(color: authRed),
-                    ),
-                  ],
-                ),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1,
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (_otpHint.isNotEmpty)
-                Text(
-                  _otpHint,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: authMuted, fontSize: 15),
-                ),
-              const SizedBox(height: 8),
-              Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                children: [
-                  Text(
-                    masked,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
-                      'Change',
-                      style: TextStyle(color: authRed),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 34),
-              Center(
-                child: Container(
-                  width: 168,
-                  height: 168,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        Color(0xFFE78B8D),
-                        Color(0xFFF9E8E9),
-                        Colors.white,
-                      ],
-                    ),
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 68,
-                      height: 68,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [Color(0xFFED5B59), Color(0xFF9E1526)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0x44B52529),
-                            blurRadius: 12,
-                            offset: Offset(0, 5),
+                    const Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: 'Verify your '),
+                          TextSpan(
+                            text: 'email',
+                            style: TextStyle(color: authRed),
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.sms_rounded,
-                        color: Colors.white,
-                        size: 36,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 32,
+                        height: 1.25,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -.7,
                       ),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 38),
-              const Text(
-                'Verification code',
-                style: TextStyle(color: authMuted, fontSize: 15),
-              ),
-              const SizedBox(height: 10),
-              // A single input supports pasting and autofilling the whole code.
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final cellWidth = (constraints.maxWidth - 40) / 6;
-                  return GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _openKeyboard,
-                    child: Stack(
+                    const SizedBox(height: 8),
+                    if (_otpHint.isNotEmpty)
+                      Text(
+                        _otpHint,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: authMuted, fontSize: 15),
+                      ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
                       children: [
-                      ExcludeSemantics(
-                        child: Row(
-                          children: [
-                            for (var i = 0; i < 6; i++) ...[
-                              if (i > 0) const SizedBox(width: 8),
-                              Container(
-                                width: cellWidth,
-                                height: 60,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color:
-                                        (_code.text.length == i ||
-                                            (_code.text.length == 6 && i == 5))
-                                        ? authRed
-                                        : const Color(0xFFD8DBE2),
-                                    width: _code.text.length == i ? 1.5 : 1,
-                                  ),
+                        Text(
+                          masked,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text(
+                            'Change',
+                            style: TextStyle(color: authRed),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8 + 16 * spacingScale),
+                    Center(
+                      child: Image.asset(
+                        'assets/images/email-artwork.png',
+                        width: 300,
+                        height: 100 + 150 * spacingScale,
+                        fit: BoxFit.contain,
+                        excludeFromSemantics: true,
+                      ),
+                    ),
+                    SizedBox(height: 8 + 12 * spacingScale),
+                    const Text(
+                      'Verification code',
+                      style: TextStyle(color: authMuted, fontSize: 15),
+                    ),
+                    const SizedBox(height: 10),
+                    // A single input supports pasting and autofilling the whole code.
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cellWidth = (constraints.maxWidth - 40) / 6;
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _openKeyboard,
+                          child: Stack(
+                            children: [
+                              ExcludeSemantics(
+                                child: Row(
+                                  children: [
+                                    for (var i = 0; i < 6; i++) ...[
+                                      if (i > 0) const SizedBox(width: 8),
+                                      Container(
+                                        width: cellWidth,
+                                        height: 66,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          border: Border.all(
+                                            color:
+                                                (_code.text.length == i ||
+                                                    (_code.text.length == 6 &&
+                                                        i == 5))
+                                                ? authRed
+                                                : const Color(0xFFD8DBE2),
+                                            width: _code.text.length == i
+                                                ? 1.5
+                                                : 1,
+                                          ),
+                                        ),
+                                        child: _code.text.length == i
+                                            ? Container(
+                                                width: 1.5,
+                                                height: 28,
+                                                color: authRed,
+                                              )
+                                            : Text(
+                                                i < _code.text.length
+                                                    ? _code.text[i]
+                                                    : '',
+                                                style: const TextStyle(
+                                                  color: clubInk,
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                                child: Text(
-                                  i < _code.text.length ? _code.text[i] : '',
+                              ),
+                              Positioned.fill(
+                                child: TextField(
+                                  focusNode: _codeFocus,
+                                  controller: _code,
+                                  autofocus: false,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.done,
+                                  readOnly: _loading,
+                                  onTap: _openKeyboard,
+                                  autofillHints: const [
+                                    AutofillHints.oneTimeCode,
+                                  ],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(6),
+                                  ],
                                   style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w600,
+                                    color: Colors.transparent,
                                   ),
+                                  showCursor: false,
+                                  enableInteractiveSelection: false,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Six-digit verification code',
+                                    floatingLabelBehavior:
+                                        FloatingLabelBehavior.never,
+                                    labelStyle: TextStyle(
+                                      color: Colors.transparent,
+                                    ),
+                                    filled: false,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                  ),
+                                  onChanged: (_) =>
+                                      setState(() => _error = null),
+                                  onSubmitted: (_) => _verify(),
                                 ),
                               ),
                             ],
-                          ],
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: TextField(
-                          focusNode: _codeFocus,
-                          controller: _code,
-                          autofocus: true,
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.done,
-                          readOnly: _loading,
-                          onTap: _openKeyboard,
-                          autofillHints: const [AutofillHints.oneTimeCode],
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(6),
-                          ],
-                          style: const TextStyle(color: Colors.transparent),
-                          showCursor: false,
-                          enableInteractiveSelection: false,
-                          decoration: const InputDecoration(
-                            labelText: 'Six-digit verification code',
-                            floatingLabelBehavior: FloatingLabelBehavior.never,
-                            labelStyle: TextStyle(color: Colors.transparent),
-                            filled: false,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
                           ),
-                          onChanged: (_) => setState(() => _error = null),
-                          onSubmitted: (_) => _verify(),
-                        ),
-                      ),
-                    ],
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(_error!, style: const TextStyle(color: authRed)),
-                ),
-              const SizedBox(height: 14),
-              SizedBox(
-                height: 36,
-                child: Center(
-                  child: _seconds > 0
-                      ? Text(
-                          'Resend code in ${(_seconds ~/ 60).toString().padLeft(2, '0')}:${(_seconds % 60).toString().padLeft(2, '0')}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: authMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        )
-                      : OutlinedButton.icon(
-                          key: const ValueKey('otp-resend'),
-                          onPressed: _loading || _sending ? null : _resend,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: authRed,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          icon: const Icon(Icons.refresh_rounded, size: 18),
-                          label: const Text('Resend OTP'),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: authRed),
                         ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                style: authButtonStyle(),
-                onPressed:
-                    _code.text.length == 6 &&
-                        !_loading &&
-                        !_sending &&
-                        Session.emailOtpRequestId.isNotEmpty
-                    ? _verify
-                    : null,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(_loading ? 'Please wait…' : 'Verify & continue'),
-                    const SizedBox(width: 14),
-                    if (_loading)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      const Icon(Icons.arrow_forward),
+                      ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 36,
+                      child: Center(
+                        child: _seconds > 0
+                            ? Text.rich(
+                                TextSpan(
+                                  children: [
+                                    const TextSpan(text: 'Resend code in '),
+                                    TextSpan(
+                                      text:
+                                          '${(_seconds ~/ 60).toString().padLeft(2, '0')}:${(_seconds % 60).toString().padLeft(2, '0')}',
+                                      style: const TextStyle(
+                                        color: authRed,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: authMuted,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              )
+                            : OutlinedButton.icon(
+                                key: const ValueKey('otp-resend'),
+                                onPressed: _loading || _sending
+                                    ? null
+                                    : _resend,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: authRed,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                icon: const Icon(
+                                  Icons.refresh_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('Resend OTP'),
+                              ),
+                      ),
+                    ),
+                    SizedBox(height: 16 + 44 * spacingScale),
+                    FilledButton(
+                      style: authButtonStyle(fontFamily: authFontFamily)
+                          .copyWith(
+                            minimumSize: const WidgetStatePropertyAll(
+                              Size.fromHeight(56),
+                            ),
+                            shape: WidgetStatePropertyAll(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            textStyle: const WidgetStatePropertyAll(
+                              TextStyle(
+                                fontFamily: authFontFamily,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      onPressed:
+                          _code.text.length == 6 &&
+                              !_loading &&
+                              !_sending &&
+                              Session.emailOtpRequestId.isNotEmpty
+                          ? _verify
+                          : null,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(_loading ? 'Please wait…' : 'Verify & continue'),
+                          const SizedBox(width: 14),
+                          if (_loading)
+                            const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          else
+                            const Icon(Icons.arrow_forward),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text(
+                          'Having trouble?',
+                          style: TextStyle(color: authMuted, fontSize: 15),
+                        ),
+                        TextButton(
+                          onPressed: _help,
+                          style: TextButton.styleFrom(foregroundColor: authRed),
+                          child: const Text(
+                            'Get help',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 14),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.verified_user_outlined, color: authMuted),
-                  SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      'Never share your OTP',
-                      style: TextStyle(color: authMuted),
-                    ),
-                  ),
-                ],
-              ),
-              // const SizedBox(height: 20),
-              // Wrap(
-              //   alignment: WrapAlignment.center,
-              //   crossAxisAlignment: WrapCrossAlignment.center,
-              //   children: [
-              //     const Text(
-              //       'Having trouble?',
-              //       style: TextStyle(color: authMuted),
-              //     ),
-              //     TextButton(
-              //       onPressed: _help,
-              //       child: const Text(
-              //         'Get help',
-              //         style: TextStyle(color: authRed),
-              //       ),
-              //     ),
-              //   ],
-              // ),
-            ],
+              );
+            },
           ),
         ),
       ),

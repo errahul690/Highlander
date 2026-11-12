@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-import '../chat_updates.dart';
+import '../widgets/club_header.dart';
+import '../widgets/club_page_body.dart';
+
 import '../models.dart';
-import '../widgets/header_action_icon.dart';
-import '../widgets/match_score_summary.dart';
+
+import '../widgets/match_page_cards.dart';
 import '../widgets/match_photo_gallery.dart';
 import '../widgets/match_insights.dart';
 import '../widgets/match_highlights_player.dart';
 import '../widgets/match_highlights_source.dart';
 import '../widgets/story_html.dart';
-import 'alerts_screen.dart';
-import 'profile_screen.dart';
-import 'matches_screen.dart' show getMatchOutcome, getOutcomeStyle;
 
 class MatchReportScreen extends StatefulWidget {
   const MatchReportScreen({
@@ -31,6 +29,7 @@ class MatchReportScreen extends StatefulWidget {
 class _MatchReportScreenState extends State<MatchReportScreen> {
   late bool _playing;
   final _scrollController = ScrollController();
+  final _overviewKey = GlobalKey();
   Fixture get f => widget.fixture;
 
   @override
@@ -70,54 +69,14 @@ class _MatchReportScreenState extends State<MatchReportScreen> {
     final source = f.highlightsUrl.isNotEmpty
         ? f.highlightsUrl
         : matchHighlightsSource(f);
-    return Scaffold(
+    return ClubScaffold(
       backgroundColor: const Color(0xFFFAF9F6),
-      appBar: AppBar(
-        title: const Text(
-          'Match Report',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-        ),
-        centerTitle: true,
-        foregroundColor: Colors.white,
-        backgroundColor: const Color(0xFFC70B12),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        flexibleSpace: const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFFB1080E), Color(0xFFE0060D)],
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const AlertsScreen())),
-            icon: ValueListenableBuilder<int>(
-              valueListenable: ChatUpdates.instance.unreadNotifications,
-              builder: (_, count, _) => Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.notifications_active_outlined, size: 23),
-                  if (count > 0)
-                    const Positioned(
-                      right: -1,
-                      top: -1,
-                      child: NotificationUnreadDot(),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          IconButton(
-            tooltip: 'My profile',
-            onPressed: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
-            icon: const Icon(Icons.account_circle_outlined, size: 23),
-          ),
-        ],
+      appBar: const ClubHeader(
+        title: 'Match Report',
+        showBack: false,
+        uppercaseTitle: false,
+        showSearch: false,
+        showSupport: false,
       ),
       body: ListView(
         controller: _scrollController,
@@ -188,41 +147,10 @@ class _MatchReportScreenState extends State<MatchReportScreen> {
                       ),
                     ],
                   )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _hero(),
-                      if (source.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-                          child: SizedBox(
-                            width: double.infinity,
-                            height: 44,
-                            child: ElevatedButton.icon(
-                              key: const ValueKey('watch-match-highlights'),
-                              onPressed: _playHighlights,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFFD91624),
-                                elevation: 0,
-                                shape: const StadiumBorder(),
-                              ),
-                              icon: const Icon(Icons.play_arrow_rounded, size: 22),
-                              label: const Text(
-                                'Watch Highlights',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                : _hero(),
           ),
           const SizedBox(height: 18),
-          _overview(),
+          KeyedSubtree(key: _overviewKey, child: _overview()),
           const SizedBox(height: 22),
           if (f.details.stats.isNotEmpty)
             _details(
@@ -507,14 +435,26 @@ class _MatchReportScreenState extends State<MatchReportScreen> {
     ),
   );
 
-  Widget _hero() {
-    final result = getOutcomeStyle(getMatchOutcome(f));
-    return MatchScoreSummary(
-      key: const ValueKey('match-report-hero'),
-      fixture: f,
-      resultLabel: result.label == 'RESULT UNAVAILABLE' ? 'FT' : result.label,
-      resultBackground: result.bg,
-      resultForeground: result.text,
-    );
+  void _readReport() {
+    final section = _overviewKey.currentContext;
+    if (section != null) {
+      Scrollable.ensureVisible(
+        section,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
   }
+
+  Widget _hero() => MatchPageHero(
+    key: const ValueKey('match-report-hero'),
+    fixture: f,
+    onOpen: _readReport,
+    showReportAction: false,
+    minHeight: 210,
+    onHighlights:
+        (f.highlightsUrl.isNotEmpty || matchHighlightsSource(f).isNotEmpty)
+        ? _playHighlights
+        : null,
+  );
 }

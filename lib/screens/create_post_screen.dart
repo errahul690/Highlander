@@ -106,8 +106,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (!mounted) return;
       if (_body.text != draft) {
         setState(
-          () => _error =
-              'Your draft changed. Tap Rewrite again to edit the latest text.',
+          () => _error = 'Your draft changed. Tap Rewrite again to create a caption from the latest text.',
         );
         return;
       }
@@ -239,7 +238,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               children: [
                 ClubHeader(
                   title: 'Create Post',
-                  showBack: true,
+                  showBack: false,
                   embedded: true,
                   onBack: () {
                     if (!busy) Navigator.of(context).pop();
@@ -537,14 +536,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                                 children: [
                                                   Text(
                                                     _rewriting
-                                                        ? 'Rewriting...'
+                                                        ? 'Writing...'
                                                         : 'Rewrite',
                                                     style: const TextStyle(
                                                       fontSize: 12,
                                                     ),
                                                   ),
                                                   const Text(
-                                                    'Rephrase your post',
+                                                    'Football fan caption',
                                                     maxLines: 1,
                                                     overflow:
                                                         TextOverflow.ellipsis,

@@ -11,8 +11,14 @@ class AppQuickButton {
     required this.icon,
     required this.link,
     this.iconUrl = '',
+    this.imageUrl = '',
+    this.backgroundImageUrl = '',
+    this.iconBackgroundColor = '',
   });
-  final String label, subtitle, icon, link, iconUrl;
+  final String label, subtitle, icon, link, iconUrl, imageUrl;
+  final String backgroundImageUrl, iconBackgroundColor;
+  String get topImageUrl => imageUrl;
+  String get customIconUrl => iconUrl;
   factory AppQuickButton.fromJson(Map<String, dynamic> json) {
     if (json['label'] is! String ||
         json['icon'] is! String ||
@@ -25,6 +31,9 @@ class AppQuickButton {
       icon: json['icon'] as String,
       link: json['link'] as String,
       iconUrl: json['icon_url'] as String? ?? '',
+      imageUrl: json['image_url'] as String? ?? '',
+      backgroundImageUrl: json['background_image_url'] as String? ?? '',
+      iconBackgroundColor: json['icon_background_color'] as String? ?? '',
     );
   }
 }

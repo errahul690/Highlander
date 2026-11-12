@@ -4,6 +4,7 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'match_highlights_source.dart';
 import 'post_video.dart';
+import 'web_video_fullscreen.dart';
 
 class MatchHighlightsPlayer extends StatelessWidget {
   const MatchHighlightsPlayer({super.key, required this.source});
@@ -41,6 +42,8 @@ class _YoutubeHighlightsState extends State<_YoutubeHighlights>
       final controller = WebViewController();
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
       await controller.setBackgroundColor(Colors.black);
+      if (!mounted) return;
+      await configureWebVideoFullscreen(context, controller);
       if (controller.platform is AndroidWebViewController) {
         await (controller.platform as AndroidWebViewController)
             .setMediaPlaybackRequiresUserGesture(false);

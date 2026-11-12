@@ -1,38 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
+import 'brand_colors.dart';
 
-const clubRed = Color(0xFFE01F1B);
-const clubBlood = Color(0xFF9E100D);
+const clubRed = brandAccent;
+const clubBlood = brandAccentDark;
 const clubInk = Color(0xFF101014);
 const clubCloud = Color(0xFFF6F5F2);
 const clubLine = Color(0xFFE7E4DE);
-const authRed = Color(0xFFC92B20);
+const authRed = brandAccent;
 const authMuted = Color(0xFF596275);
-// Manrope includes real regular/medium weights; Gilroy only bundles 300/800.
-const clubFontFamily = 'Manrope';
+const clubFontFamily = 'Gilroy';
+const authFontFamily = 'Gilroy';
 
 ButtonStyle authButtonStyle({
-  Color disabledBackgroundColor = const Color(0xFFF3D8D7),
-  Color disabledForegroundColor = const Color(0xFFA43B32),
+  String fontFamily = clubFontFamily,
+  Color disabledBackgroundColor = const Color(0xFFF9D7D9),
+  Color disabledForegroundColor = authRed,
 }) => FilledButton.styleFrom(
   backgroundColor: authRed,
   foregroundColor: Colors.white,
   disabledBackgroundColor: disabledBackgroundColor,
   disabledForegroundColor: disabledForegroundColor,
   minimumSize: const Size.fromHeight(48),
-  textStyle: const TextStyle(
-    fontFamily: clubFontFamily,
+  textStyle: TextStyle(
+    fontFamily: fontFamily,
     fontSize: 16,
     fontWeight: FontWeight.w500,
   ),
   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
 );
 
-ThemeData clubTheme() {
+class AuthTheme extends StatelessWidget {
+  const AuthTheme({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: clubTheme(fontFamily: authFontFamily),
+    child: child,
+  );
+}
+
+ThemeData clubTheme({String fontFamily = clubFontFamily}) {
   final base = ThemeData(
     useMaterial3: true,
-    fontFamily: clubFontFamily,
-    colorScheme: ColorScheme.fromSeed(seedColor: clubRed, primary: clubRed),
+    fontFamily: fontFamily,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: brandAccent,
+      primary: brandAccent,
+      onPrimary: Colors.white,
+      secondary: brandAccent,
+      primaryContainer: brandAccentLight,
+    ),
     scaffoldBackgroundColor: clubCloud,
   );
   return base.copyWith(
@@ -99,7 +119,7 @@ ThemeData clubTheme() {
             height: 1.4,
           ),
         )
-        .apply(fontFamily: clubFontFamily),
+        .apply(fontFamily: fontFamily),
     iconTheme: const IconThemeData(size: 20, color: clubInk),
     iconButtonTheme: IconButtonThemeData(
       style: IconButton.styleFrom(iconSize: 20),
@@ -107,18 +127,41 @@ ThemeData clubTheme() {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         iconSize: 18,
-        textStyle: const TextStyle(
-          fontFamily: clubFontFamily,
+        textStyle: TextStyle(
+          fontFamily: fontFamily,
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
       ),
     ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: brandAccent,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: brandAccentLight,
+        disabledForegroundColor: authMuted,
+      ),
+    ),
+    tabBarTheme: const TabBarThemeData(
+      labelColor: brandAccent,
+      unselectedLabelColor: authMuted,
+      indicatorColor: brandAccent,
+    ),
+    chipTheme: base.chipTheme.copyWith(
+      selectedColor: brandAccent,
+      checkmarkColor: Colors.white,
+      labelStyle: WidgetStateTextStyle.resolveWith((states) => TextStyle(
+        fontFamily: fontFamily,
+        color: states.contains(WidgetState.selected) ? Colors.white : clubInk,
+      )),
+    ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        foregroundColor: brandAccent,
+        side: const BorderSide(color: brandAccent),
         iconSize: 18,
-        textStyle: const TextStyle(
-          fontFamily: clubFontFamily,
+        textStyle: TextStyle(
+          fontFamily: fontFamily,
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
@@ -126,9 +169,10 @@ ThemeData clubTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
+        foregroundColor: brandAccent,
         iconSize: 18,
-        textStyle: const TextStyle(
-          fontFamily: clubFontFamily,
+        textStyle: TextStyle(
+          fontFamily: fontFamily,
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),

@@ -49,7 +49,7 @@ class HeroNextMatchCard extends StatelessWidget {
   }
 
   static String _kickoffTime(String timeStr) {
-    if (timeStr.isEmpty) return 'Time to be confirmed';
+    if (timeStr.isEmpty) return '';
     final trimmed = timeStr.trim();
     if (trimmed.toUpperCase().contains('AM') ||
         trimmed.toUpperCase().contains('PM')) {

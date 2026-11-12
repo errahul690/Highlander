@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import '../widgets/club_page_body.dart';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 
 import '../widgets/club_header.dart';
+import '../widgets/ground_icons.dart';
 import '../widgets/app_bottom_navigation.dart';
 
 import 'package:url_launcher/url_launcher.dart';
@@ -42,14 +44,19 @@ class _GroundsScreenState extends State<GroundsScreen> {
     final cached = GroundsRepository.instance.cachedContent;
     _headerText = ValueNotifier((
       cached?.title ?? 'GROUNDS',
-      cached?.subtitle ?? 'The Home Of The Highlanders',
+      cached?.subtitle ?? '',
     ));
     _persistentHeader = PreferredSize(
-      preferredSize: const Size.fromHeight(64),
+      preferredSize: const ClubHeader(title: '').preferredSize,
       child: ValueListenableBuilder<(String, String)>(
         valueListenable: _headerText,
-        builder: (_, text, _) =>
-            ClubHeader(title: text.$1, subtitle: text.$2, showBack: true),
+        builder: (_, text, _) => ClubHeader(
+          title: text.$1,
+          subtitle: text.$2,
+          showBack: false,
+          showSearch: false,
+          showSupport: false,
+        ),
       ),
     );
     _content = _loadContent();
@@ -524,6 +531,7 @@ class GroundDetailScreen extends StatefulWidget {
 class _GroundDetailScreenState extends State<GroundDetailScreen> {
   final PageController _galleryController = PageController();
   int _photoIndex = 0;
+  int _selectedTab = 0;
   bool _expanded = false;
 
   GroundRecord get ground => widget.ground;
@@ -581,347 +589,495 @@ class _GroundDetailScreenState extends State<GroundDetailScreen> {
     }
   }
 
-  Widget _header() => const ClubHeader(
-    title: 'Grounds',
-    subtitle: 'The Home Of The Highlanders',
-    embedded: true,
-    showBack: true,
-  );
+  static const _red = brandAccent;
+  static const _ink = Color(0xFF1B1E2D);
+  static const _muted = Color(0xFF565656);
+  static const _background = Color(0xFFF7F7FB);
 
   Widget _photo(String url) => ClipRRect(
-    borderRadius: BorderRadius.circular(17),
+    borderRadius: BorderRadius.circular(20),
     child: url.isEmpty
-        ? Container(
-            color: const Color(0xFFE9EAED),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.stadium_outlined,
-              size: 42,
-              color: authMuted,
-            ),
-          )
+        ? _photoPlaceholder()
         : Image.network(
             url,
             width: double.infinity,
             fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
-              color: const Color(0xFFE9EAED),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.stadium_outlined,
-                size: 42,
-                color: authMuted,
+            errorBuilder: (_, _, _) => _photoPlaceholder(),
+          ),
+  );
+
+  Widget _photoPlaceholder() => Container(
+    color: const Color(0xFFE9EAED),
+    alignment: Alignment.center,
+    child: const Icon(Icons.stadium_outlined, size: 42, color: authMuted),
+  );
+
+  Widget _identity() => _GroundSurface(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          ground.name,
+          style: const TextStyle(
+            fontSize: 18,
+            height: 1.2,
+            fontWeight: FontWeight.w700,
+            color: _ink,
+          ),
+        ),
+        if (ground.type.isNotEmpty) ...[
+          const SizedBox(height: 7),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFBDDE4),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.stadium_outlined, color: _red, size: 15),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    ground.type,
+                    style: const TextStyle(
+                      color: _red,
+                      fontSize: 11,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (ground.location.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const GroundLocationIcon(),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  ground.location,
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 14,
+                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    ),
+  );
+
+  Widget _tabs() {
+    const labels = ['Overview', 'Facilities', 'Photos'];
+    const icons = [
+      Icons.info_outline,
+      Icons.stadium_outlined,
+      Icons.photo_library_outlined,
+    ];
+    return Row(
+      children: [
+        for (var index = 0; index < labels.length; index++) ...[
+          if (index > 0) const SizedBox(width: 8),
+          Expanded(
+            child: Semantics(
+              selected: _selectedTab == index,
+              child: Material(
+                color: _selectedTab == index ? _red : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                elevation: 5,
+                shadowColor: const Color(0x180F162D),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => setState(() => _selectedTab = index),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox.square(
+                          dimension: 24,
+                          child: Icon(
+                            icons[index],
+                            size: 23,
+                            color: _selectedTab == index ? Colors.white : _ink,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            labels[index],
+                            maxLines: 2,
+                            textHeightBehavior: const TextHeightBehavior(
+                              applyHeightToFirstAscent: false,
+                              applyHeightToLastDescent: false,
+                            ),
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.2,
+                              fontWeight: FontWeight.w600,
+                              color: _selectedTab == index
+                                  ? Colors.white
+                                  : _ink,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-  );
+        ],
+      ],
+    );
+  }
 
   Widget _overview() {
     final description = ground.description.trim();
     final canExpand = description.length > 155;
-    final venueType = ground.name.toLowerCase().contains('stadium')
-        ? 'Stadium'
-        : 'Ground';
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 15, 16, 28),
+    final rows = <(IconData, String, String)>[
+      (
+        Icons.account_balance_outlined,
+        'Venue type',
+        ground.name.toLowerCase().contains('stadium') ? 'Stadium' : 'Ground',
+      ),
+      if (ground.city.isNotEmpty)
+        (Icons.location_on_outlined, 'City', ground.city),
+      if (ground.state.isNotEmpty)
+        (Icons.sports_soccer_outlined, 'State', ground.state),
+      if (ground.pitch.isNotEmpty)
+        (Icons.grass_outlined, 'Pitch', ground.pitch),
+      if (ground.capacity.isNotEmpty)
+        (Icons.people_outline, 'Capacity', ground.capacity),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'About the ground',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF191919),
+          ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
+        Container(
+          width: 54,
+          height: 4,
+          decoration: BoxDecoration(
+            color: _red,
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        const SizedBox(height: 14),
         Text(
           description.isEmpty
               ? 'Ground information will be available soon.'
               : description,
           maxLines: canExpand && !_expanded ? 3 : null,
           overflow: canExpand && !_expanded ? TextOverflow.ellipsis : null,
-          style: const TextStyle(color: authMuted, height: 1.45, fontSize: 12),
+          style: const TextStyle(fontSize: 14, height: 1.45, color: _muted),
         ),
         if (canExpand)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => setState(() => _expanded = !_expanded),
-              style: TextButton.styleFrom(
-                foregroundColor: authRed,
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              iconAlignment: IconAlignment.end,
-              icon: Icon(
-                _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                size: 17,
-              ),
-              label: Text(_expanded ? 'Read less' : 'Read more'),
+          TextButton.icon(
+            onPressed: () => setState(() => _expanded = !_expanded),
+            style: TextButton.styleFrom(
+              foregroundColor: _red,
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            iconAlignment: IconAlignment.end,
+            icon: Icon(
+              _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+              size: 20,
+            ),
+            label: Text(
+              _expanded ? 'Read less' : 'Read more',
+              style: const TextStyle(fontSize: 15),
             ),
           ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.fromLTRB(15, 13, 15, 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFD9DCE1)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x12000000),
-                blurRadius: 12,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
+        const SizedBox(height: 22),
+        _GroundSurface(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'Ground information',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
+                ),
               ),
-              const SizedBox(height: 5),
-              _GroundInfoRow(
-                icon: Icons.account_balance_outlined,
-                label: 'Venue type',
-                value: venueType,
-              ),
-              if (ground.city.isNotEmpty)
+              const SizedBox(height: 12),
+              for (var index = 0; index < rows.length; index++)
                 _GroundInfoRow(
-                  icon: Icons.location_on_outlined,
-                  label: 'City',
-                  value: ground.city,
-                ),
-              if (ground.state.isNotEmpty)
-                _GroundInfoRow(
-                  icon: Icons.location_on_outlined,
-                  label: 'State',
-                  value: ground.state,
-                ),
-              if (ground.pitch.isNotEmpty)
-                _GroundInfoRow(
-                  icon: Icons.grass_outlined,
-                  label: 'Pitch',
-                  value: ground.pitch,
-                ),
-              if (ground.capacity.isNotEmpty)
-                _GroundInfoRow(
-                  icon: Icons.groups_outlined,
-                  label: 'Capacity',
-                  value: ground.capacity,
+                  icon: rows[index].$1,
+                  label: rows[index].$2,
+                  value: rows[index].$3,
+                  divider: index < rows.length - 1,
                 ),
             ],
           ),
         ),
-        const SizedBox(height: 17),
-        SizedBox(
-          height: 48,
-          child: ElevatedButton.icon(
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
             onPressed: _openDirections,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD62E24),
-              foregroundColor: Colors.white,
-              elevation: 8,
-              shadowColor: const Color(0x55D62E24),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(11),
-              ),
-            ),
-            icon: const Icon(Icons.near_me_outlined, size: 22),
-            label: const Text(
-              'Directions',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-            ),
+            icon: const Icon(Icons.near_me_outlined, size: 18),
+            label: const Text('Directions'),
+            style: TextButton.styleFrom(foregroundColor: _red),
           ),
         ),
       ],
     );
   }
 
-  Widget _photos() => LayoutBuilder(
-    builder: (context, constraints) {
-      const gap = 10.0;
-      final halfWidth = (constraints.maxWidth - 24 - gap) / 2;
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(12),
-        child: Wrap(
-          spacing: gap,
-          runSpacing: gap,
+  Widget _facilities() => ground.displayFacilities.isEmpty
+      ? const Padding(
+          padding: EdgeInsets.all(30),
+          child: Center(child: Text('No facilities added yet.')),
+        )
+      : Column(
           children: [
-            for (var index = 0; index < photoItems.length; index++)
-              SizedBox(
-                width: photoItems[index].fullWidth
-                    ? constraints.maxWidth - 24
-                    : halfWidth,
-                height: photoItems[index].fullWidth ? 190 : 135,
-                child: GestureDetector(
-                  onTap: () => _openPhotos(
-                    [for (final item in photoItems) item.url],
-                    index,
-                  ),
-                  child: _photo(photoItems[index].url),
+            for (final item in ground.displayFacilities)
+              Container(
+                margin: const EdgeInsets.only(bottom: 9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 11,
                 ),
-              ),
-          ],
-        ),
-      );
-    },
-  );
-
-  @override
-  Widget build(BuildContext context) => DefaultTabController(
-    length: 3,
-    child: Scaffold(
-      backgroundColor: const Color(0xFFF8F8F9),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _header(),
-          Expanded(
-            child: ClubPageBody(
-              color: const Color(0xFFF8F8F9),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                    child: SizedBox(
-                      height: 140,
-                      child: images.isEmpty
-                          ? _photo('')
-                          : PageView.builder(
-                              controller: _galleryController,
-                              itemCount: images.length,
-                              onPageChanged: (index) =>
-                                  setState(() => _photoIndex = index),
-                              itemBuilder: (_, index) => GestureDetector(
-                                onTap: () => _openPhotos(images, index),
-                                child: _photo(images[index]),
-                              ),
-                            ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: const Color(0xFFECEBF2)),
+                  borderRadius: BorderRadius.circular(17),
+                ),
+                child: Row(
+                  children: [
+                    _GroundIcon(
+                      child: GroundFacilityIcon(
+                        name: item.name,
+                        icon: item.icon,
+                        iconUrl: item.iconUrl,
+                      ),
                     ),
-                  ),
-                  if (images.length > 1)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          images.length,
-                          (index) => AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            width: 6,
-                            height: 6,
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: index == _photoIndex
-                                  ? authRed
-                                  : const Color(0xFFD5D7DC),
-                            ),
-                          ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        item.name,
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 9),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          ground.name,
-                          style: const TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (ground.type.isNotEmpty) ...[
-                          const SizedBox(height: 7),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFE8E6),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              ground.type,
-                              style: const TextStyle(
-                                color: authRed,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (ground.location.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.location_on_outlined,
-                                size: 17,
-                                color: authMuted,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                ground.location,
-                                style: const TextStyle(
-                                  color: authMuted,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Available',
+                      style: TextStyle(fontSize: 12, color: _muted),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+
+  Widget _photos() => photoItems.isEmpty
+      ? const Padding(
+          padding: EdgeInsets.all(30),
+          child: Center(child: Text('No photos added yet.')),
+        )
+      : LayoutBuilder(
+          builder: (context, constraints) {
+            const gap = 10.0;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (var index = 0; index < photoItems.length; index++)
+                  SizedBox(
+                    width: photoItems[index].fullWidth
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - gap) / 2,
+                    height: photoItems[index].fullWidth ? 190 : 135,
+                    child: GestureDetector(
+                      onTap: () => _openPhotos([
+                        for (final item in photoItems) item.url,
+                      ], index),
+                      child: _photo(photoItems[index].url),
                     ),
                   ),
-                  const TabBar(
-                    labelColor: authRed,
-                    unselectedLabelColor: authMuted,
-                    indicatorColor: authRed,
-                    tabs: [
-                      Tab(text: 'Overview'),
-                      Tab(text: 'Facilities'),
-                      Tab(text: 'Photos'),
-                    ],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _overview(),
-                        ground.facilities.isEmpty
-                            ? const Center(
-                                child: Text('No facilities added yet.'),
-                              )
-                            : ListView(
-                                padding: const EdgeInsets.all(16),
-                                children: [
-                                  for (final item in ground.facilities)
-                                    ListTile(
-                                      leading: const Icon(
-                                        Icons.check_circle_outline,
-                                        color: authRed,
-                                      ),
-                                      title: Text(item),
-                                    ),
-                                ],
-                              ),
-                        photoItems.isEmpty
-                            ? const Center(child: Text('No photos added yet.'))
-                            : _photos(),
-                      ],
+              ],
+            );
+          },
+        );
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: _background,
+    appBar: const ClubHeader(
+      title: 'GROUNDS',
+      showBack: false,
+      showSearch: false,
+      showSupport: false,
+      titleFontSize: 18,
+      backButtonWidth: 48,
+    ),
+    body: SingleChildScrollView(
+      key: const PageStorageKey('ground-detail-scroll'),
+      padding: EdgeInsets.fromLTRB(
+        17,
+        16,
+        17,
+        MediaQuery.paddingOf(context).bottom + 24,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: 2.46,
+            child: images.isEmpty
+                ? _photo('')
+                : PageView.builder(
+                    controller: _galleryController,
+                    itemCount: images.length,
+                    onPageChanged: (index) =>
+                        setState(() => _photoIndex = index),
+                    itemBuilder: (_, index) => GestureDetector(
+                      onTap: () => _openPhotos(images, index),
+                      child: _photo(images[index]),
                     ),
                   ),
+          ),
+          if (images.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var index = 0; index < images.length; index++)
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: index == _photoIndex
+                            ? _red
+                            : const Color(0xFFD5D7DC),
+                      ),
+                    ),
                 ],
               ),
             ),
-          ),
+          const SizedBox(height: 20),
+          _identity(),
+          const SizedBox(height: 20),
+          _tabs(),
+          const SizedBox(height: 22),
+          switch (_selectedTab) {
+            1 => _facilities(),
+            2 => _photos(),
+            _ => _overview(),
+          },
         ],
       ),
     ),
+  );
+}
+
+class _GroundSurface extends StatelessWidget {
+  const _GroundSurface({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x100F162D),
+          blurRadius: 16,
+          offset: Offset(0, 8),
+        ),
+      ],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: CustomPaint(
+        painter: const _GroundWaves(),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: child,
+        ),
+      ),
+    ),
+  );
+}
+
+class _GroundWaves extends CustomPainter {
+  const _GroundWaves();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final (start, rise, color) in [
+      (.56, 83.0, const Color(0xFFFDF0F3)),
+      (.68, 61.0, const Color(0xFFFCE2E9)),
+      (.8, 39.0, const Color(0xFFF7CDD9)),
+    ]) {
+      canvas.drawPath(
+        Path()
+          ..moveTo(size.width * start, size.height)
+          ..quadraticBezierTo(
+            size.width * .94,
+            size.height - 5,
+            size.width,
+            size.height - rise,
+          )
+          ..lineTo(size.width, size.height)
+          ..close(),
+        Paint()..color = color,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GroundWaves oldDelegate) => false;
+}
+
+class _GroundIcon extends StatelessWidget {
+  const _GroundIcon({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 32,
+    height: 32,
+    decoration: BoxDecoration(
+      color: const Color(0xFFFCE6EA),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Center(child: child),
   );
 }
 
@@ -930,33 +1086,60 @@ class _GroundInfoRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.divider = true,
   });
-
   final IconData icon;
   final String label;
   final String value;
+  final bool divider;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: Color(0xFFE2E3E6))),
-    ),
-    child: Row(
-      children: [
-        Icon(icon, size: 17, color: const Color(0xFF313237)),
-        const SizedBox(width: 11),
-        SizedBox(
-          width: 105,
-          child: Text(label, style: const TextStyle(fontSize: 12)),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+  Widget build(BuildContext context) => Row(
+    children: [
+      _GroundIcon(
+        child: icon == Icons.location_on_outlined
+            ? const GroundLocationIcon()
+            : Icon(icon, size: 21, color: const Color(0xFF1B1E2D)),
+      ),
+      const SizedBox(width: 16),
+      Expanded(
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 38),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            border: divider
+                ? const Border(bottom: BorderSide(color: Color(0xFFECEBF2)))
+                : null,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF565656),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 4,
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1B1E2D),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      ],
-    ),
+      ),
+    ],
   );
 }

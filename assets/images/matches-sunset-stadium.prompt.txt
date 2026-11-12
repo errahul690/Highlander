@@ -1,0 +1,4 @@
+Tool: built-in image_gen (not CLI).
+Asset: assets/images/matches-sunset-stadium.png
+
+Use case: photorealistic-natural. Asset type: landscape background for football match cards in a mobile app, 3:2 aspect ratio. Primary request: a vivid photorealistic football stadium at sunset, viewed from the near edge of a pristine green football pitch toward the center goal and packed distant stands. Broad open sky fills upper half, dramatic dark navy and crimson clouds and glowing orange sunset at the horizon. Bright white floodlight towers at both upper sides. Lower third is lush green grass, center goal at horizon. Symmetric wide composition, dark enough for white UI text overlay. No text, no logos, no badges, no players, no UI, no watermark. Crisp realistic stadium atmosphere.

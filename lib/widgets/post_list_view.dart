@@ -20,6 +20,7 @@ class PostListView extends StatefulWidget {
     this.inserts = const [],
     this.emptyLoading,
     this.holdEmpty = false,
+    this.beforeHeader,
   });
   final PostPager pager;
   final List<Widget> header;
@@ -33,6 +34,7 @@ class PostListView extends StatefulWidget {
   final List<PostListInsert> inserts;
   final Widget? emptyLoading;
   final bool holdEmpty;
+  final Widget? beforeHeader;
   @override
   State<PostListView> createState() => _PostListViewState();
 }
@@ -114,6 +116,8 @@ class _PostListViewState extends State<PostListView> {
     controller: _scroll,
     physics: const AlwaysScrollableScrollPhysics(),
     slivers: [
+      if (widget.beforeHeader != null)
+        SliverToBoxAdapter(child: widget.beforeHeader),
       SliverPadding(
         padding: widget.padding,
         sliver: SliverMainAxisGroup(

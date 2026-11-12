@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -8,6 +8,7 @@ import '../session.dart';
 import '../theme.dart';
 import '../widgets/change_email_sheet.dart';
 import '../widgets/city_field.dart';
+import '../widgets/profile_form_header.dart';
 import '../widgets/user_avatar.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -35,13 +36,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   VerifiedEmailChange? _emailChange;
 
   Future<void> _changeEmail() async {
-    final change = await showModalBottomSheet<VerifiedEmailChange>(
+    final change = await showDialog<VerifiedEmailChange>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      barrierDismissible: false,
       builder: (_) => ChangeEmailSheet(currentEmail: Session.email),
     );
     if (mounted && change != null) {
@@ -337,7 +334,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF881A1A),
+              primary: authRed,
               onPrimary: Colors.white,
               onSurface: Color(0xFF1E2229),
             ),
@@ -361,7 +358,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final email = _emailController.text.trim().toLowerCase();
     final emailChanged = email != Session.email.trim().toLowerCase();
     if (emailChanged &&
-        (_emailChange?.email != email || _emailChange!.proof.isEmpty)) {
+        (_emailChange?.email != email ||
+            _emailChange!.proof.isEmpty ||
+            _emailChange!.currentEmailProof.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Verify the new email with OTP before saving.'),
@@ -393,6 +392,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           if (emailChanged) ...{
             'email': email,
             'emailVerificationToken': _emailChange!.proof,
+            'currentEmailVerificationToken': _emailChange!.currentEmailProof,
           },
         },
       );
@@ -441,15 +441,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _label(String text, {Widget? trailing}) => Padding(
-    padding: const EdgeInsets.only(top: 16, bottom: 8),
+    padding: const EdgeInsets.only(top: 18, bottom: 7),
     child: Row(
       children: [
         Text(
           text,
-          style: const TextStyle(
-            fontSize: 14,
+          style: TextStyle(
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: authRed,
+            color: text == 'Gender' ? authRed : clubInk,
           ),
         ),
         const Spacer(),
@@ -458,109 +458,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ),
   );
 
-  InputDecoration _field({String? hint, Widget? suffix}) => InputDecoration(
-    hintText: hint,
-    suffixIcon: suffix,
-    hintStyle: const TextStyle(
-      color: Color(0xFF9AA1AD),
-      fontSize: 15,
-      fontWeight: FontWeight.w500,
-    ),
-  );
-
-  Widget _photoCard() {
-    final busy = _saving || _uploadingPhoto;
-    return Material(
-      color: const Color(0xFFFFF6F6),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: busy ? null : _showPhotoOptions,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
-          child: Row(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  _uploadingPhoto
-                      ? const SizedBox(
-                          width: 60,
-                          height: 60,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: authRed,
-                            ),
-                          ),
-                        )
-                      : UserAvatar(
-                          image: _profilePhoto,
-                          name: _nameController.text,
-                          radius: 30,
-                          backgroundColor: const Color(0xFFF3D6D4),
-                          foregroundColor: authRed,
-                        ),
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: authRed,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                      child: const Icon(
-                        Icons.photo_camera_rounded,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _profilePhoto.trim().isEmpty ? 'Add photo' : 'Change photo',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: clubInk,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    const Text(
-                      'Optional',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF8E95A1),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Make it yours. Add a photo anytime.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.3,
-                        color: Color(0xFF8E95A1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  InputDecoration _field({String? hint, Widget? suffix}) =>
+      profileFormField(hint: hint, suffix: suffix);
 
   @override
   Widget build(BuildContext context) {
@@ -569,243 +468,273 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       fontWeight: FontWeight.w600,
       color: clubInk,
     );
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
+    return AuthTheme(
+      child: Scaffold(
         backgroundColor: Colors.white,
-        foregroundColor: clubInk,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          key: const ValueKey('edit-profile-back-btn'),
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.maybePop(context),
+        appBar: AppBar(
+      automaticallyImplyLeading: false,
+          backgroundColor: Colors.white,
+          foregroundColor: clubInk,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+
         ),
-      ),
-      body: SafeArea(
-        top: false,
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-            children: [
-              const Text(
-                'Edit your profile',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.4,
-                  height: 1.15,
-                  color: clubInk,
+        body: SafeArea(
+          top: false,
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+              children: [
+                ProfileFormHeader(
+                  action: 'Edit',
+                  photoKey: const ValueKey('edit-profile-photo'),
+                  photoLabel: _profilePhoto.trim().isEmpty
+                      ? 'Add photo'
+                      : 'Change photo',
+                  onPhotoTap: _saving || _uploadingPhoto
+                      ? null
+                      : _showPhotoOptions,
+                  photo: _uploadingPhoto
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: authRed,
+                          ),
+                        )
+                      : _profilePhoto.trim().isEmpty
+                      ? const Icon(
+                          Icons.person_rounded,
+                          size: 72,
+                          color: Color(0xFFF39DA6),
+                        )
+                      : UserAvatar(
+                          image: _profilePhoto,
+                          name: _nameController.text,
+                          radius: 55,
+                          backgroundColor: const Color(0xFFFCE0E2),
+                          foregroundColor: authRed,
+                        ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Keep your details up to date.',
-                style: TextStyle(
-                  color: Color(0xFF8E95A1),
-                  fontSize: 15,
-                  height: 1.35,
+                _label('Full name'),
+                TextFormField(
+                  key: const ValueKey('edit-profile-field-Full Name *'),
+                  controller: _nameController,
+                  readOnly: _saving,
+                  maxLength: 100,
+                  textCapitalization: TextCapitalization.words,
+                  style: fieldStyle,
+                  decoration: _field(hint: 'Enter your full name')
+                      .copyWith(counterText: ''),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Enter your full name'
+                      : null,
                 ),
-              ),
-              const SizedBox(height: 20),
-              _photoCard(),
-              _label('Full name'),
-              TextFormField(
-                key: const ValueKey('edit-profile-field-Full Name *'),
-                controller: _nameController,
-                readOnly: _saving,
-                maxLength: 100,
-                textCapitalization: TextCapitalization.words,
-                style: fieldStyle,
-                decoration: _field(hint: 'Your full name').copyWith(
-                  counterText: '',
-                ),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Enter your full name'
-                    : null,
-              ),
-              _label('Gender'),
-              Row(
-                children: [
-                  for (final gender in ['Male', 'Female', 'Other']) ...[
-                    if (gender != 'Male') const SizedBox(width: 8),
-                    Expanded(
-                      child: ChoiceChip(
-                        label: SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            gender,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: _selectedGender == gender
-                                  ? authRed
-                                  : clubInk,
+                _label('Gender'),
+                Row(
+                  children: [
+                    for (final gender in ['Male', 'Female', 'Other']) ...[
+                      if (gender != 'Male') const SizedBox(width: 8),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: SizedBox(
+                            width: double.infinity,
+                            child: Text(
+                              gender,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontWeight: _selectedGender == gender
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                fontSize: 15,
+                                color: _selectedGender == gender
+                                    ? authRed
+                                    : authMuted,
+                              ),
                             ),
                           ),
+                          showCheckmark: false,
+                          selected: _selectedGender == gender,
+                          selectedColor: const Color(0xFFFFF4F3),
+                          backgroundColor: Colors.white,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          labelPadding: EdgeInsets.zero,
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          side: BorderSide(
+                            color: _selectedGender == gender
+                                ? authRed
+                                : const Color(0xFFE4E4E4),
+                            width: 1,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          onSelected: _saving
+                              ? null
+                              : (_) => setState(() => _selectedGender = gender),
                         ),
-                        showCheckmark: false,
-                        selected: _selectedGender == gender,
-                        selectedColor: const Color(0xFFFFF4F3),
-                        backgroundColor: Colors.white,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        labelPadding: EdgeInsets.zero,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: BorderSide(
-                          color: _selectedGender == gender
-                              ? authRed
-                              : const Color(0xFFE4E4E4),
-                          width: _selectedGender == gender ? 1.4 : 1,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        onSelected: _saving
-                            ? null
-                            : (_) => setState(() => _selectedGender = gender),
                       ),
-                    ),
+                    ],
                   ],
-                ],
-              ),
-              _label('Date of birth'),
-              TextFormField(
-                controller: _dobController,
-                readOnly: true,
-                onTap: _saving ? null : _selectDob,
-                style: fieldStyle,
-                decoration: _field(
-                  hint: 'DD / MM / YYYY',
-                  suffix: const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 18,
-                    color: Color(0xFF8A8F98),
+                ),
+                _label('Date of birth'),
+                TextFormField(
+                  controller: _dobController,
+                  readOnly: true,
+                  onTap: _saving ? null : _selectDob,
+                  style: fieldStyle,
+                  decoration: _field(
+                    hint: 'DD / MM / YYYY',
+                    suffix: const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 18,
+                      color: Color(0xFF8A8F98),
+                    ),
                   ),
                 ),
-              ),
-              _label(
-                'City',
-                trailing: const Text(
-                  'Optional',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF9AA1AD),
-                  ),
-                ),
-              ),
-              CityField(
-                controller: _cityController,
-                readOnly: _saving,
-                decoration: _field(hint: 'Search your city'),
-              ),
-              _label('Mobile number'),
-              TextFormField(
-                controller: _phoneController,
-                readOnly: _saving,
-                keyboardType: TextInputType.phone,
-                maxLength: 10,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: fieldStyle,
-                decoration: _field(hint: '98765 43210').copyWith(
-                  counterText: '',
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(left: 14, right: 8),
-                    child: Text(
-                      '+91',
+                _label(
+                  'Email address',
+                  trailing: TextButton(
+                    onPressed: _saving ? null : _changeEmail,
+                    style: TextButton.styleFrom(
+                      foregroundColor: authRed,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'Change email',
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: clubInk,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 0,
-                    minHeight: 0,
-                  ),
                 ),
-              ),
-              _label(
-                'E-mail ID',
-                trailing: TextButton(
-                  onPressed: _saving ? null : _changeEmail,
-                  style: TextButton.styleFrom(
-                    foregroundColor: authRed,
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    minimumSize: const Size(0, 32),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text(
-                    'Change email',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-              TextFormField(
-                key: const ValueKey('edit-profile-field-Email Address'),
-                controller: _emailController,
-                readOnly: true,
-                style: fieldStyle,
-                decoration: _field(
-                  suffix: _emailChange != null || !Session.emailVerified
-                      ? null
-                      : const Padding(
-                          padding: EdgeInsets.only(right: 12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.check_circle,
-                                color: Color(0xFF22A55A),
-                                size: 18,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Verified',
-                                style: TextStyle(
-                                  color: Color(0xFF22A55A),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
+                TextFormField(
+                  key: const ValueKey('edit-profile-field-Email Address'),
+                  controller: _emailController,
+                  readOnly: true,
+                  style: fieldStyle,
+                  decoration:
+                      _field(
+                        suffix: _emailChange != null || !Session.emailVerified
+                            ? null
+                            : const Padding(
+                                padding: EdgeInsets.only(right: 12),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle,
+                                      color: Color(0xFF22A55A),
+                                      size: 15,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Verified',
+                                      style: TextStyle(
+                                        color: Color(0xFF22A55A),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                      ).copyWith(
+                        fillColor: const Color(0xFFF0F1F3),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE7E9ED),
                           ),
                         ),
-                ).copyWith(
-                  helperText: _emailChange == null
-                      ? null
-                      : 'OTP verified · Save to apply',
-                  helperStyle: const TextStyle(
-                    color: Color(0xFF22A55A),
-                    fontSize: 12,
-                  ),
-                  suffixIconConstraints: const BoxConstraints(
-                    minWidth: 0,
-                    minHeight: 0,
-                  ),
+                        helperText: _emailChange == null
+                            ? null
+                            : 'OTP verified · Save to apply',
+                        helperStyle: const TextStyle(
+                          color: Color(0xFF22A55A),
+                          fontSize: 12,
+                        ),
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 0,
+                          minHeight: 0,
+                        ),
+                      ),
                 ),
-              ),
-              const SizedBox(height: 28),
-              FilledButton(
-                style: authButtonStyle().copyWith(
-                  minimumSize: const WidgetStatePropertyAll(
-                    Size.fromHeight(52),
-                  ),
-                  textStyle: const WidgetStatePropertyAll(
-                    TextStyle(
-                      fontFamily: clubFontFamily,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                _label('Mobile number'),
+                TextFormField(
+                  controller: _phoneController,
+                  readOnly: _saving,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: fieldStyle,
+                  decoration: _field(hint: 'Enter mobile number').copyWith(
+                    counterText: '',
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.only(left: 14, right: 8),
+                      child: Text(
+                        '+91',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: clubInk,
+                        ),
+                      ),
+                    ),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 0,
+                      minHeight: 0,
                     ),
                   ),
                 ),
-                onPressed: _saving || _uploadingPhoto ? null : _saveProfile,
-                child: Text(_saving ? 'Saving Profile...' : 'Save Profile Changes'),
-              ),
-            ],
+                _label(
+                  'City',
+                  // trailing: const Text(
+                  //   'Optional',
+                  //   style: TextStyle(
+                  //     fontSize: 13,
+                  //     fontWeight: FontWeight.w500,
+                  //     color: Color(0xFF9AA1AD),
+                  //   ),
+                  // ),
+                ),
+                CityField(
+                  controller: _cityController,
+                  readOnly: _saving,
+                  decoration: _field(
+                    hint: 'Search for your city',
+                    suffix: const Icon(
+                      Icons.search_rounded,
+                      size: 22,
+                      color: authMuted,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  style: authButtonStyle().copyWith(
+                    minimumSize: const WidgetStatePropertyAll(
+                      Size.fromHeight(52),
+                    ),
+                    textStyle: const WidgetStatePropertyAll(
+                      TextStyle(
+                        fontFamily: clubFontFamily,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  onPressed: _saving || _uploadingPhoto ? null : _saveProfile,
+                  child: Text(
+                    _saving ? 'Saving Profile...' : 'Save Profile Changes',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

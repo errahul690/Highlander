@@ -8,6 +8,7 @@ import '../widgets/user_avatar.dart';
 
 import '../club_repository.dart';
 import '../posts_api.dart';
+import 'post_activity_screen.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets/club_bar.dart';
@@ -386,23 +387,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     borderRadius: BorderRadius.circular(2),
                                   ),
                                 ),
-                                const Text(
-                                  'Comments',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
+                                PostActivitySummary(post: _post!),
                               ],
                             ),
                             centerTitle: true,
-                            actions: [
-                              IconButton(
-                                tooltip: 'Close comments',
-                                onPressed: () => Navigator.of(context).pop(),
-                                icon: const Icon(Icons.close),
-                              ),
-                            ],
                           ),
                         if (!isSheet)
                           SliverPadding(

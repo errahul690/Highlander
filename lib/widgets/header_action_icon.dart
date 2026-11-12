@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../header_icons_repository.dart';
@@ -64,7 +65,7 @@ class NotificationUnreadDot extends StatelessWidget {
       width: 9,
       height: 9,
       decoration: BoxDecoration(
-        color: const Color(0xFFE11924),
+        color: brandAccent,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 1.4),
       ),

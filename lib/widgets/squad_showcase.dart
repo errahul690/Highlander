@@ -1,3 +1,4 @@
+import '../brand_colors.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -10,7 +11,7 @@ import '../screens/player_screen.dart';
 import 'squad_stage_background.dart';
 
 const _ink = Color(0xFF101014), _muted = Color(0xFF62626C);
-const _red = Color(0xFFE01F1B),
+const _red = brandAccent,
     _gold = Color(0xFFB98A2F),
     _line = Color(0xFFE4E4E8);
 const _positions = [

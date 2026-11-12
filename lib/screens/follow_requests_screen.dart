@@ -195,7 +195,6 @@ class _FollowRequestsScreenState extends State<FollowRequestsScreen>
                   if (index > 0) const SizedBox(width: 10),
                   Expanded(
                     child: ChoiceChip(
-                      selectedColor: const Color(0xFFF9DEDA),
                       label: Text(
                         '${index == 0 ? 'Received' : 'Sent'} (${(_data?[index == 0 ? 'received' : 'sent'] as List?)?.length ?? 0})',
                       ),

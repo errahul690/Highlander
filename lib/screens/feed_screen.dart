@@ -1,4 +1,5 @@
 import '../widgets/club_page_body.dart';
+import '../widgets/feed_background.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -166,52 +167,54 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     value: SystemUiOverlayStyle.light.copyWith(
       statusBarColor: Colors.transparent,
     ),
-    child: Scaffold(
-      backgroundColor: const Color(0xFFF9F7F3),
-      body: Column(
-        children: [
-          const _FeedHeader(),
-          Expanded(
-            child: ClubPageBody(
-              color: const Color(0xFFF9F7F3),
-              child: RefreshIndicator(
-                onRefresh: _refresh,
-                child: PostListView(
-                  key: const PageStorageKey('feed-scroll'),
-                  pager: _pager,
-                  onChanged: _loadPosts,
-                  spacing: 20,
-                  emptyLoading: const StartupLoader(),
-                  inserts: [
-                    PostListInsert(
-                      afterPosts: _recentAfter,
-                      child: RecentResultsSection(content: _clubContent),
+    child: FeedBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Column(
+          children: [
+            const _FeedHeader(),
+            Expanded(
+              child: ClubPageBody(
+                color: Colors.transparent,
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: PostListView(
+                    key: const PageStorageKey('feed-scroll'),
+                    pager: _pager,
+                    onChanged: _loadPosts,
+                    spacing: 20,
+                    emptyLoading: const StartupLoader(),
+                    inserts: [
+                      PostListInsert(
+                        afterPosts: _recentAfter,
+                        child: RecentResultsSection(content: _clubContent),
+                      ),
+                      PostListInsert(
+                        afterPosts: _focusAfter,
+                        child: const FeedGalleryFocus(),
+                      ),
+                    ],
+                    padding: EdgeInsets.fromLTRB(
+                      18,
+                      6,
+                      18,
+                      MediaQuery.paddingOf(context).bottom + 20,
                     ),
-                    PostListInsert(
-                      afterPosts: _focusAfter,
-                      child: const FeedGalleryFocus(),
-                    ),
-                  ],
-                  padding: EdgeInsets.fromLTRB(
-                    18,
-                    16,
-                    18,
-                    MediaQuery.paddingOf(context).bottom + 20,
+                    header: [
+                      const AppQuickLinks(),
+                      const SizedBox(height: 6),
+                      const AppFeedBanners(),
+                      const SizedBox(height: 18),
+                      FeedMatchFeature(content: _clubContent, now: widget.now),
+                      const AppFeedMarquee(key: ValueKey('feed-announcements')),
+                      const AppFeedPoll(),
+                    ],
                   ),
-                  header: [
-                    const AppQuickLinks(),
-                    const SizedBox(height: 16),
-                    const AppFeedBanners(),
-                    const SizedBox(height: 18),
-                    FeedMatchFeature(content: _clubContent, now: widget.now),
-                    const AppFeedMarquee(key: ValueKey('feed-announcements')),
-                    const AppFeedPoll(),
-                  ],
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

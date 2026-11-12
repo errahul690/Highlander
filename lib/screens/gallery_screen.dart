@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../brand_colors.dart';
 
 import '../widgets/club_page_body.dart';
 
@@ -125,7 +126,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   Widget build(BuildContext context) {
     return ClubScaffold(
       backgroundColor: const Color(0xFFF7F8FA),
-      appBar: const ClubHeader(title: 'Gallery', showBack: true),
+      appBar: const ClubHeader(title: 'Gallery', showBack: false),
       bottomNavigationBar: const AppBottomNavigation(),
       body: RefreshIndicator(
         onRefresh: () => _loadItems(refresh: true),
@@ -208,7 +209,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 9),
                 decoration: BoxDecoration(
                   color: _selectedTab == 'images'
-                      ? Colors.white
+                      ? brandAccent
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: _selectedTab == 'images'
@@ -226,7 +227,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _selectedTab == 'images'
-                        ? const Color(0xFF101014)
+                        ? Colors.white
                         : const Color(0xFF6B7280),
                     fontSize: 13,
                     fontWeight: _selectedTab == 'images'
@@ -246,7 +247,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 9),
                 decoration: BoxDecoration(
                   color: _selectedTab == 'videos'
-                      ? Colors.white
+                      ? brandAccent
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: _selectedTab == 'videos'
@@ -264,7 +265,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _selectedTab == 'videos'
-                        ? const Color(0xFF101014)
+                        ? Colors.white
                         : const Color(0xFF6B7280),
                     fontSize: 13,
                     fontWeight: _selectedTab == 'videos'
@@ -435,32 +436,15 @@ class _AlbumGridScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final count = photos.length;
-    return Scaffold(
+    return ClubScaffold(
       backgroundColor: const Color(0xFFF7F8FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF101014),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-            ),
-            Text(
-              '$count ${count == 1 ? 'photo' : 'photos'}',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF8E8E93),
-              ),
-            ),
-          ],
-        ),
+      appBar: ClubHeader(
+        title: title,
+        subtitle: '$count ${count == 1 ? 'photo' : 'photos'}',
+        showBack: false,
+        showSearch: false,
+        showSupport: false,
+        uppercaseTitle: false,
       ),
       body: photos.isEmpty
           ? const Center(child: Text('No photos in this album'))
@@ -523,6 +507,7 @@ class _AlbumPhotoScreenState extends State<_AlbumPhotoScreen> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.black,
     appBar: AppBar(
+      automaticallyImplyLeading: false,
       backgroundColor: Colors.black,
       foregroundColor: Colors.white,
       elevation: 0,

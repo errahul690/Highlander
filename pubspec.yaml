@@ -80,26 +80,96 @@ flutter:
     - assets/images/club-logo.png
     - assets/images/kerala-blasters-logo.png
     - assets/images/stadium_bg.jpg
+    - assets/images/match-report-background.png
     - assets/images/chat_bg_pattern.jpg
     - assets/images/match_hero_stadium.png
+    - assets/images/matches-sunset-stadium.png
     - assets/images/matchday_live_default.png
     - assets/images/before_kickoff_default.png
     - assets/images/watch_live_card_bg.png
     - assets/images/login-tunnel.png
+    - assets/images/login-hero.png
+    - assets/images/email-artwork.png
+    - assets/images/profile-stadium.png
+    - assets/images/profile-cover.png
+    - assets/images/groups-empty.png
+    - assets/images/friends-connect-banner.png
+    - assets/icons/profile-posts.png
+    - assets/icons/match-location.png
+    - assets/icons/poll-voters.png
+    - assets/icons/profile-followers.png
+    - assets/icons/profile-following.png
+    - assets/images/header-logo.png
+    - assets/images/header-background.png
+    - assets/images/header-edge.png
+    - assets/images/feed-background.png
     - assets/images/swoofi/
     - assets/images/swoofi/reference/
     - assets/icons/circles.png
     - assets/icons/chats.png
     - assets/icons/groups.png
+    - assets/icons/nav-friends.png
+    - assets/icons/nav-circles.png
+    - assets/icons/nav-profile.png
+    - assets/icons/nav-explore.svg
+    - assets/icons/ground-location.png
     - assets/splash/default.html
 
   fonts:
     - family: Gilroy
       fonts:
-        - asset: assets/fonts/Gilroy-Light.otf
+        - asset: assets/fonts/Gilroy-Thin.ttf
+          weight: 100
+        - asset: assets/fonts/Gilroy-ThinItalic.ttf
+          weight: 100
+          style: italic
+        - asset: assets/fonts/Gilroy-UltraLight.ttf
+          weight: 200
+        - asset: assets/fonts/Gilroy-UltraLightItalic.ttf
+          weight: 200
+          style: italic
+        - asset: assets/fonts/Gilroy-Light.ttf
           weight: 300
-        - asset: assets/fonts/Gilroy-ExtraBold.otf
+        - asset: assets/fonts/Gilroy-LightItalic.ttf
+          weight: 300
+          style: italic
+        - asset: assets/fonts/Gilroy-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Gilroy-RegularItalic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/Gilroy-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Gilroy-MediumItalic.ttf
+          weight: 500
+          style: italic
+        - asset: assets/fonts/Gilroy-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Gilroy-SemiBoldItalic.ttf
+          weight: 600
+          style: italic
+        - asset: assets/fonts/Gilroy-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Gilroy-BoldItalic.ttf
+          weight: 700
+          style: italic
+        - asset: assets/fonts/Gilroy-ExtraBold.ttf
           weight: 800
+        - asset: assets/fonts/Gilroy-ExtraBoldItalic.ttf
+          weight: 800
+          style: italic
+        - asset: assets/fonts/Gilroy-Black.ttf
+          weight: 900
+        - asset: assets/fonts/Gilroy-BlackItalic.ttf
+          weight: 900
+          style: italic
+    - family: GilroyHeavy
+      fonts:
+        - asset: assets/fonts/Gilroy-Heavy.ttf
+          weight: 900
+        - asset: assets/fonts/Gilroy-HeavyItalic.ttf
+          weight: 900
+          style: italic
     - family: Montserrat
       fonts:
         - asset: assets/fonts/Montserrat-Variable.ttf
