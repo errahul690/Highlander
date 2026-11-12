@@ -1,10 +1,15 @@
 import '../brand_colors.dart';
+
 import 'dart:async';
 import 'dart:convert';
+
+import 'package:image_picker/image_picker.dart';
 
 import 'package:flutter/material.dart';
 
 import '../widgets/club_header.dart';
+import '../widgets/profile_identity_header.dart';
+import '../posts_api.dart';
 
 import '../widgets/user_avatar.dart';
 
@@ -53,6 +58,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _peopleQuery = '';
   final Set<String> _relationshipSaving = {};
   int _peopleRequest = 0, _countsRequest = 0;
+  bool _uploadingCover = false;
+  int _coverRevision = 0;
 
   @override
   void initState() {
@@ -72,6 +79,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     )..addListener(_pageChanged);
     _loadUserPosts();
     _loadCounts();
+    unawaited(_restoreCover());
     _postsSubscription = RealtimeClient.instance.settingsChanges.listen((
       event,
     ) {
@@ -601,159 +609,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _profileHero(BuildContext context) {
-    final headerHeight =
-        MediaQuery.paddingOf(context).top +
-        const ClubHeader(title: 'Profile').preferredSize.height;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 360;
-        final radius = compact ? 34.0 : 42.0;
-        return SizedBox(
-          key: const ValueKey('profile-hero'),
-          height: headerHeight + 180,
-          child: Stack(
-            children: [
-              Positioned(
-                top: headerHeight - 24,
-                left: 0,
-                right: 0,
-                height: 140,
-                child: Image.asset(
-                  'assets/images/profile-cover.png',
-                  key: const ValueKey('profile-cover'),
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                ),
-              ),
-              Positioned(
-                top: headerHeight + 104,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: const DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Color(0xFFF7F6FB),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: headerHeight + 82,
-                left: 18,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: UserAvatar(
-                    currentUser: true,
-                    radius: radius,
-                    backgroundColor: brandAccent,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: headerHeight + 118,
-                left: compact ? 102 : 126,
-                right: 18,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _getDisplayName(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w600,
-                              height: 1.15,
-                              color: Color(0xFF171717),
-                            ),
-                          ),
-                          if (Session.email.trim().isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              Session.email.trim(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF737584),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _profileActions(),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  Future<void> _restoreCover() async {
+    final revision = _coverRevision;
+    final userId = Session.userId;
+    try {
+      final data = (await _get('/api/auth/me'))['data'];
+      if (!mounted ||
+          revision != _coverRevision ||
+          userId != Session.userId ||
+          data is! Map) {
+        return;
+      }
+      final cover =
+          '${data['cover_photo']?.toString().isNotEmpty == true ? data['cover_photo'] : data['coverImage'] ?? ''}';
+      if (cover != Session.coverPhoto) {
+        await Session.updateDetails(coverPhoto: cover);
+        if (mounted) setState(() {});
+      }
+    } catch (_) {
+      /* Keep the saved cover while offline. */
+    }
   }
 
-  Widget _profileStats() => Container(
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x160F172A),
-          blurRadius: 12,
-          offset: Offset(0, 5),
-        ),
-      ],
+  Future<void> _changeCover() async {
+    if (_uploadingCover) return;
+    try {
+      final photo = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1800,
+        maxHeight: 1000,
+        imageQuality: 85,
+      );
+      if (photo == null || !mounted) return;
+      setState(() => _uploadingCover = true);
+      _coverRevision++;
+      final userId = Session.userId;
+      final url = await PostsApi.instance.upload(photo);
+      if (userId != Session.userId) return;
+      await PostsApi.instance.request(
+        '/api/auth/me',
+        method: 'PUT',
+        body: {'cover_photo': url, 'coverImage': url},
+      );
+      if (userId != Session.userId) return;
+      await Session.updateDetails(coverPhoto: url);
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not upload cover photo. Please try again.'),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _uploadingCover = false);
+    }
+  }
+
+  Widget _profileHero(BuildContext context) => ProfileIdentityHeader(
+    key: const ValueKey('profile-hero'),
+    name: _getDisplayName(),
+    subtitle: Session.email.trim(),
+    cover: Session.coverPhoto,
+    coverKey: const ValueKey('profile-cover'),
+    onCoverEdit: _changeCover,
+    coverBusy: _uploadingCover,
+    avatarBuilder: (radius) => UserAvatar(
+      currentUser: true,
+      radius: radius,
+      backgroundColor: brandAccent,
+      foregroundColor: Colors.white,
     ),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: Row(
-        children: [
-          Expanded(
-            child: _StatCard(
-              iconAsset: 'assets/icons/profile-posts.png',
-              count: _postCount?.toString() ?? '—',
-              label: 'Posts',
-              selected: _section == 'posts',
-              onTap: () => _selectSection('posts'),
-            ),
-          ),
-          const _StatDivider(),
-          Expanded(
-            child: _StatCard(
-              iconAsset: 'assets/icons/profile-followers.png',
-              count: _followersCount?.toString() ?? '—',
-              label: 'Followers',
-              selected: _section == 'followers',
-              onTap: () => _selectSection('followers'),
-            ),
-          ),
-          const _StatDivider(),
-          Expanded(
-            child: _StatCard(
-              iconAsset: 'assets/icons/profile-following.png',
-              count: _followingCount?.toString() ?? '—',
-              label: 'Following',
-              selected: _section == 'following',
-              onTap: () => _selectSection('following'),
-            ),
-          ),
-        ],
-      ),
-    ),
+    actions: _profileActions(),
+  );
+
+  Widget _profileStats() => ProfileStatsBar(
+    counts: {
+      'posts': _postCount?.toString() ?? '?',
+      'followers': _followersCount?.toString() ?? '?',
+      'following': _followingCount?.toString() ?? '?',
+    },
+    selected: _section,
+    onSelect: _selectSection,
   );
 
   @override
@@ -855,81 +792,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     ),
   );
-}
-
-// ============================================================================
-// STAT CARD COMPONENT
-// ============================================================================
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.iconAsset,
-    required this.count,
-    required this.label,
-    required this.onTap,
-    this.selected = false,
-  });
-
-  final String iconAsset;
-  final String count;
-  final String label;
-  final VoidCallback onTap;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    const accent = brandAccent;
-    return Material(
-      color: selected ? const Color(0xFFFCEEF3) : Colors.white,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
-          child: Column(
-            children: [
-              Image.asset(
-                iconAsset,
-                width: 18,
-                height: 18,
-                color: selected ? accent : const Color(0xFF737584),
-                filterQuality: FilterQuality.high,
-              ),
-              const SizedBox(height: 5),
-              Text(
-                count,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? accent : const Color(0xFF1E2229),
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? accent : const Color(0xFF737584),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatDivider extends StatelessWidget {
-  const _StatDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 36,
-      child: VerticalDivider(width: 1, thickness: 1, color: Color(0xFFE7E4DE)),
-    );
-  }
 }

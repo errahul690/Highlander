@@ -1,5 +1,5 @@
 import '../brand_colors.dart';
-import '../widgets/club_page_body.dart';
+import '../widgets/profile_identity_header.dart';
 
 import 'package:flutter/material.dart';
 
@@ -176,60 +176,25 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     );
   }
 
-  Widget _stat(String section, String label, IconData icon) => Expanded(
-    child: Material(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: _section == section ? _red : const Color(0xFFF0F1F4),
-        ),
-      ),
-      child: InkWell(
-        key: ValueKey('user-profile-$section'),
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => _select(section),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFDF0F0),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(icon, color: _red, size: 18),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${(_profile?['counts'] as Map?)?[section] ?? 0}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                    Text(
-                      label,
-                      maxLines: 1,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF6D7383),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
+  Widget _hero() => ProfileIdentityHeader(
+    key: const ValueKey('user-profile-hero'),
+    name: (_person['full_name'] ?? 'Highlander').toString(),
+    subtitle: (_person['email'] ?? '').toString(),
+    cover: (_person['cover_photo'] ?? _person['coverImage'] ?? '').toString(),
+    coverKey: const ValueKey('user-profile-cover'),
+    avatarBuilder: (radius) => _avatar(_person, radius),
   );
+
+  Widget _stats() => ProfileStatsBar(
+    keyPrefix: 'user-profile',
+    counts: {
+      for (final section in ['posts', 'followers', 'following'])
+        section: ((_profile?['counts'] as Map?)?[section] ?? 0).toString(),
+    },
+    selected: _section,
+    onSelect: _select,
+  );
+
   Widget _message(String text) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 36),
     child: Center(
@@ -281,103 +246,74 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         statusBarColor: Colors.transparent,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAFAFA),
-        body: Column(
+        backgroundColor: const Color(0xFFF7F6FB),
+        body: Stack(
           children: [
-            const ClubHeader(title: 'Profile', embedded: true),
-            Expanded(
-              child: ClubPageBody(
-                color: const Color(0xFFFAFAFA),
-                child: _error != null
-                    ? Center(
-                        child: TextButton(
-                          onPressed: _load,
-                          child: Text(_error!),
+            if (_error != null)
+              Center(
+                child: TextButton(onPressed: _load, child: Text(_error!)),
+              )
+            else if (_profile == null)
+              const Center(child: CircularProgressIndicator())
+            else
+              RefreshIndicator(
+                onRefresh: _refresh,
+                color: _red,
+                edgeOffset: MediaQuery.paddingOf(context).top + 80,
+                child: PostListView(
+                  pager: _pager,
+                  onChanged: _load,
+                  spacing: 16,
+                  showPosts: _section == 'posts',
+                  alternative: _section == 'posts' ? null : _content(),
+                  beforeHeader: _hero(),
+                  padding: EdgeInsets.fromLTRB(
+                    18,
+                    8,
+                    18,
+                    MediaQuery.paddingOf(context).bottom + 24,
+                  ),
+                  header: [
+                    _stats(),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Container(
+                          width: 5,
+                          height: 23,
+                          decoration: BoxDecoration(
+                            color: _red,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
                         ),
-                      )
-                    : _profile == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : RefreshIndicator(
-                        onRefresh: _refresh,
-                        child: PostListView(
-                          pager: _pager,
-                          onChanged: _load,
-                          spacing: 16,
-                          showPosts: _section == 'posts',
-                          alternative: _section == 'posts' ? null : _content(),
-                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-                          header: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 18,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFBF2F2),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: _red, width: .8),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x10000000),
-                                    blurRadius: 4,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  _avatar(_person, 29),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${_person['full_name'] ?? 'Highlander'}',
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        if ('${_person['maskedPhone'] ?? ''}'
-                                            .isNotEmpty) ...[
-                                          const SizedBox(height: 5),
-                                          Text(
-                                            '${_person['maskedPhone']}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            Row(
-                              children: [
-                                _stat('posts', 'Posts', Icons.image_outlined),
-                                const SizedBox(width: 10),
-                                _stat(
-                                  'followers',
-                                  'Followers',
-                                  Icons.people_outline,
-                                ),
-                                const SizedBox(width: 10),
-                                _stat(
-                                  'following',
-                                  'Following',
-                                  Icons.person_add_alt_outlined,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                          ],
+                        const SizedBox(width: 9),
+                        Text(
+                          _section == 'posts'
+                              ? 'Posts'
+                              : _section == 'followers'
+                              ? 'Followers'
+                              : 'Following',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF171717),
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: ClubHeader(
+                title: 'Profile',
+                embedded: true,
+                showBack: true,
+                uppercaseTitle: false,
               ),
             ),
           ],
@@ -394,7 +330,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 52,
+                      horizontal: 18,
                       vertical: 11,
                     ),
                     child: Row(

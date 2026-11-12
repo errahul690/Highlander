@@ -268,12 +268,14 @@ class SavedProfile {
     this.emailVerified = true,
     this.mobileVerified = false,
     this.profilePhoto = '',
+    this.coverPhoto = '',
     this.gender = '',
     this.dob = '',
   });
   final String id, token, name, email, mobile, city;
   final bool emailVerified, mobileVerified;
   final String profilePhoto;
+  final String coverPhoto;
   final String gender;
   final String dob;
 
@@ -301,6 +303,9 @@ class SavedProfile {
       profilePhoto: (user['profile_photo'] as String?)?.isNotEmpty == true
           ? user['profile_photo'] as String
           : user['profileImage'] as String? ?? '',
+      coverPhoto: (user['cover_photo'] as String?)?.isNotEmpty == true
+          ? user['cover_photo'] as String
+          : user['coverImage'] as String? ?? '',
     );
   }
 }

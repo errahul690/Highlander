@@ -60,6 +60,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   _Dial _dial = _dials.first;
   DateTime? _dob;
   XFile? _photo;
+  XFile? _cover;
   String? _gender = 'Male';
   bool _saving = false;
   String? _error;
@@ -202,16 +203,42 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     });
   }
 
+  Future<void> _chooseCover() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1800,
+        maxHeight: 1000,
+        imageQuality: 85,
+      );
+      if (file != null && mounted) setState(() => _cover = file);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Could not open your cover photo. Try again.');
+      }
+    }
+  }
+
   Future<void> _savePhoto() async {
     final photo = _photo;
-    if (photo == null) return;
-    final url = await PostsApi.instance.upload(photo);
+    final cover = _cover;
+    if (photo == null && cover == null) return;
+    final url = photo == null ? null : await PostsApi.instance.upload(photo);
+    final coverUrl = cover == null
+        ? null
+        : await PostsApi.instance.upload(cover);
     await PostsApi.instance.request(
       '/api/auth/me',
       method: 'PUT',
-      body: {'profile_photo': url, 'profileImage': url},
+      body: {
+        if (url != null) ...{'profile_photo': url, 'profileImage': url},
+        if (coverUrl != null) ...{
+          'cover_photo': coverUrl,
+          'coverImage': coverUrl,
+        },
+      },
     );
-    await Session.updateDetails(profilePhoto: url);
+    await Session.updateDetails(profilePhoto: url, coverPhoto: coverUrl);
   }
 
   Future<void> _join() async {
@@ -253,8 +280,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     }
   }
 
-  Widget _label(String text, {String? trailing}) => Padding(
-    padding: const EdgeInsets.only(top: 18, bottom: 7),
+  Widget _label(String text, {String? trailing, double top = 18}) => Padding(
+    padding: EdgeInsets.only(top: top, bottom: 7),
     child: Row(
       children: [
         Text(
@@ -305,6 +332,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               children: [
                 ProfileFormHeader(
                   action: 'Create',
+                  overlapCover: true,
+                  coverPreview: _cover == null
+                      ? null
+                      : FileImage(File(_cover!.path)),
+                  onCoverTap: _saving ? null : _chooseCover,
                   photoKey: const ValueKey('signup-photo'),
                   photoLabel: _photo == null ? 'Add photo' : 'Change photo',
                   onPhotoTap: _saving ? null : _showPhotoOptions,
@@ -316,7 +348,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         )
                       : Image.file(File(_photo!.path), fit: BoxFit.cover),
                 ),
-                _label('Full name'),
+                _label('Full name', top: 4),
                 TextFormField(
                   key: const ValueKey('signup-name'),
                   controller: _name,

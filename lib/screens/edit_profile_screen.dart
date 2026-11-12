@@ -488,6 +488,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               children: [
                 ProfileFormHeader(
                   action: 'Edit',
+                  coverSource: Session.coverPhoto,
                   photoKey: const ValueKey('edit-profile-photo'),
                   photoLabel: _profilePhoto.trim().isEmpty
                       ? 'Add photo'

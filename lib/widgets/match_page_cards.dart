@@ -1,4 +1,5 @@
 import '../brand_colors.dart';
+
 import 'package:flutter/material.dart';
 
 import '../club_identity.dart';
@@ -349,18 +350,33 @@ class MatchPageHero extends StatelessWidget {
                                 ),
                               ),
                             ],
-                            ImageIcon(
-                              const AssetImage('assets/icons/match-location.png'),
-                              color: Colors.white,
-                              size: played ? 16 : 20,
-                            ),
-                            const SizedBox(width: 6),
                             Flexible(
                               flex: played ? 2 : 1,
-                              child: Text(
-                                fixture.venue.isEmpty
-                                    ? 'Venue to be confirmed'
-                                    : fixture.venue,
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 6,
+                                        ),
+                                        child: ImageIcon(
+                                          const AssetImage(
+                                            'assets/icons/match-location.png',
+                                          ),
+                                          color: Colors.white,
+                                          size: played ? 16 : 20,
+                                        ),
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: fixture.venue.isEmpty
+                                          ? 'Venue to be confirmed'
+                                          : fixture.venue,
+                                    ),
+                                  ],
+                                ),
                                 maxLines: played ? 1 : 2,
                                 overflow: TextOverflow.ellipsis,
                                 textAlign: TextAlign.center,

@@ -302,15 +302,15 @@ class _CommunityScreenState extends State<CommunityScreen> {
         IconButton(
           key: const ValueKey('header-new-chat'),
           tooltip: 'New chat',
-          constraints: const BoxConstraints.tightFor(width: 34, height: 40),
+          constraints: const BoxConstraints.tightFor(width: 32, height: 40),
           style: IconButton.styleFrom(
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            minimumSize: const Size(34, 40),
+            minimumSize: const Size(32, 40),
             padding: EdgeInsets.zero,
           ),
           padding: EdgeInsets.zero,
           onPressed: _newChat,
-          icon: const ComposeIcon(size: 30),
+          icon: const ComposeIcon(size: 22),
         ),
       if (_tab == 2)
         IconButton(

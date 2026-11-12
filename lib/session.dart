@@ -23,6 +23,7 @@ class Session {
   static bool emailVerified = false;
   static String name = 'Highlander';
   static String profilePhoto = '';
+  static String coverPhoto = '';
   static final profileChanges = ValueNotifier<int>(0);
   static void Function()? onInvalidated;
 
@@ -85,6 +86,7 @@ class Session {
         'emailVerified': profile.emailVerified,
         'mobileVerified': profile.mobileVerified,
         'profilePhoto': profile.profilePhoto,
+        'coverPhoto': profile.coverPhoto,
         'gender': profile.gender,
         'dob': profile.dob,
       }),
@@ -103,6 +105,7 @@ class Session {
     phoneVerified = profile.mobileVerified;
     emailVerified = profile.emailVerified;
     profilePhoto = profile.profilePhoto;
+    coverPhoto = profile.coverPhoto;
     gender = profile.gender;
     dob = profile.dob;
     profileChanges.value++;
@@ -129,6 +132,7 @@ class Session {
         emailVerified: data['emailVerified'] == true,
         mobileVerified: data['mobileVerified'] == true,
         profilePhoto: data['profilePhoto'] as String? ?? '',
+        coverPhoto: data['coverPhoto'] as String? ?? '',
         gender: data['gender'] as String? ?? '',
       );
       if (!_tokenIsCurrent(profile.token, profile.id)) {
@@ -163,6 +167,7 @@ class Session {
     String? email,
     bool? emailVerified,
     String? profilePhoto,
+    String? coverPhoto,
     String? bio,
     String? username,
     String? gender,
@@ -175,6 +180,7 @@ class Session {
     if (email != null) Session.email = email;
     if (emailVerified != null) Session.emailVerified = emailVerified;
     if (profilePhoto != null) Session.profilePhoto = profilePhoto;
+    if (coverPhoto != null) Session.coverPhoto = coverPhoto;
     if (bio != null) Session.bio = bio;
     if (username != null) Session.username = username;
     if (gender != null) Session.gender = gender;
@@ -199,6 +205,7 @@ class Session {
       map['email'] = Session.email;
       map['emailVerified'] = Session.emailVerified;
       map['profilePhoto'] = Session.profilePhoto;
+      map['coverPhoto'] = Session.coverPhoto;
       map['bio'] = Session.bio;
       map['username'] = Session.username;
       map['gender'] = Session.gender;
@@ -238,6 +245,7 @@ class Session {
     emailVerified = false;
     name = 'Highlander';
     profilePhoto = '';
+    coverPhoto = '';
     bio = '';
     username = '';
     gender = '';

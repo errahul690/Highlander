@@ -46,6 +46,12 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final toolbarOffset = Offset(
+      0,
+      Theme.of(context).platform == TargetPlatform.iOS ? -10 : 0,
+    );
+    Widget alignToolbar(Widget child) =>
+        Transform.translate(offset: toolbarOffset, child: child);
     final bar = AppBar(
       toolbarHeight: 72,
       elevation: 0,
@@ -59,12 +65,14 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
       titleSpacing: showBack ? 0 : 18,
       leadingWidth: backButtonWidth,
       leading: showBack
-          ? IconButton(
-              key: backKey,
-              tooltip: 'Back',
-              padding: EdgeInsets.zero,
-              onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back, size: 22),
+          ? alignToolbar(
+              IconButton(
+                key: backKey,
+                tooltip: 'Back',
+                padding: EdgeInsets.zero,
+                onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back, size: 22),
+              ),
             )
           : null,
       flexibleSpace: Stack(
@@ -86,29 +94,23 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
           const CustomPaint(painter: _HeaderStripes()),
         ],
       ),
-      title:
-          titleWidget ??
-          Row(
-            children: [
-              if (showLogo) ...[
-                Image.asset(
-                  'assets/images/header-logo.png',
-                  width: 38,
-                  height: 38,
-                  fit: BoxFit.contain,
-                  semanticLabel: 'Highlanders logo',
-                ),
-                const SizedBox(width: 12),
-                Container(width: 1, height: 26, color: Colors.white54),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Transform.translate(
-                  // Keep iPhone titles above the curved header edge.
-                  offset: Offset(
-                    0,
-                    Theme.of(context).platform == TargetPlatform.iOS ? -10 : 0,
+      title: alignToolbar(
+        titleWidget ??
+            Row(
+              children: [
+                if (showLogo) ...[
+                  Image.asset(
+                    'assets/images/header-logo.png',
+                    width: 38,
+                    height: 38,
+                    fit: BoxFit.contain,
+                    semanticLabel: 'Highlanders logo',
                   ),
+                  const SizedBox(width: 12),
+                  Container(width: 1, height: 26, color: Colors.white54),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -145,72 +147,81 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
-      actions: [
-        ...trailing,
-        if (showSearch)
-          HeaderActionVisibility(
-            kind: 'search',
-            child: IconButton(
-              key: const ValueKey('header-search'),
-              tooltip: 'Search',
-              constraints: const BoxConstraints.tightFor(width: 32, height: 40),
-              style: IconButton.styleFrom(
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                minimumSize: const Size(32, 40),
-                padding: EdgeInsets.zero,
-              ),
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
-              icon: const HeaderActionIcon(
-                kind: 'search',
-                fallback: Icons.search_rounded,
-                size: 26,
-              ),
+              ],
             ),
-          ),
-        if (showSupport) const CustomerSupportButton(),
-        if (showNotifications)
-          HeaderActionVisibility(
-            kind: 'notifications',
-            child: IconButton(
-              key: const ValueKey('header-notifications'),
-              tooltip: 'Notifications',
-              constraints: const BoxConstraints.tightFor(width: 32, height: 40),
-              style: IconButton.styleFrom(
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                minimumSize: const Size(32, 40),
+      ),
+      actions: [
+        for (final action in <Widget>[
+          ...trailing,
+          if (showSearch)
+            HeaderActionVisibility(
+              kind: 'search',
+              child: IconButton(
+                key: const ValueKey('header-search'),
+                tooltip: 'Search',
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 40,
+                ),
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  minimumSize: const Size(32, 40),
+                  padding: EdgeInsets.zero,
+                ),
                 padding: EdgeInsets.zero,
-              ),
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const AlertsScreen())),
-              icon: ValueListenableBuilder<int>(
-                valueListenable: ChatUpdates.instance.unreadNotifications,
-                builder: (_, count, _) => Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const HeaderActionIcon(
-                      kind: 'notifications',
-                      fallback: Icons.notifications_none_rounded,
-                    ),
-                    if (count > 0)
-                      const Positioned(
-                        right: -2,
-                        top: -2,
-                        child: NotificationUnreadDot(),
-                      ),
-                  ],
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
+                icon: const HeaderActionIcon(
+                  kind: 'search',
+                  fallback: Icons.search_rounded,
+                  size: 26,
                 ),
               ),
             ),
-          ),
-        const SizedBox(width: 16),
+          if (showSupport) const CustomerSupportButton(),
+          if (showNotifications)
+            HeaderActionVisibility(
+              kind: 'notifications',
+              child: IconButton(
+                key: const ValueKey('header-notifications'),
+                tooltip: 'Notifications',
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 40,
+                ),
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  minimumSize: const Size(32, 40),
+                  padding: EdgeInsets.zero,
+                ),
+                padding: EdgeInsets.zero,
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const AlertsScreen())),
+                icon: ValueListenableBuilder<int>(
+                  valueListenable: ChatUpdates.instance.unreadNotifications,
+                  builder: (_, count, _) => Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const HeaderActionIcon(
+                        kind: 'notifications',
+                        fallback: Icons.notifications_none_rounded,
+                      ),
+                      if (count > 0)
+                        const Positioned(
+                          right: -2,
+                          top: -2,
+                          child: NotificationUnreadDot(),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(width: 16),
+        ])
+          alignToolbar(action),
       ],
       bottom: PreferredSize(
         preferredSize: Size.fromHeight(8 + (actions.isEmpty ? 0 : 44)),

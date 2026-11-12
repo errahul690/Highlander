@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'profile_cover.dart';
 
 InputDecoration profileFormField({
   String? hint,
@@ -39,11 +40,19 @@ class ProfileFormHeader extends StatelessWidget {
     required this.photoLabel,
     required this.onPhotoTap,
     this.photoKey,
+    this.coverPreview,
+    this.coverSource = '',
+    this.onCoverTap,
+    this.overlapCover = false,
   });
   final String action, photoLabel;
   final Widget photo;
   final VoidCallback? onPhotoTap;
   final Key? photoKey;
+  final ImageProvider? coverPreview;
+  final String coverSource;
+  final VoidCallback? onCoverTap;
+  final bool overlapCover;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -70,102 +79,126 @@ class ProfileFormHeader extends StatelessWidget {
           ),
         ),
       ),
-      SizedBox(
-        height: 170,
-        child: OverflowBox(
-          maxWidth: MediaQuery.sizeOf(context).width,
-          child: SizedBox(
-            width: MediaQuery.sizeOf(context).width,
-            height: 170,
-            child: Stack(
-              alignment: Alignment.topCenter,
-              children: [
-                Positioned.fill(
-                  child: Image.asset(
-                    'assets/images/profile-stadium.png',
-                    fit: BoxFit.cover,
-                    excludeFromSemantics: true,
-                  ),
-                ),
-                Column(
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final width = overlapCover
+              ? constraints.maxWidth
+              : MediaQuery.sizeOf(context).width;
+          final coverHeight = overlapCover ? width * .4 : 170.0;
+          final height = overlapCover ? coverHeight + 88 : 170.0;
+          return SizedBox(
+            height: height,
+            child: OverflowBox(
+              maxWidth: width,
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: Stack(
+                  alignment: Alignment.topCenter,
                   children: [
-                    const SizedBox(height: 16),
-                    Semantics(
-                      button: true,
-                      label: '$photoLabel profile photo',
-                      child: InkWell(
-                        key: photoKey,
-                        onTap: onPhotoTap,
-                        customBorder: const CircleBorder(),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 116,
-                              height: 116,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: const Color(0xFFFCE0E2),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 3,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x18000000),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: ClipOval(child: photo),
-                            ),
-                            Positioned(
-                              right: -2,
-                              bottom: -2,
-                              child: Container(
-                                width: 38,
-                                height: 38,
-                                decoration: BoxDecoration(
-                                  color: authRed,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.photo_camera_outlined,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ],
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: coverHeight,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(
+                          overlapCover ? 12 : 0,
+                        ),
+                        child: ProfileCover(
+                          fallbackAsset: 'assets/images/profile-stadium.png',
+                          source: coverSource,
+                          preview: coverPreview,
+                          onEdit: onCoverTap,
+                          editLabel: overlapCover
+                              ? (coverPreview != null || coverSource.isNotEmpty
+                                    ? 'Change cover'
+                                    : 'Add cover')
+                              : null,
                         ),
                       ),
                     ),
-                    TextButton(
-                      onPressed: onPhotoTap,
-                      style: TextButton.styleFrom(
-                        foregroundColor: authRed,
-                        minimumSize: const Size(0, 36),
-                        padding: EdgeInsets.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        textStyle: const TextStyle(
-                          fontFamily: authFontFamily,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
+                    Column(
+                      children: [
+                        SizedBox(height: overlapCover ? coverHeight - 56 : 16),
+                        Semantics(
+                          button: true,
+                          label: '$photoLabel profile photo',
+                          child: InkWell(
+                            key: photoKey,
+                            onTap: onPhotoTap,
+                            customBorder: const CircleBorder(),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width: overlapCover ? 104 : 116,
+                                  height: overlapCover ? 104 : 116,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: const Color(0xFFFCE0E2),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 3,
+                                    ),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x18000000),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipOval(child: photo),
+                                ),
+                                Positioned(
+                                  right: -2,
+                                  bottom: -2,
+                                  child: Container(
+                                    width: overlapCover ? 34 : 38,
+                                    height: overlapCover ? 34 : 38,
+                                    decoration: BoxDecoration(
+                                      color: authRed,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.photo_camera_outlined,
+                                      color: Colors.white,
+                                      size: overlapCover ? 18 : 20,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Text(photoLabel),
+                        TextButton(
+                          onPressed: onPhotoTap,
+                          style: TextButton.styleFrom(
+                            foregroundColor: authRed,
+                            minimumSize: const Size(0, 36),
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            textStyle: TextStyle(
+                              fontFamily: authFontFamily,
+                              fontSize: overlapCover ? 16 : 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          child: Text(photoLabel),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     ],
   );
