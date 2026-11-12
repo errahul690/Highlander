@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../otp_api.dart';
+import '../screens/photo_viewer_screen.dart';
 import '../session.dart';
 import '../theme.dart';
 
@@ -37,7 +38,7 @@ class UserAvatar extends StatelessWidget {
       final url = photo.trim().isEmpty
           ? ''
           : Uri.parse(OtpApi.apiBase).resolve(photo).toString();
-      return CircleAvatar(
+      final avatar = CircleAvatar(
         radius: radius,
         backgroundColor: backgroundColor,
         child: ClipOval(
@@ -52,6 +53,26 @@ class UserAvatar extends StatelessWidget {
                     errorBuilder: (_, error, stack) => _initial(label),
                   ),
           ),
+        ),
+      );
+      return Semantics(
+        button: true,
+        label: label.trim().isEmpty
+            ? 'View profile photo'
+            : 'View $label profile photo',
+        child: GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => PhotoViewerScreen(
+                  images: url.isEmpty ? const [] : [url],
+                  authorName: label,
+                  emptyMessage: 'No Profile Pic',
+                ),
+              ),
+            );
+          },
+          child: avatar,
         ),
       );
     },

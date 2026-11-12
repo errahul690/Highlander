@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -12,12 +10,14 @@ class PhotoViewerScreen extends StatefulWidget {
     this.initialIndex = 0,
     this.authorName,
     this.content,
+    this.emptyMessage = 'No image available',
   });
 
   final List<String> images;
   final int initialIndex;
   final String? authorName;
   final String? content;
+  final String emptyMessage;
 
   @override
   State<PhotoViewerScreen> createState() => _PhotoViewerScreenState();
@@ -50,23 +50,6 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.images.isEmpty) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-      automaticallyImplyLeading: false,
-          backgroundColor: Colors.black,
-          iconTheme: const IconThemeData(color: Colors.white),
-        ),
-        body: const Center(
-          child: Text(
-            'No image available',
-            style: TextStyle(color: Colors.white70),
-          ),
-        ),
-      );
-    }
-
     final topPadding = MediaQuery.paddingOf(context).top;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
@@ -77,32 +60,67 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            if (widget.images.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 112,
+                        height: 112,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF1C1C1E),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.person_outline_rounded,
+                          size: 60,
+                          color: Colors.white54,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        widget.emptyMessage,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             // PageView with swipe and zoom
-            PageView.builder(
-              controller: _pageController,
-              itemCount: widget.images.length,
-              physics: const BouncingScrollPhysics(),
-              onPageChanged: (index) {
-                setState(() => _currentIndex = index);
-              },
-              itemBuilder: (context, index) {
-                final source = widget.images[index];
-                return GestureDetector(
-                  onTap: _toggleOverlay,
-                  child: Center(
-                    child: InteractiveViewer(
-                      minScale: 0.8,
-                      maxScale: 4.0,
-                      clipBehavior: Clip.none,
-                      child: _ViewerPhoto(
-                        key: ValueKey(source),
-                        source: source,
+            if (widget.images.isNotEmpty)
+              PageView.builder(
+                controller: _pageController,
+                itemCount: widget.images.length,
+                physics: const BouncingScrollPhysics(),
+                onPageChanged: (index) {
+                  setState(() => _currentIndex = index);
+                },
+                itemBuilder: (context, index) {
+                  final source = widget.images[index];
+                  return GestureDetector(
+                    onTap: _toggleOverlay,
+                    child: Center(
+                      child: InteractiveViewer(
+                        minScale: 0.8,
+                        maxScale: 4.0,
+                        clipBehavior: Clip.none,
+                        child: _ViewerPhoto(
+                          key: ValueKey(source),
+                          source: source,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
 
             // Top Bar
             AnimatedPositioned(
@@ -122,6 +140,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                 ),
                 child: Row(
                   children: [
+                    BackButton(color: Colors.white),
                     Expanded(
                       child: Text(
                         widget.authorName?.isNotEmpty == true
