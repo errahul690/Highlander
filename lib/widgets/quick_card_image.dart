@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../club_repository.dart';
+import '../media_cache.dart';
 import '../gallery_cache.dart';
 
 class QuickCardImageCache {
@@ -45,15 +46,19 @@ class QuickCardImageCache {
   Future<Uint8List?> _load(String url) async {
     final saved = await _storage.read(url);
     if (saved != null && await _valid(saved.bytes)) {
-      return _images[url] = saved.bytes;
+      _images[url] = saved.bytes;
+      await warmImage(saved.bytes);
+      return saved.bytes;
     }
     try {
       final response = await _client
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 12));
-      if (response.statusCode != 200 || !await _valid(response.bodyBytes))
+      if (response.statusCode != 200 || !await _valid(response.bodyBytes)) {
         return null;
+      }
       _images[url] = response.bodyBytes;
+      await warmImage(response.bodyBytes);
       await _storage.write(
         url,
         SavedGalleryResource(response.bodyBytes, const {}),
@@ -120,8 +125,9 @@ class _QuickCardImageState extends State<QuickCardImage>
   @override
   void didUpdateWidget(QuickCardImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url || oldWidget.cache != widget.cache)
+    if (oldWidget.url != widget.url || oldWidget.cache != widget.cache) {
       _resolve();
+    }
   }
 
   @override

@@ -52,7 +52,7 @@ class _GroundsScreenState extends State<GroundsScreen> {
         builder: (_, text, _) => ClubHeader(
           title: text.$1,
           subtitle: text.$2,
-          showBack: false,
+          showBack: true,
           showSearch: false,
           showSupport: false,
         ),
@@ -907,11 +907,10 @@ class _GroundDetailScreenState extends State<GroundDetailScreen> {
     backgroundColor: _background,
     appBar: const ClubHeader(
       title: 'GROUNDS',
-      showBack: false,
+      showBack: true,
       showSearch: false,
       showSupport: false,
       titleFontSize: 18,
-      backButtonWidth: 48,
     ),
     body: SingleChildScrollView(
       key: const PageStorageKey('ground-detail-scroll'),

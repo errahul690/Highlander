@@ -30,27 +30,30 @@ class ProfileIdentityHeader extends StatelessWidget {
     final headerHeight =
         MediaQuery.paddingOf(context).top +
         const ClubHeader(title: 'Profile').preferredSize.height;
+    // The curved header artwork has a transparent lower edge. Start the
+    // cover behind that edge, including the taller iOS status-bar area.
+    final coverTop = headerHeight * .68;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 360;
         return SizedBox(
-          height: headerHeight + 180,
+          height: coverTop + 194,
           child: Stack(
             children: [
               Positioned(
-                top: headerHeight - 24,
+                top: coverTop,
                 left: 0,
                 right: 0,
                 height: 140,
                 child: ProfileCover(
                   key: coverKey,
                   source: cover,
+                  allowViewing: true,
                   onEdit: onCoverEdit,
                   busy: coverBusy,
                 ),
               ),
               Positioned(
-                top: headerHeight + 104,
+                top: coverTop + 128,
                 left: 0,
                 right: 0,
                 bottom: 0,
@@ -64,21 +67,21 @@ class ProfileIdentityHeader extends StatelessWidget {
                 ),
               ),
               Positioned(
-                top: headerHeight + 82,
+                top: coverTop + 110,
                 left: 18,
                 child: Container(
                   key: const ValueKey('profile-avatar-frame'),
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(3),
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: avatarBuilder(compact ? 34 : 42),
+                  child: avatarBuilder(22),
                 ),
               ),
               Positioned(
-                top: headerHeight + 118,
-                left: compact ? 102 : 126,
+                top: coverTop + 134,
+                left: 82,
                 right: 18,
                 child: Row(
                   children: [

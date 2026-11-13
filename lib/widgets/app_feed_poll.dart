@@ -247,7 +247,7 @@ class _AppFeedPollState extends State<AppFeedPoll> {
     final backgroundImage = _repository.backgroundFor(poll);
     return Container(
       key: const ValueKey('feed-poll-card'),
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         color: poll.cardBackgroundColor,
         borderRadius: BorderRadius.circular(22),

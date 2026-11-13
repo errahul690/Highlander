@@ -81,7 +81,7 @@ class _PostActivityScreenState extends State<PostActivityScreen> {
   Widget build(BuildContext context) => ClubScaffold(
     appBar: ClubHeader(
       title: widget.reposts ? 'People who reposted this' : 'Reactions',
-      showBack: false,
+      showBack: true,
       showSearch: false,
       showSupport: false,
       uppercaseTitle: false,

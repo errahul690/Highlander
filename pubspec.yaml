@@ -76,6 +76,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/icons/post-actions/
     - .env
     - assets/images/club-logo.png
     - assets/images/kerala-blasters-logo.png

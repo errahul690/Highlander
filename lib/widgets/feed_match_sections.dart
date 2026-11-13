@@ -234,7 +234,7 @@ class RecentResultsSection extends StatelessWidget {
               },
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 6),
         ],
       );
     },
@@ -820,7 +820,7 @@ class _FeedGalleryFocusState extends State<FeedGalleryFocus>
           ],
         ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 6),
         ],
       );
   }

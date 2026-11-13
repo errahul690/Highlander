@@ -47,6 +47,7 @@ class _ChatWallpaperState extends State<ChatWallpaper> {
             _background.imageBytes!,
             key: ValueKey('admin-chat-background-${_background.imageUrl}'),
             fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
             gaplessPlayback: true,
             excludeFromSemantics: true,
           ),

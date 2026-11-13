@@ -1,4 +1,5 @@
 import 'brand_colors.dart';
+
 import 'package:flutter/material.dart';
 
 enum PostReaction {
@@ -34,7 +35,7 @@ Future<PostReaction?> showPostReactionPicker(
   pageBuilder: (context, animation, secondaryAnimation) {
     final media = MediaQuery.of(context);
     final width = (media.size.width - 24).clamp(0.0, 360.0);
-    const height = 76.0;
+    const height = 56.0;
     final left = (anchor.left - 8).clamp(12.0, media.size.width - width - 12);
     final minTop = media.padding.top + 8;
     final maxTop = media.size.height - media.padding.bottom - height - 8;
@@ -52,8 +53,10 @@ Future<PostReaction?> showPostReactionPicker(
           height: height,
           child: Material(
             key: const ValueKey('post-reaction-picker'),
-            elevation: 8,
-            color: Theme.of(context).colorScheme.surface,
+            elevation: 6,
+            shadowColor: const Color(0x24000000),
+            surfaceTintColor: Colors.transparent,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(38),
             clipBehavior: Clip.antiAlias,
             child: Padding(
@@ -67,20 +70,11 @@ Future<PostReaction?> showPostReactionPicker(
                         child: Semantics(
                           button: true,
                           label: reaction.label,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                reaction.emoji,
-                                style: const TextStyle(fontSize: 24),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                reaction.label,
-                                maxLines: 1,
-                                style: const TextStyle(fontSize: 10),
-                              ),
-                            ],
+                          child: Center(
+                            child: PostReactionIcon(
+                              reaction: reaction,
+                              size: 24,
+                            ),
                           ),
                         ),
                       ),
@@ -96,3 +90,16 @@ Future<PostReaction?> showPostReactionPicker(
   transitionBuilder: (context, animation, secondaryAnimation, child) =>
       FadeTransition(opacity: animation, child: child),
 );
+
+/// Keeps reaction rendering consistent with the original emoji reactions.
+class PostReactionIcon extends StatelessWidget {
+  const PostReactionIcon({super.key, required this.reaction, this.size = 20});
+  final PostReaction reaction;
+  final double size;
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: reaction == PostReaction.like
+        ? Icon(Icons.thumb_up, size: size, color: brandAccent)
+        : Text(reaction.emoji, style: TextStyle(fontSize: size, height: 1)),
+  );
+}

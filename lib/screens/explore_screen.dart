@@ -229,7 +229,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     title: _text('title'),
     subtitle: _text('headerSubtitle'),
     embedded: true,
-    showLogo: true,
+    showLogo: false,
     showNotifications: _config['showNotifications'] != false,
     // Keep the existing admin setting key for saved Explore configurations.
     showSearch: _config['showProfile'] != false,

@@ -182,7 +182,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
                     key: const PageStorageKey('feed-scroll'),
                     pager: _pager,
                     onChanged: _loadPosts,
-                    spacing: 20,
+                    spacing: 6,
                     emptyLoading: const StartupLoader(),
                     inserts: [
                       PostListInsert(
@@ -202,9 +202,10 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
                     ),
                     header: [
                       const AppQuickLinks(),
+                      const AppFeedBanners(
+                        padding: EdgeInsets.only(top: 6),
+                      ),
                       const SizedBox(height: 6),
-                      const AppFeedBanners(),
-                      const SizedBox(height: 18),
                       FeedMatchFeature(content: _clubContent, now: widget.now),
                       const AppFeedMarquee(key: ValueKey('feed-announcements')),
                       const AppFeedPoll(),
@@ -225,6 +226,9 @@ class _FeedHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const ClubHeader(
     title: 'Highlanders',
+    showBack: false,
+    showLogo: true,
+    uppercaseTitle: true,
     // subtitle: 'FAN COMMUNITY',
     embedded: true,
   );

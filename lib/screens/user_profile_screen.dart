@@ -263,7 +263,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 child: PostListView(
                   pager: _pager,
                   onChanged: _load,
-                  spacing: 16,
+                  spacing: 6,
                   showPosts: _section == 'posts',
                   alternative: _section == 'posts' ? null : _content(),
                   beforeHeader: _hero(),
@@ -275,7 +275,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                   ),
                   header: [
                     _stats(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Container(
@@ -301,7 +301,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),

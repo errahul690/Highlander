@@ -9,8 +9,13 @@ import '../otp_api.dart';
 import '../theme.dart';
 
 class AppFeedBanners extends StatefulWidget {
-  const AppFeedBanners({super.key, this.repository});
+  const AppFeedBanners({
+    super.key,
+    this.repository,
+    this.padding = EdgeInsets.zero,
+  });
   final AppBannersRepository? repository;
+  final EdgeInsetsGeometry padding;
   @override
   State<AppFeedBanners> createState() => _AppFeedBannersState();
 }
@@ -70,14 +75,16 @@ class _AppFeedBannersState extends State<AppFeedBanners>
       errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF342322)),
     );
   }
+
   @override
   void initState() {
     super.initState();
     _listenForUpdates();
+    _repository.addListener(_bannerChanged);
     _banners = _repository.current.where((banner) => banner.enabled).toList();
     WidgetsBinding.instance.addObserver(this);
     if (_banners.isEmpty) {
-      _reload();
+      unawaited(_repository.ensureLoaded());
     } else if (!_repository.imagesReady) {
       unawaited(
         _repository.prepareImages(context).then((_) {
@@ -87,8 +94,20 @@ class _AppFeedBannersState extends State<AppFeedBanners>
     }
   }
 
+  void _bannerChanged() {
+    if (!mounted) return;
+    setState(() {
+      _banners = _repository.current.where((banner) => banner.enabled).toList();
+      if (_page >= _banners.length) {
+        _page = 0;
+        if (_controller.hasClients) _controller.jumpToPage(0);
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _repository.removeListener(_bannerChanged);
     _settingsSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
@@ -135,53 +154,56 @@ class _AppFeedBannersState extends State<AppFeedBanners>
   @override
   Widget build(BuildContext context) {
     if (_banners.isEmpty) return const SizedBox.shrink();
-    return Column(
-      children: [
-        AspectRatio(
-          aspectRatio: _bannerAspect,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: PageView.builder(
-              key: const ValueKey('app-banner-slider'),
-              controller: _controller,
-              itemCount: _banners.length,
-              onPageChanged: (page) => setState(() => _page = page),
-              itemBuilder: (context, index) {
-                final banner = _banners[index];
-                return Material(
-                  color: const Color(0xFFF4F1EC),
-                  child: InkWell(
-                    key: ValueKey('app-banner-$index'),
-                    onTap: banner.link.isEmpty
-                        ? null
-                        : () => openAppDestination(context, banner.link),
-                    child: _bannerPicture(banner, index),
-                  ),
-                );
-              },
+    return Padding(
+      padding: widget.padding,
+      child: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: _bannerAspect,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: PageView.builder(
+                key: const ValueKey('app-banner-slider'),
+                controller: _controller,
+                itemCount: _banners.length,
+                onPageChanged: (page) => setState(() => _page = page),
+                itemBuilder: (context, index) {
+                  final banner = _banners[index];
+                  return Material(
+                    color: const Color(0xFFF4F1EC),
+                    child: InkWell(
+                      key: ValueKey('app-banner-$index'),
+                      onTap: banner.link.isEmpty
+                          ? null
+                          : () => openAppDestination(context, banner.link),
+                      child: _bannerPicture(banner, index),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
-        ),
-        if (_banners.length > 1) ...[
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var index = 0; index < _banners.length; index++)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: index == _page ? 8 : 6,
-                  height: index == _page ? 8 : 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: index == _page ? authRed : const Color(0xFFDADADA),
+          if (_banners.length > 1) ...[
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var index = 0; index < _banners.length; index++)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: index == _page ? 8 : 6,
+                    height: index == _page ? 8 : 6,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == _page ? authRed : const Color(0xFFDADADA),
+                    ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

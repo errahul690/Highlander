@@ -25,6 +25,8 @@ import 'chat_background_repository.dart';
 import 'explore_repository.dart';
 import 'screens/swoofi_screen.dart';
 import 'feed_startup.dart';
+import 'chat_media_cache.dart';
+import 'media_auto_download.dart';
 
 export 'post_link_router.dart' show postIdFromLink;
 
@@ -45,6 +47,8 @@ Future<void> main() async {
     );
   };
   await OtpApi.loadEnvironment();
+  FeedStartup.warmBanners();
+  unawaited(FeedStartup.ready());
   final selectedSplash = await loadBundledSplash();
   final startupReady = Completer<void>();
   try {
@@ -60,10 +64,21 @@ Future<void> main() async {
       initialSplash: selectedSplash,
     ),
   );
-  FeedStartup.warmBanners();
-  unawaited(FeedStartup.ready());
   final sessionReady = Session.restore();
+  startupReady.complete(sessionReady.then<void>((_) {}));
   FeedStartup.warm(sessionReady);
+  unawaited(
+    sessionReady
+        .then((signedIn) async {
+          if (signedIn) {
+            await Future.wait([
+              ChatMediaCache.instance.restoreRecent(),
+              MediaAutoDownload.instance.restore(),
+            ]);
+          }
+        })
+        .catchError((Object _) {}),
+  );
   await HeaderIconsRepository.instance.restore();
   HeaderIconsRepository.instance.start();
   ChatBackgroundRepository.instance.start();
@@ -76,13 +91,14 @@ Future<void> main() async {
   final clubReady = ClubRepository.instance.load().then<void>((_) {});
   unawaited(ExploreRepository.instance.load());
   unawaited(SwoofiRepository.instance.load(force: true));
-  final startupTasks = Future.wait<void>([
-    sessionReady,
-    headerIconsReady.timeout(const Duration(seconds: 3), onTimeout: () {}),
-    clubReady.timeout(const Duration(seconds: 4), onTimeout: () {}),
-  ]).then<void>((_) {});
+  unawaited(
+    Future.wait<void>([
+      sessionReady,
+      headerIconsReady.timeout(const Duration(seconds: 3), onTimeout: () {}),
+      clubReady.timeout(const Duration(seconds: 4), onTimeout: () {}),
+    ]).then<void>((_) {}).catchError((Object _) {}),
+  );
   await GroundsRepository.instance.restore();
-  startupReady.complete(startupTasks);
   unawaited(GroundsRepository.instance.preload());
   _links.setMethodCallHandler((call) async {
     if (call.method == 'incomingLink' && call.arguments is String) {

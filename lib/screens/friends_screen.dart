@@ -1,6 +1,5 @@
+import '../widgets/app_popup_menu.dart';
 import '../brand_colors.dart';
-
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -48,12 +47,8 @@ class _FriendsScreenState extends State<FriendsScreen>
   final _busy = <String>{};
   final _dismissed = <String>{};
   final _followStatus = <String, ({bool following, bool requested})>{};
-  final _search = TextEditingController();
-  Timer? _searchDebounce;
-  String _query = '';
   Map<String, dynamic>? _counts;
   int _countsVersion = 0;
-  Future<List<Map<String, dynamic>>>? _searchResults;
 
   @override
   void initState() {
@@ -84,8 +79,6 @@ class _FriendsScreenState extends State<FriendsScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _searchDebounce?.cancel();
-    _search.dispose();
     super.dispose();
   }
 
@@ -93,7 +86,6 @@ class _FriendsScreenState extends State<FriendsScreen>
     _followStatus.clear();
     _loadPeople();
     _loadCounts();
-    if (_query.isNotEmpty) _runSearch();
     Future.microtask(_loadRequests);
   }
 
@@ -108,122 +100,6 @@ class _FriendsScreenState extends State<FriendsScreen>
       /* Keep the last confirmed counts until refresh succeeds. */
     }
   }
-
-  void _runSearch() {
-    _searchDebounce?.cancel();
-    _searchResults = CommunityApi.instance.list(
-      Uri(path: '/people', queryParameters: {'q': _query}).toString(),
-    );
-    // The response can arrive before the next frame attaches FutureBuilder.
-    _searchResults!.ignore();
-  }
-
-  void _searchChanged(String value) {
-    _searchDebounce?.cancel();
-    setState(() {
-      _query = value.trim();
-      _searchResults = null;
-    });
-    if (_query.isEmpty) return;
-    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-      if (mounted) setState(_runSearch);
-    });
-  }
-
-  Widget _searchField() => Padding(
-    padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-    child: TextField(
-      key: const ValueKey('friends-search'),
-      controller: _search,
-      onChanged: _searchChanged,
-      textInputAction: TextInputAction.search,
-      maxLength: 80,
-      style: const TextStyle(fontSize: 13, color: Color(0xFF17182D)),
-      onSubmitted: (_) {
-        if (_query.isNotEmpty) setState(_runSearch);
-      },
-      decoration: InputDecoration(
-        hintText: 'Search people by name',
-        hintStyle: const TextStyle(color: Color(0xFF747588), fontSize: 13),
-        prefixIcon: const Icon(
-          Icons.search,
-          size: 20,
-          color: Color(0xFF17182D),
-        ),
-        filled: true,
-        fillColor: const Color(0xFFF3F2F7),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: Color(0xFFE6E3EE)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: Color(0xFFE6E3EE)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: authRed),
-        ),
-        counterText: '',
-        suffixIcon: _query.isEmpty
-            ? null
-            : IconButton(
-                tooltip: 'Clear search',
-                onPressed: () {
-                  _search.clear();
-                  _searchChanged('');
-                },
-                icon: const Icon(Icons.close),
-              ),
-      ),
-    ),
-  );
-
-  Widget _searchContent() => FutureBuilder<List<Map<String, dynamic>>>(
-    future: _searchResults,
-    builder: (context, snapshot) {
-      if (_searchResults == null ||
-          snapshot.connectionState != ConnectionState.done) {
-        return const Center(child: CircularProgressIndicator());
-      }
-      if (snapshot.hasError) {
-        return _errorState(
-          'Could not search people.',
-          () => setState(_runSearch),
-        );
-      }
-      final people = snapshot.data ?? [];
-      return ListView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.fromLTRB(
-          16,
-          0,
-          16,
-          MediaQuery.paddingOf(context).bottom + 24,
-        ),
-        children: [
-          const Text(
-            'SEARCH RESULTS',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-          ),
-          const SizedBox(height: 11),
-          if (people.isEmpty)
-            const _EmptySection(message: 'No people found. Try another name.'),
-          for (final person in people)
-            _person(
-              person,
-              person['isFollowing'] == true ? 0 : 2,
-              canDismiss: false,
-            ),
-        ],
-      );
-    },
-  );
 
   void _loadPeople() {
     _people = Future.wait([
@@ -261,11 +137,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   void _selectTab(int index) {
-    _searchDebounce?.cancel();
-    _search.clear();
     setState(() {
-      _query = '';
-      _searchResults = null;
       _tab = index;
       if (index == 0) _friendTab = -1;
       if (index == 2) _loadPeople();
@@ -351,7 +223,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     title: 'Friends',
     // subtitle: 'Your fellow Highlanders',
     embedded: true,
-    showBack: false,
+    showBack: true,
     showSearch: false,
     showNotifications: false,
     uppercaseTitle: false,
@@ -362,7 +234,7 @@ class _FriendsScreenState extends State<FriendsScreen>
       (_requestData?['received'] as List?)?.length ?? 0;
 
   Widget _tabsBar() => Container(
-    margin: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+    margin: const EdgeInsets.fromLTRB(14, 4, 14, 10),
     padding: const EdgeInsets.all(4),
     decoration: BoxDecoration(
       color: Colors.white,
@@ -657,26 +529,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                 ),
               ),
               if (relationIndex == 0)
-                PopupMenuButton<String>(
+                AppPopupMenu<String>(
                   key: ValueKey('friend-menu-$id'),
                   tooltip: 'More options for $name',
                   enabled: !saving,
-                  padding: EdgeInsets.zero,
-                  color: Colors.white,
-                  surfaceTintColor: Colors.transparent,
-                  elevation: 6,
-                  shadowColor: const Color(0x18900F32),
-                  position: PopupMenuPosition.under,
-                  offset: const Offset(0, 6),
-                  menuPadding: const EdgeInsets.all(6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: const BorderSide(color: brandAccentLight),
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 176,
-                    maxWidth: 224,
-                  ),
                   icon: const Icon(
                     Icons.more_vert,
                     size: 20,
@@ -684,38 +540,11 @@ class _FriendsScreenState extends State<FriendsScreen>
                   ),
                   onSelected: (_) => _follow(person),
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
+                    AppMenuItem<String>(
                       value: 'unfollow',
-                      height: 48,
-                      child: Row(
-                        children: [
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: brandAccentLight,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(9),
-                              ),
-                            ),
-                            child: Padding(
-                              padding: EdgeInsets.all(7),
-                              child: Icon(
-                                Icons.person_remove_outlined,
-                                size: 18,
-                                color: brandAccent,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            'Unfollow',
-                            style: TextStyle(
-                              color: brandAccent,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                      label: 'Unfollow',
+                      icon: Icons.person_remove_outlined,
+                      danger: true,
                     ),
                   ],
                 ),
@@ -1042,13 +871,8 @@ class _FriendsScreenState extends State<FriendsScreen>
             child: Column(
               children: [
                 _tabsBar(),
-                if (_tab != 1) _searchField(),
                 Expanded(
-                  child: _tab == 1
-                      ? _requestsContent()
-                      : _query.isNotEmpty
-                      ? _searchContent()
-                      : _peopleContent(),
+                  child: _tab == 1 ? _requestsContent() : _peopleContent(),
                 ),
               ],
             ),

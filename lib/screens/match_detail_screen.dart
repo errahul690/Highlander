@@ -556,9 +556,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
+            fontFamily: clubFontFamily,
+            color: Color(0xFF111827),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
             letterSpacing: 0.6,
           ),
         ),
@@ -568,9 +569,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
             value,
             textAlign: TextAlign.right,
             style: const TextStyle(
+              fontFamily: clubFontFamily,
               color: Color(0xFF111827),
               fontSize: 12.5,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w400,
               letterSpacing: 0.2,
             ),
           ),

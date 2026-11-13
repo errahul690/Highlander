@@ -147,7 +147,7 @@ class _AppQuickLinksState extends State<AppQuickLinks>
     builder: (context, constraints) => SingleChildScrollView(
       key: const ValueKey('app-quick-links-scroll'),
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.only(bottom: 3),
+      padding: EdgeInsets.zero,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

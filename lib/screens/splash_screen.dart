@@ -38,6 +38,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   Map<String, dynamic>? _splash;
   bool _proceeded = false;
+  final _elapsed = Stopwatch();
   Timer? _timer;
   Timer? _nativeReadyTimeout;
   Completer<Map<String, dynamic>?>? _nativePlayback;
@@ -52,6 +53,8 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    _elapsed.start();
+    _startTimer(4000);
     _feedReady =
         widget.feedReady ??
         (widget.client == null
@@ -70,6 +73,18 @@ class _SplashScreenState extends State<SplashScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _proceed());
     } else {
       unawaited(_showBundledSplash());
+    }
+  }
+
+  bool _warmingAssets = false;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_warmingAssets && widget.client == null) {
+      _warmingAssets = true;
+      unawaited(
+        FeedStartup.warmBundledImages(context).catchError((Object _) {}),
+      );
     }
   }
 
@@ -103,26 +118,13 @@ class _SplashScreenState extends State<SplashScreen> {
     }
   }
 
-  int get _playbackMilliseconds {
-    final configured =
-        (((_splash?['duration'] as num?)?.toDouble() ?? 3) * 1000).round();
-    final video = _videoController?.value.duration.inMilliseconds ?? 0;
-    // The bundled mountain reveal reaches the summit at 4.25 s, followed by
-    // its 1.4 s finish. Older cached copies can still have a 3 s setting.
-    final html = '${_splash?['html_content'] ?? ''}';
-    final bundled = html.contains('const ROAD_START = 1.25, ROAD_DUR = 3.0;')
-        ? 6000
-        : 0;
-    var duration = video > configured ? video : configured;
-    if (bundled > duration) duration = bundled;
-    return duration;
-  }
+  int get _playbackMilliseconds => 4000;
 
   Future<void> _armTimer(Map<String, dynamic> data) async {
     _nativeChecked = false;
     _timer?.cancel();
     // A broken WebView/image must not strand the app on splash forever.
-    _timer = Timer(const Duration(seconds: 15), () => unawaited(_proceed()));
+    _startTimer(4000);
     Map<String, dynamic>? native;
     if ('${data['type']}'.toLowerCase() == 'html') {
       final playback = Completer<Map<String, dynamic>?>();
@@ -276,6 +278,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _startTimer(int milliseconds) {
     _timer?.cancel();
+    milliseconds = milliseconds.clamp(
+      0,
+      (4000 - _elapsed.elapsedMilliseconds).clamp(0, 4000),
+    );
     if (milliseconds <= 0) {
       unawaited(_proceed());
       return;
@@ -296,12 +302,6 @@ class _SplashScreenState extends State<SplashScreen> {
       try {
         await ready;
       } catch (_) {}
-    }
-    if (!mounted) return;
-    try {
-      await _feedReady.timeout(const Duration(seconds: 4));
-    } catch (_) {
-      // Keep startup usable offline; remaining requests finish in the feed.
     }
     if (!mounted) return;
     final next = widget.resolveNext?.call() ?? widget.nextScreen!;

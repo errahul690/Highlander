@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../chat_updates.dart';
+import '../screens/shell.dart';
 import '../screens/alerts_screen.dart';
 import '../screens/search_screen.dart';
 import 'customer_support_button.dart';
@@ -14,17 +15,18 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     this.titleWidget,
     this.subtitle,
-    this.showBack = false,
+    this.showBack = true,
     this.onBack,
     this.backKey,
     this.embedded = false,
     this.showNotifications = true,
     this.showSearch = true,
-    this.showLogo = true,
+    this.showLogo = false,
     this.showSupport = true,
-    this.uppercaseTitle = true,
+    this.uppercaseTitle = false,
     this.titleFontSize,
-    this.backButtonWidth = 36,
+    this.backButtonWidth = 44,
+    this.trailingPadding = 16,
     this.actions = const [],
     this.trailing = const [],
   });
@@ -36,6 +38,7 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
   final bool showSupport, uppercaseTitle;
   final double? titleFontSize;
   final double backButtonWidth;
+  final double trailingPadding;
   final VoidCallback? onBack;
   final Key? backKey;
   final List<Widget> actions;
@@ -62,7 +65,7 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
       systemOverlayStyle: SystemUiOverlayStyle.light,
       automaticallyImplyLeading: false,
       centerTitle: false,
-      titleSpacing: showBack ? 0 : 18,
+      titleSpacing: showBack ? 4 : 18,
       leadingWidth: backButtonWidth,
       leading: showBack
           ? alignToolbar(
@@ -70,7 +73,14 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
                 key: backKey,
                 tooltip: 'Back',
                 padding: EdgeInsets.zero,
-                onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+                onPressed:
+                    onBack ??
+                    () async {
+                      final handled = await Navigator.of(context).maybePop();
+                      if (!handled && context.mounted) {
+                        AppShell.openTab(context, 2);
+                      }
+                    },
                 icon: const Icon(Icons.arrow_back, size: 22),
               ),
             )
@@ -119,7 +129,9 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          uppercaseTitle ? title.toUpperCase() : title,
+                          uppercaseTitle
+                              ? title.toUpperCase()
+                              : _titleCase(title),
                           maxLines: 1,
                           style: TextStyle(
                             color: Colors.white,
@@ -219,7 +231,7 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
             ),
-          const SizedBox(width: 16),
+          SizedBox(width: trailingPadding),
         ])
           alignToolbar(action),
       ],
@@ -252,6 +264,13 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
         : bar;
   }
 }
+
+String _titleCase(String title) =>
+    title.replaceAllMapped(RegExp(r"[A-Za-z][A-Za-z']*"), (match) {
+      final word = match.group(0)!;
+      final rest = word == word.toUpperCase() ? word.toLowerCase() : word;
+      return rest[0].toUpperCase() + rest.substring(1);
+    });
 
 class _HeaderStripes extends CustomPainter {
   const _HeaderStripes();

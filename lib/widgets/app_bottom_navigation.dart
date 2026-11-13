@@ -1,4 +1,5 @@
 import '../brand_colors.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 
@@ -103,7 +104,9 @@ class _AppBottomNavigationState extends State<AppBottomNavigation> {
                 18,
                 10,
                 18,
-                MediaQuery.viewPaddingOf(context).bottom + 4,
+                Theme.of(context).platform == TargetPlatform.iOS
+                    ? MediaQuery.paddingOf(context).bottom
+                    : MediaQuery.viewPaddingOf(context).bottom + 4,
               ),
               child: Container(
                 key: const ValueKey('floating-bottom-bar'),
@@ -158,10 +161,7 @@ class _AppBottomNavigationState extends State<AppBottomNavigation> {
                                   gradient: const LinearGradient(
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
-                                    colors: [
-                                      brandAccent,
-                                      brandAccentDark,
-                                    ],
+                                    colors: [brandAccent, brandAccentDark],
                                   ),
                                   border: Border.all(
                                     color: Colors.white,
@@ -254,8 +254,8 @@ class _AppBottomNavigationState extends State<AppBottomNavigation> {
                       _assetIcon(
                         image!,
                         selectedIndex == index
-                            ? authRed
-                            : const Color(0xFF525252),
+                            ? const Color(0xFF747474)
+                            : authRed,
                         26,
                       ),
                       if (count > 0)
@@ -272,21 +272,21 @@ class _AppBottomNavigationState extends State<AppBottomNavigation> {
                   key: const ValueKey('nav-explore-artwork'),
                   size: const Size(24, 24),
                   painter: _ExploreCompass(
-                    selectedIndex == index ? authRed : const Color(0xFF525252),
+                    selectedIndex == index ? const Color(0xFF747474) : authRed,
                   ),
                 )
               else if (image != null)
                 _assetIcon(
                   image,
-                  selectedIndex == index ? authRed : const Color(0xFF525252),
+                  selectedIndex == index ? const Color(0xFF747474) : authRed,
                   index == 0 ? 30 : 26,
                 )
               else
                 Icon(
                   icon,
                   color: selectedIndex == index
-                      ? authRed
-                      : const Color(0xFF747474),
+                      ? const Color(0xFF747474)
+                      : authRed,
                   size: 24,
                 ),
               const SizedBox(height: 3),
@@ -296,8 +296,8 @@ class _AppBottomNavigationState extends State<AppBottomNavigation> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: selectedIndex == index
-                      ? authRed
-                      : const Color(0xFF505050),
+                      ? const Color(0xFF747474)
+                      : authRed,
                   fontFamily: clubFontFamily,
                   fontSize: 10,
                   height: 1.1,

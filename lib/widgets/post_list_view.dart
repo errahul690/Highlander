@@ -14,7 +14,7 @@ class PostListView extends StatefulWidget {
     required this.onChanged,
     this.showPosts = true,
     this.alternative,
-    this.spacing = 8,
+    this.spacing = 6,
     this.afterFirstPosts,
     this.afterPostCount = 2,
     this.inserts = const [],
@@ -140,14 +140,9 @@ class _PostListViewState extends State<PostListView> {
                     final row = rows[index];
                     if (row.section != null) return row.section;
                     final post = row.post!;
-                    final beforeSection =
-                        index + 1 < rows.length &&
-                        rows[index + 1].section != null;
                     return Padding(
                       key: ValueKey(post['_id']),
-                      padding: EdgeInsets.only(
-                        bottom: beforeSection ? 8 : widget.spacing,
-                      ),
+                      padding: EdgeInsets.only(bottom: widget.spacing),
                       child: FeedPostCard(
                         post: post,
                         videoPosts: widget.pager.posts

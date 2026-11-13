@@ -314,8 +314,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     child: Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        toolbarHeight: 0,
+        automaticallyImplyLeading: true,
+        toolbarHeight: 48,
         backgroundColor: Colors.white,
         foregroundColor: clubInk,
         surfaceTintColor: Colors.transparent,

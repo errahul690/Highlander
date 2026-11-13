@@ -176,7 +176,7 @@ class _SwoofiScreenState extends State<SwoofiScreen> {
         appBar: const ClubHeader(
           title: 'Swoofi',
           subtitle: 'ABOUT THE APP',
-          showBack: false,
+          showBack: true,
           showSearch: false,
           showSupport: false,
           uppercaseTitle: false,

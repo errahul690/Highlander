@@ -4,6 +4,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.content.Intent
+import androidx.core.content.FileProvider
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -68,8 +69,7 @@ class MainActivity : FlutterActivity() {
             }
         }
         val page = html ?: return
-        splashMinimumDurationMs =
-            if (page.contains("const ROAD_START = 1.25, ROAD_DUR = 3.0;")) 6000L else 0L
+        splashMinimumDurationMs = 4000L
         val overlay = FrameLayout(this)
         val webView = WebView(this)
         overlay.setBackgroundColor(Color.parseColor("#0E1014"))
@@ -309,6 +309,7 @@ class MainActivity : FlutterActivity() {
                         type = "*/*"
                         putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
                             "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif",
+                            "video/mp4", "video/quicktime", "video/webm",
                             "application/pdf", "text/plain",
                             "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                             "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -316,6 +317,24 @@ class MainActivity : FlutterActivity() {
                         ))
                     }
                     startActivityForResult(picker, attachmentRequestCode)
+                    return@setMethodCallHandler
+                }
+                if (call.method == "openChatFile") {
+                    try {
+                        val file = File(call.argument<String>("path") ?: "").canonicalFile
+                        val root = File(filesDir, "chat-files/open").canonicalFile
+                        require(file.isFile && file.path.startsWith(root.path + File.separator)) { "Invalid local file" }
+                        val uri = FileProvider.getUriForFile(this, "$packageName.chat_files", file)
+                        val mime = call.argument<String>("mime")?.takeIf { it.contains("/") } ?: "application/octet-stream"
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, mime)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(intent)
+                        result.success(null)
+                    } catch (error: Exception) {
+                        result.error("open_failed", "Could not open this downloaded file", null)
+                    }
                     return@setMethodCallHandler
                 }
                 if (call.method != "openUrl") {

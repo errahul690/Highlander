@@ -172,7 +172,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 children: [
                   FriendsScreen(
                     title: 'Friends',
-                    showBack: false,
+                    showBack: true,
                     isActive: _index == 0,
                   ),
                   CommunityScreen(title: 'Huddles', isActive: _index == 1),

@@ -222,7 +222,7 @@ class _OtpScreenState extends State<OtpScreen> {
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-      automaticallyImplyLeading: false,
+      automaticallyImplyLeading: true,
 
           backgroundColor: Colors.white,
           foregroundColor: clubInk,

@@ -1,3 +1,4 @@
+import '../widgets/app_popup_menu.dart';
 import '../brand_colors.dart';
 
 import 'dart:async';
@@ -449,20 +450,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           action,
           if (_section == 'following') ...[
             const SizedBox(width: 2),
-            PopupMenuButton<String>(
+            AppPopupMenu<String>(
               key: ValueKey('profile-following-menu-$id'),
               tooltip: 'More options for $name',
               enabled: !saving,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 34, minHeight: 44),
               icon: const Icon(Icons.more_vert, size: 20),
               onSelected: (value) {
                 if (value == 'unfollow') _unfollow(person);
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem<String>(
+              itemBuilder: (_) => [
+                AppMenuItem<String>(
                   value: 'unfollow',
-                  child: Text('Unfollow'),
+                  label: 'Unfollow',
+                  icon: Icons.person_remove_outlined,
+                  danger: true,
                 ),
               ],
             ),
@@ -723,10 +724,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   18,
                   MediaQuery.paddingOf(context).bottom + 24,
                 ),
-                spacing: 16,
+                spacing: 6,
                 header: [
                   _profileStats(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Container(
@@ -752,16 +753,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
-            const Positioned(
+            Positioned(
               top: 0,
               left: 0,
               right: 0,
               child: ClubHeader(
                 title: 'Profile',
+                onBack: _handleBack,
                 embedded: true,
                 showSearch: true,
                 showNotifications: true,

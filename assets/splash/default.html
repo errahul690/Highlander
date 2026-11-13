@@ -39,7 +39,7 @@ body { background: var(--page); margin: 0; overflow: hidden; }
 canvas.full { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
 
 .summit { width: 9%; aspect-ratio: 1; transform: translate(-50%, -50%) scale(0); opacity: 0; }
-.summit.on { animation: glint 1.4s cubic-bezier(.2,.9,.3,1) forwards; }
+.summit.on { animation: glint .9s cubic-bezier(.2,.9,.3,1) forwards; }
 .summit::before { content: ""; position: absolute; inset: 0; background: conic-gradient(from 0deg, transparent 0 20deg, rgba(247,147,30,.9) 22deg 24deg, transparent 26deg 65deg, rgba(247,147,30,.9) 67deg 69deg, transparent 71deg 110deg, rgba(247,147,30,.9) 112deg 114deg, transparent 116deg 155deg, rgba(247,147,30,.9) 157deg 159deg, transparent 161deg 200deg, rgba(247,147,30,.9) 202deg 204deg, transparent 206deg 245deg, rgba(247,147,30,.9) 247deg 249deg, transparent 251deg 290deg, rgba(247,147,30,.9) 292deg 294deg, transparent 296deg 335deg, rgba(247,147,30,.9) 337deg 339deg, transparent 341deg); -webkit-mask-image: radial-gradient(circle, transparent 18%, #000 30%, transparent 70%); mask-image: radial-gradient(circle, transparent 18%, #000 30%, transparent 70%); }
 .summit::after { content: ""; position: absolute; inset: 32%; border-radius: 50%; background: radial-gradient(circle, #fff 0 20%, rgba(247,147,30,.95) 40%, rgba(251,176,59,0) 72%); }
 @keyframes glint { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.2) rotate(0deg); } 25% { opacity: 1; transform: translate(-50%,-50%) scale(1.2) rotate(30deg); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(2) rotate(70deg); } }
@@ -215,7 +215,7 @@ const snow = Array.from({ length: 70 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), r: 
 const ink = [];
 
 let t0 = 0, last = 0, glinted = false, done = false;
-const ROAD_START = 1.25, ROAD_DUR = 3.0;
+const ROAD_START = 0.65, ROAD_DUR = 2.1;
 function tick(now) {
   if (!t0) t0 = last = now;
   const t = (now - t0) / 1000, dt = Math.min(.05, (now - last) / 1000); last = now;
@@ -230,7 +230,7 @@ function tick(now) {
     glinted = true;
     summit.classList.add("on"); ring.classList.add("on");
     stars.forEach((s, i) => setTimeout(() => { s.classList.remove("twinkle"); void s.offsetWidth; s.classList.add("twinkle"); }, 250 + Math.abs(i - 3.5) * 70));
-    setTimeout(() => { done = true; phone.classList.add("done"); }, 1400);
+    setTimeout(() => { done = true; phone.classList.add("done"); }, 900);
   }
 
   // contour lines draw in from the top

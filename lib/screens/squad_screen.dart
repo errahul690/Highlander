@@ -29,7 +29,7 @@ class _SquadScreenState extends State<SquadScreen> {
   @override
   Widget build(BuildContext context) => ClubScaffold(
     backgroundColor: Colors.white,
-    appBar: const ClubBar(title: 'The Squad', showBack: false),
+    appBar: const ClubBar(title: 'The Squad', showBack: true),
     body: RefreshIndicator(
       onRefresh: _refresh,
       child: FutureBuilder<ClubContent>(

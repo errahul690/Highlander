@@ -221,9 +221,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             ),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: brandAccent,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: brandAccent),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Delete'),
           ),
@@ -265,9 +263,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             ),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: brandAccent,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: brandAccent),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Leave'),
           ),
@@ -294,7 +290,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Widget _header() => ClubHeader(
     title: widget.title,
     embedded: true,
-    showBack: false,
+    showBack: true,
     showSearch: false,
     showNotifications: false,
     trailing: [
@@ -344,9 +340,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22),
                   side: BorderSide(
-                    color: _tab == i
-                        ? brandAccent
-                        : const Color(0xFFE5E7EB),
+                    color: _tab == i ? brandAccent : const Color(0xFFE5E7EB),
                     width: 1.2,
                   ),
                 ),
@@ -437,11 +431,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           decoration: InputDecoration(
             hintText: 'Search ${_tab == 0 ? 'huddles' : _kind}...',
             hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
-            prefixIcon: const Icon(
-              Icons.search,
-              color: brandAccent,
-              size: 20,
-            ),
+            prefixIcon: const Icon(Icons.search, color: brandAccent, size: 20),
             border: InputBorder.none,
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
@@ -656,10 +646,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       trailing: row['canManage'] == true || row['canInvite'] == true
           ? IconButton(
               tooltip: 'Add members',
-              icon: const Icon(
-                Icons.person_add_alt_1,
-                color: brandAccent,
-              ),
+              icon: const Icon(Icons.person_add_alt_1, color: brandAccent),
               onPressed: () => InviteMembersSheet.show(
                 context,
                 roomId: id,
@@ -853,9 +840,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     builder: (context, snapshot) {
                       if (snapshot.connectionState != ConnectionState.done) {
                         return const Center(
-                          child: CircularProgressIndicator(
-                            color: brandAccent,
-                          ),
+                          child: CircularProgressIndicator(color: brandAccent),
                         );
                       }
                       if (snapshot.hasError) {
@@ -1118,6 +1103,10 @@ class _CreateGroupState extends State<_CreateGroup> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
+                  dropdownColor: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  elevation: 4,
+                  menuMaxHeight: 320,
                   initialValue: _permission,
                   isExpanded: true,
                   decoration: _field('Who can send messages?', ''),
@@ -1254,7 +1243,7 @@ class _PeopleScreenState extends State<CommunityPeopleScreen> {
   @override
   Widget build(BuildContext context) => ClubScaffold(
     backgroundColor: Colors.white,
-    appBar: ClubHeader(title: widget.title, showBack: false),
+    appBar: ClubHeader(title: widget.title, showBack: true),
     body: Column(
       children: [
         Padding(

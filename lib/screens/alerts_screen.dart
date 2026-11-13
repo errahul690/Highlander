@@ -17,6 +17,8 @@ import '../support_hub_repository.dart';
 import '../theme.dart';
 import '../widgets/user_avatar.dart';
 import 'chat_screen.dart';
+import 'group_invitation_screen.dart';
+import '../widgets/group_invitation_actions.dart';
 import 'friends_screen.dart';
 import 'post_detail_screen.dart';
 
@@ -174,16 +176,23 @@ class _AlertsScreenState extends State<AlertsScreen>
       });
       return;
     }
+    if (type == 'group_invite_response') {
+      await NotificationRouter.followMap(context, {
+        'kind': type,
+        'groupId': metadata['groupId'],
+        'roomName': metadata['roomName'],
+        'roomKind': metadata['kind'] ?? 'groups',
+      });
+      return;
+    }
     if (type == 'group_invite') {
       final groupId = '${metadata['groupId'] ?? ''}';
-      final roomName = '${metadata['roomName'] ?? 'Group'}';
       if (groupId.isNotEmpty) {
         await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ChatScreen(
-              title: roomName,
-              kind: '${metadata['kind'] ?? 'groups'}',
-              room: {'_id': groupId, 'name': roomName, 'membership': 'active'},
+          MaterialPageRoute<void>(
+            builder: (_) => GroupInvitationScreen(
+              groupId: groupId,
+              groupName: '${metadata['roomName'] ?? 'Group'}',
             ),
           ),
         );
@@ -237,6 +246,7 @@ class _AlertsScreenState extends State<AlertsScreen>
   IconData _icon(String type) {
     switch (type) {
       case 'group_invite':
+      case 'group_invite_response':
         return Icons.group_add_rounded;
       case 'direct_message':
         return Icons.chat_bubble_rounded;
@@ -261,6 +271,7 @@ class _AlertsScreenState extends State<AlertsScreen>
   Color _iconColor(String type) {
     switch (type) {
       case 'group_invite':
+      case 'group_invite_response':
         return brandAccent;
       case 'direct_message':
         return const Color(0xFF2563EB);
@@ -282,6 +293,7 @@ class _AlertsScreenState extends State<AlertsScreen>
   Color _iconBg(String type) {
     switch (type) {
       case 'group_invite':
+      case 'group_invite_response':
         return const Color(0xFFFFECEB);
       case 'direct_message':
         return const Color(0xFFEFF6FF);
@@ -331,7 +343,7 @@ class _AlertsScreenState extends State<AlertsScreen>
       case 'unread':
         return _items.where((i) => i['read'] != true).toList();
       case 'invites':
-        return _items.where((i) => '${i['type']}' == 'group_invite').toList();
+        return _items.where((i) => ['group_invite', 'group_invite_response'].contains('${i['type']}')).toList();
       default:
         return _items;
     }
@@ -478,53 +490,13 @@ class _AlertsScreenState extends State<AlertsScreen>
                           ),
                         ),
                       ],
-                      if (isGroupInvite) ...[
+                      if (isGroupInvite && item['metadata'] is Map) ...[
                         const SizedBox(height: 10),
-                        InkWell(
-                          onTap: () => _open(item),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: brandAccent,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: brandAccent.withValues(alpha: 0.25),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.group_rounded,
-                                  color: Colors.white,
-                                  size: 15,
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Open Group Chat',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                SizedBox(width: 4),
-                                Icon(
-                                  Icons.arrow_forward_rounded,
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                              ],
-                            ),
-                          ),
+                        GroupInvitationActions(
+                          key: ValueKey('notification-invite-${item['_id']}'),
+                          groupId: '${item['metadata']['groupId'] ?? ''}',
+                          groupName:
+                              '${item['metadata']['roomName'] ?? 'Group'}',
                         ),
                       ],
                     ],
@@ -685,7 +657,7 @@ class _AlertsScreenState extends State<AlertsScreen>
   Widget build(BuildContext context) {
     final displayed = _filteredItems;
     final inviteCount = _items
-        .where((i) => '${i['type']}' == 'group_invite')
+        .where((i) => ['group_invite', 'group_invite_response'].contains('${i['type']}'))
         .length;
 
     // Group displayed items by date category while preserving chronological order
@@ -699,7 +671,7 @@ class _AlertsScreenState extends State<AlertsScreen>
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: ClubHeader(
         title: 'Notifications',
-        showBack: false,
+        showBack: true,
         showSearch: false,
         showSupport: false,
         showNotifications: false,

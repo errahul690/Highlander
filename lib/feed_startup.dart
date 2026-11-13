@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 import 'app_banners_repository.dart';
 import 'app_marquee_repository.dart';
@@ -33,6 +35,33 @@ class FeedStartup {
     return _ready ??= _waitForFeed();
   }
 
+  static Future<void> warmBundledImages(BuildContext context) async {
+    final bundle = DefaultAssetBundle.of(context);
+    final manifest = await AssetManifest.loadFromAssetBundle(bundle);
+    if (!context.mounted) return;
+    final assets = manifest
+        .listAssets()
+        .where(
+          (asset) =>
+              (asset.startsWith('assets/icons/') ||
+                  asset.startsWith('assets/images/')) &&
+              RegExp(
+                r'\.(png|webp|jpg|jpeg)$',
+                caseSensitive: false,
+              ).hasMatch(asset),
+        )
+        .toList();
+    // Avoid decoding every bundled image in the same animation frame.
+    for (var i = 0; i < assets.length; i += 3) {
+      if (!context.mounted) return;
+      await Future.wait([
+        for (final asset in assets.skip(i).take(3))
+          precacheImage(AssetImage(asset), context, onError: (_, _) {}),
+      ]);
+      await WidgetsBinding.instance.endOfFrame;
+    }
+  }
+
   static Future<void> _waitForFeed() async {
     try {
       await Future.wait<void>([
@@ -58,7 +87,6 @@ class FeedStartup {
   }
 
   static Future<void> _prepareQuickLinks() async {
-    await _publicReady;
     await Future.wait([
       for (final button in AppSettingsRepository.instance.current)
         for (final url in [
@@ -108,7 +136,7 @@ class FeedStartup {
     _publicStarted = true;
     _publicReady = Future.wait([
       AppBannersRepository.instance.load(),
-      AppSettingsRepository.instance.load(),
+      AppSettingsRepository.instance.load().then((_) => _prepareQuickLinks()),
       AppMarqueeRepository.instance.load(),
       FeedFocusRepository.instance.load(),
       SupportHubRepository.instance.load(),
@@ -182,6 +210,23 @@ class FeedStartup {
         data['posts'] is! List) {
       throw Exception('Could not load posts.');
     }
+    final posts = data['posts'] as List;
+    final images = <String>{};
+    void collect(Map post) {
+      for (final field in ['image', 'authorImage']) {
+        final url = post[field];
+        if (url is String && url.isNotEmpty) images.add(url);
+      }
+      for (final url in (post['images'] as List? ?? const [])) {
+        if (url is String && url.isNotEmpty) images.add(url);
+      }
+      if (post['repost'] is Map) collect(post['repost'] as Map);
+    }
+
+    for (final post in posts.whereType<Map>()) {
+      collect(post);
+    }
+    unawaited(MediaCache.instance.prefetch(images));
     return Map<String, dynamic>.from(data);
   }
 }

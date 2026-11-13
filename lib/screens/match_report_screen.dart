@@ -73,7 +73,7 @@ class _MatchReportScreenState extends State<MatchReportScreen> {
       backgroundColor: const Color(0xFFFAF9F6),
       appBar: const ClubHeader(
         title: 'Match Report',
-        showBack: false,
+        showBack: true,
         uppercaseTitle: false,
         showSearch: false,
         showSupport: false,

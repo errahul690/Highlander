@@ -10,6 +10,7 @@ import '../post_link_router.dart';
 import '../realtime_client.dart';
 import '../session.dart';
 import '../widgets/video_poster.dart';
+import '../widgets/club_header.dart';
 import 'post_detail_screen.dart';
 import 'repost_screen.dart';
 
@@ -124,10 +125,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
       _error = null;
     });
     try {
-      final params = <String, String>{
-        'limit': '10',
-        'media': 'video',
-      };
+      final params = <String, String>{'limit': '10', 'media': 'video'};
       if (_cursor != null && _cursor!.trim().isNotEmpty) {
         params['cursor'] = _cursor!.trim();
       }
@@ -201,11 +199,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     // Immediate optimistic update
     setState(() {
       _busy.add(id);
-      _posts[index] = {
-        ...currentPost,
-        'liked': nextLiked,
-        'likes': nextLikes,
-      };
+      _posts[index] = {...currentPost, 'liked': nextLiked, 'likes': nextLikes};
     });
 
     try {
@@ -327,7 +321,9 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     value: SystemUiOverlayStyle.light,
     child: Scaffold(
       backgroundColor: Colors.black,
+      appBar: const ClubHeader(title: 'Reels', showSearch: false),
       body: SafeArea(
+        top: false,
         child: Stack(
           children: [
             if (_posts.isEmpty)
@@ -462,10 +458,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                                 tooltip: 'Repost video',
                                 onPressed: () => _repost(post),
                                 color: Colors.white,
-                                icon: const Icon(
-                                  Icons.repeat,
-                                  size: 28,
-                                ),
+                                icon: const Icon(Icons.repeat, size: 28),
                               ),
                               Text(
                                 '${post['reposts'] ?? 0}',

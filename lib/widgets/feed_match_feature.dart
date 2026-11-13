@@ -83,7 +83,7 @@ class _FeedMatchFeatureState extends State<FeedMatchFeature> {
       );
       if (phase == FeedMatchPhase.upcoming) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: 6),
           child: MatchPageHero(
             fixture: f,
             onOpen: () => Navigator.of(context).push(
@@ -112,7 +112,7 @@ class _FeedMatchFeatureState extends State<FeedMatchFeature> {
       }
       return Padding(
         key: const ValueKey('feed-match-live'),
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(bottom: 6),
         child: Column(
           children: [
             Row(
@@ -214,6 +214,7 @@ class _FeedMatchFeatureState extends State<FeedMatchFeature> {
                               ),
                               const Spacer(),
                               Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: _LiveTeam(
@@ -229,12 +230,17 @@ class _FeedMatchFeatureState extends State<FeedMatchFeature> {
                                     padding: EdgeInsets.symmetric(
                                       horizontal: 10,
                                     ),
-                                    child: Text(
-                                      'VS',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 23,
-                                        fontWeight: FontWeight.w600,
+                                    child: SizedBox(
+                                      height: 54,
+                                      child: Center(
+                                        child: Text(
+                                          'VS',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 25,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -300,7 +306,7 @@ class _BeforeKickoffCard extends StatelessWidget {
     final venue = fixture.venue.trim();
     return Container(
       key: const ValueKey('feed-match-preview'),
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFE5F4FD),
@@ -531,16 +537,17 @@ class _LiveTeam extends StatelessWidget {
   final Color background;
   @override
   Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
     children: [
       SizedBox(
-        height: 44,
+        height: 54,
         child:
             name
                 .toLowerCase()
                 .replaceAll(RegExp(r'[^a-z0-9]'), '')
                 .contains('keralablasters')
             ? Container(
-                width: 34,
+                width: 42,
                 color: const Color(0xFF103573),
                 child: ColorFiltered(
                   colorFilter: const ColorFilter.mode(
@@ -556,11 +563,11 @@ class _LiveTeam extends StatelessWidget {
             : ClubCrest(
                 team: name,
                 logo: logo,
-                size: 42,
+                size: 52,
                 background: background,
               ),
       ),
-      const SizedBox(height: 4),
+      const SizedBox(height: 6),
       Text(
         RegExp(
               r'north\s*east|neufc|highlander',
@@ -575,7 +582,7 @@ class _LiveTeam extends StatelessWidget {
         textAlign: TextAlign.center,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 13,
+          fontSize: 15,
           height: 1.2,
           fontWeight: FontWeight.w600,
         ),

@@ -1,3 +1,4 @@
+import '../widgets/app_popup_menu.dart';
 import '../brand_colors.dart';
 import '../widgets/club_page_body.dart';
 import '../widgets/club_header.dart';
@@ -110,13 +111,18 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
       );
   }
 
-  Future<void> _makeAdmin(Map<String, dynamic> person) async {
+  Future<void> _setAdmin(
+    Map<String, dynamic> person, {
+    bool remove = false,
+  }) async {
     final approved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Make group admin?'),
+        title: Text(remove ? 'Remove admin role?' : 'Make group admin?'),
         content: Text(
-          '${person['name']} will be able to manage members and group settings.',
+          remove
+              ? '${person['name']} will remain a member and lose admin permissions.'
+              : '${person['name']} will be able to manage members and group settings.',
         ),
         actions: [
           TextButton(
@@ -125,7 +131,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Make admin'),
+            child: Text(remove ? 'Remove admin' : 'Make admin'),
           ),
         ],
       ),
@@ -137,7 +143,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
       await CommunityApi.instance.request(
         '$_path/admins',
         method: 'PUT',
-        body: {'email': person['email']},
+        body: {'email': person['email'], 'action': remove ? 'remove' : 'add'},
       );
       await _load();
     } catch (error) {
@@ -286,13 +292,28 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                 style: const TextStyle(fontSize: 12),
               ),
             ),
-          if (_info?['canManage'] == true && person['isAdmin'] != true && !own)
-            PopupMenuButton<String>(
+          if (_info?['canManage'] == true && !own)
+            AppPopupMenu<String>(
               tooltip: 'Member options for ${person['name']}',
+              icon: const Icon(
+                Icons.more_vert,
+                size: 22,
+                color: Color(0xFF596275),
+              ),
               enabled: !_busy.contains(id),
-              onSelected: (_) => _makeAdmin(person),
+              onSelected: (_) =>
+                  _setAdmin(person, remove: person['isAdmin'] == true),
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'admin', child: Text('Make admin')),
+                AppMenuItem<String>(
+                  value: 'admin',
+                  label: person['isAdmin'] == true
+                      ? 'Remove admin'
+                      : 'Make admin',
+                  icon: person['isAdmin'] == true
+                      ? Icons.remove_moderator_outlined
+                      : Icons.admin_panel_settings_outlined,
+                  danger: person['isAdmin'] == true,
+                ),
               ],
             ),
         ],
@@ -305,7 +326,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     backgroundColor: const Color(0xFFF7F6FB),
     appBar: ClubHeader(
       title: 'Group info',
-      showBack: false,
+      showBack: true,
       showSearch: false,
       showSupport: false,
       uppercaseTitle: false,

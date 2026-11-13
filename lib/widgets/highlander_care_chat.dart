@@ -1,3 +1,4 @@
+import 'app_popup_menu.dart';
 import '../brand_colors.dart';
 
 import 'package:flutter/material.dart';
@@ -9,10 +10,10 @@ import '../session.dart';
 import '../support_hub_repository.dart';
 import 'care_verified_badge.dart';
 import 'chat_wallpaper.dart';
+import 'chat_message_bubble.dart';
 import 'support_hub_avatar.dart';
 
 const careRed = brandAccent;
-const _background = Color(0xFFFFFAFA);
 
 class HighlanderCareChat extends StatelessWidget {
   const HighlanderCareChat({
@@ -39,6 +40,9 @@ class HighlanderCareChat extends StatelessWidget {
     this.attachmentName,
     this.error,
     this.earlierMessages,
+    this.replyBanner,
+    this.messageWrapper,
+    this.focusNode,
   });
 
   final List<Map<String, dynamic>> messages;
@@ -51,7 +55,9 @@ class HighlanderCareChat extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final Widget? Function(Map<String, dynamic>) attachmentBuilder;
   final String? attachmentName, error;
-  final Widget? earlierMessages;
+  final Widget? earlierMessages, replyBanner;
+  final Widget Function(Map<String, dynamic>, Widget)? messageWrapper;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -59,97 +65,104 @@ class HighlanderCareChat extends StatelessWidget {
     builder: (context, _) => _view(context, SupportHubRepository.instance.name),
   );
 
-  Widget _view(BuildContext context, String name) => Scaffold(
-    backgroundColor: _background,
-    appBar: ClubHeader(
-      title: name,
-      showSearch: false,
-      showSupport: false,
-      showNotifications: false,
-      trailing: [
-        PopupMenuButton<String>(
-          key: const ValueKey('support-chat-menu'),
-          tooltip: 'Chat options',
-          enabled: !busy && !uploading && !loading,
-          icon: const Icon(Icons.more_vert, color: Colors.white),
-          onSelected: (_) => onClear(),
-          itemBuilder: (_) => const [
-            PopupMenuItem(
-              value: 'clear',
-              child: Row(
+  Widget _view(BuildContext context, String name) => ChatWallpaper(
+    child: Scaffold(
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      appBar: ClubHeader(
+        title: name,
+        showSearch: false,
+        showSupport: false,
+        showNotifications: false,
+        trailing: [
+          AppPopupMenu<String>(
+            key: const ValueKey('support-chat-menu'),
+            tooltip: 'Chat options',
+            enabled: !busy && !uploading && !loading,
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onSelected: (_) => onClear(),
+            itemBuilder: (_) => [
+              AppMenuItem<String>(
+                value: 'clear',
+                label: 'Clear chat',
+                icon: Icons.delete_outline,
+                danger: true,
+              ),
+            ],
+          ),
+        ],
+        titleWidget: Row(
+          children: [
+            const SupportHubAvatar(radius: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.delete_outline, color: careRed, size: 20),
-                  SizedBox(width: 10),
-                  Text('Clear chat'),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      CareVerifiedBadge(),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.circle,
+                        size: 6,
+                        color: blocked || blockedBy
+                            ? Colors.white54
+                            : online
+                            ? const Color(0xFF86E854)
+                            : Colors.white54,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        blockedBy
+                            ? 'Messaging unavailable'
+                            : blocked
+                            ? 'Blocked'
+                            : online
+                            ? 'Online'
+                            : 'Offline',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ],
         ),
-      ],
-      titleWidget: Row(
-        children: [
-          const SupportHubAvatar(radius: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    CareVerifiedBadge(),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.circle,
-                      size: 6,
-                      color: blocked || blockedBy
-                          ? Colors.white54
-                          : online
-                          ? const Color(0xFF86E854)
-                          : Colors.white54,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      blockedBy
-                          ? 'Messaging unavailable'
-                          : blocked
-                          ? 'Blocked'
-                          : online
-                          ? 'Online'
-                          : 'Offline',
-                      style: const TextStyle(fontSize: 10, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
-    ),
-    body: ChatWallpaper(
-      child: Column(
+      body: Column(
         children: [
           if (error != null)
-            MaterialBanner(
-              content: Text(error!),
-              actions: [
-                TextButton(onPressed: onRefresh, child: const Text('Retry')),
-              ],
+            Padding(
+              padding: EdgeInsets.only(
+                top:
+                    MediaQuery.paddingOf(context).top +
+                    const ClubHeader(title: '').preferredSize.height,
+              ),
+              child: MaterialBanner(
+                content: Text(error!),
+                actions: [
+                  TextButton(onPressed: onRefresh, child: const Text('Retry')),
+                ],
+              ),
             ),
           Expanded(
             child: loading
@@ -157,11 +170,25 @@ class HighlanderCareChat extends StatelessWidget {
                 : RefreshIndicator(
                     color: careRed,
                     onRefresh: onRefresh,
+                    edgeOffset:
+                        MediaQuery.paddingOf(context).top +
+                        const ClubHeader(title: '').preferredSize.height,
                     child: ListView.builder(
                       reverse: messages.isNotEmpty,
                       controller: scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        error == null
+                            ? MediaQuery.paddingOf(context).top +
+                                  const ClubHeader(title: '')
+                                      .preferredSize
+                                      .height +
+                                  12
+                            : 12,
+                        16,
+                        2,
+                      ),
                       itemCount: messages.isEmpty
                           ? 1
                           : messages.length + (earlierMessages != null ? 1 : 0),
@@ -190,29 +217,7 @@ class HighlanderCareChat extends StatelessWidget {
                                     date,
                                     messageDate(messages[index - 1]),
                                   ))
-                                Center(
-                                  child: Container(
-                                    margin: const EdgeInsets.only(
-                                      bottom: 18,
-                                      top: 4,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(9),
-                                    ),
-                                    child: Text(
-                                      chatDateLabel(date),
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Color(0xFF777777),
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                                ChatDateChip(label: chatDateLabel(date)),
                             _message(messages[index]),
                           ],
                         );
@@ -226,10 +231,16 @@ class HighlanderCareChat extends StatelessWidget {
     ),
   );
 
-  Widget _message(Map<String, dynamic> message) => CareMessageBubble(
+  Widget _message(Map<String, dynamic> message) {
+    final bubble = _messageBubble(message);
+    return messageWrapper?.call(message, bubble) ?? bubble;
+  }
+
+  Widget _messageBubble(Map<String, dynamic> message) => CareMessageBubble(
     key: ValueKey('chat-message-${message['_id'] ?? message['id']}'),
     own: message['senderEmail'] == Session.email,
     time: messageTimeLabel(message),
+    text: '${message['content'] ?? ''}',
     status: message['senderEmail'] != Session.email
         ? null
         : Icon(
@@ -252,8 +263,6 @@ class HighlanderCareChat extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (attachmentBuilder(message) case final attachment?) attachment,
-        if ('${message['content'] ?? ''}'.isNotEmpty)
-          Text('${message['content']}'),
       ],
     ),
   );
@@ -298,6 +307,7 @@ class HighlanderCareChat extends StatelessWidget {
           : Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (replyBanner != null) replyBanner!,
                 if (attachmentName != null)
                   Container(
                     margin: const EdgeInsets.only(bottom: 8),
@@ -345,7 +355,7 @@ class HighlanderCareChat extends StatelessWidget {
                                 height: 44,
                               ),
                               icon: const Icon(
-                                Icons.emoji_emotions,
+                                Icons.sentiment_satisfied_alt_outlined,
                                 color: careRed,
                                 size: 23,
                               ),
@@ -353,17 +363,19 @@ class HighlanderCareChat extends StatelessWidget {
                             Expanded(
                               child: TextField(
                                 controller: controller,
+                                focusNode: focusNode,
                                 enabled: !busy,
                                 minLines: 1,
                                 maxLines: 4,
                                 maxLength: 10000,
                                 textAlignVertical: TextAlignVertical.center,
                                 style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF282828),
+                                  fontSize: 15,
+                                  height: 1.3,
+                                  color: Color(0xFF242127),
                                 ),
                                 decoration: const InputDecoration(
-                                  hintText: 'Type a message...',
+                                  hintText: 'Message',
                                   counterText: '',
                                   filled: true,
                                   fillColor: Colors.white,
@@ -468,89 +480,21 @@ class CareMessageBubble extends StatelessWidget {
     super.key,
     required this.own,
     required this.child,
+    this.text = '',
     this.time = '',
     this.status,
   });
   final bool own;
   final Widget child;
-  final String time;
+  final String text, time;
   final Widget? status;
 
   @override
-  Widget build(BuildContext context) => Align(
-    alignment: own ? Alignment.centerRight : Alignment.centerLeft,
-    child: Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: PhysicalShape(
-        clipper: _BubbleClipper(own),
-        color: own ? const Color(0xFFECF4FF) : const Color(0xFFF9E5E6),
-        elevation: 1,
-        shadowColor: const Color(0x26000000),
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(context).width * .74,
-          ),
-          padding: EdgeInsets.fromLTRB(own ? 14 : 23, 10, own ? 23 : 9, 5),
-          child: DefaultTextStyle(
-            style: const TextStyle(
-              fontFamily: 'Gilroy',
-              fontFamilyFallback: ['Segoe UI Emoji'],
-              fontSize: 16,
-              height: 1.45,
-              color: Color(0xFF161616),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                child,
-                if (time.isNotEmpty || status != null)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (time.isNotEmpty)
-                        Text(
-                          time,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            height: 1.1,
-                            color: Color(0xFF777777),
-                          ),
-                        ),
-                      if (status != null) ...[
-                        const SizedBox(width: 3),
-                        status!,
-                      ],
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
+  Widget build(BuildContext context) => ChatMessageBubble(
+    own: own,
+    text: text,
+    leading: child,
+    time: time,
+    status: status,
   );
-}
-
-class _BubbleClipper extends CustomClipper<Path> {
-  const _BubbleClipper(this.own);
-  final bool own;
-  @override
-  Path getClip(Size size) {
-    final left = own ? 0.0 : 13.0;
-    final right = size.width - (own ? 13 : 0);
-    final body = Path()
-      ..addRRect(
-        RRect.fromLTRBR(left, 0, right, size.height, const Radius.circular(11)),
-      );
-    final tail = Path()
-      ..moveTo(own ? right - 10 : left + 10, 0)
-      ..lineTo(own ? size.width : 0, 0)
-      ..lineTo(own ? right - 1 : left + 1, 15)
-      ..close();
-    return Path.combine(PathOperation.union, body, tail);
-  }
-
-  @override
-  bool shouldReclip(_BubbleClipper oldClipper) => own != oldClipper.own;
 }

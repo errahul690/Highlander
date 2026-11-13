@@ -87,7 +87,7 @@ class FeedMatchReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     key: const ValueKey('feed-match-report'),
-    padding: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.only(bottom: 6),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -126,7 +126,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen>
       backgroundColor: const Color(0xFFF6F5F2),
       appBar: const ClubHeader(
         title: 'Watch live',
-        showBack: false,
+        showBack: true,
         showSearch: false,
         showSupport: false,
         uppercaseTitle: false,

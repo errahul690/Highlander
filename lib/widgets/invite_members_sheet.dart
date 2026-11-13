@@ -42,6 +42,7 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
   bool _loading = true;
   String? _error;
   final Set<String> _invitedEmails = {};
+  final Set<String> _addedEmails = {};
   final Set<String> _busyEmails = {};
 
   String get _inviteMessage =>
@@ -110,7 +111,7 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
     if (email.isEmpty || _busyEmails.contains(email)) return;
     setState(() => _busyEmails.add(email));
     try {
-      await CommunityApi.instance.request(
+      final result = await CommunityApi.instance.request(
         '/${widget.kind}/${widget.roomId}/invite',
         method: 'POST',
         body: {
@@ -121,12 +122,17 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
         setState(() {
           _busyEmails.remove(email);
           _invitedEmails.add(email.toLowerCase());
+          if (result is Map && (result['addedCount'] as num? ?? 0) > 0) {
+            _addedEmails.add(email.toLowerCase());
+          }
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               widget.kind == 'groups'
-                  ? "${person['full_name'] ?? 'Member'} added to the group"
+                  ? (_addedEmails.contains(email.toLowerCase())
+                        ? "${person['full_name'] ?? 'Member'} added to the group"
+                        : "Invitation sent to ${person['full_name'] ?? 'Member'}")
                   : "Invitation sent to ${person['full_name'] ?? 'friend'} in chat!",
             ),
           ),
@@ -183,9 +189,7 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.kind == 'groups'
-                              ? 'Add members'
-                              : 'Invite members',
+                          'Invite members',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -194,7 +198,7 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Add members to "${widget.roomTitle}"',
+                          'Invite people to "${widget.roomTitle}"',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -456,7 +460,7 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                                       ),
                                       SizedBox(width: 4),
                                       Text(
-                                        widget.kind == 'groups'
+                                        _addedEmails.contains(email)
                                             ? 'Added'
                                             : 'Invited',
                                         style: TextStyle(
@@ -494,9 +498,7 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
                                           ),
                                         )
                                       : Text(
-                                          widget.kind == 'groups'
-                                              ? 'Add'
-                                              : 'Invite',
+                                          'Invite',
                                           style: const TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,

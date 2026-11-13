@@ -1,4 +1,10 @@
 import 'dart:convert';
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'chat_media_cache.dart';
+import 'chat_file_cache.dart';
+
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
@@ -19,34 +25,81 @@ class PostsApi {
     required String type,
   }) async {
     final file = File(path);
+    final uploadToken = Session.token;
     try {
       if (await file.length() > 15 * 1024 * 1024) {
         throw Exception('Choose a file smaller than 15 MB.');
       }
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${OtpApi.apiBase}/api/integration/upload-file'),
-      );
-      request.headers['Authorization'] = 'Bearer ${Session.token}';
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'file',
-          await file.readAsBytes(),
-          filename: name,
-          contentType: MediaType.parse(type),
-        ),
-      );
-      final response = await http.Response.fromStream(
-        await _client.send(request).timeout(const Duration(seconds: 60)),
-      );
-      final result = jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode >= 400 || result['success'] != true) {
-        throw Exception(result['message'] ?? 'Attachment upload failed.');
+      final bytes = await file.readAsBytes();
+      Future<Map<String, dynamic>> uploadBytes(
+        Uint8List content,
+        String filename,
+        String mime,
+      ) async {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('${OtpApi.apiBase}/api/integration/upload-file'),
+        );
+        request.headers['Authorization'] = 'Bearer $uploadToken';
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            content,
+            filename: filename,
+            contentType: MediaType.parse(mime),
+          ),
+        );
+        final response = await http.Response.fromStream(
+          await _client.send(request).timeout(const Duration(seconds: 60)),
+        );
+        final result = jsonDecode(response.body) as Map<String, dynamic>;
+        if (response.statusCode >= 400 || result['success'] != true) {
+          throw Exception(result['message'] ?? 'Attachment upload failed.');
+        }
+        return result;
+      }
+
+      final preview = type.startsWith('image/')
+          ? createChatThumbnail(bytes).catchError((Object _) => Uint8List(0))
+          : Future.value(Uint8List(0));
+      final result = await uploadBytes(bytes, name, type);
+      final url = '${result['file_url'] ?? result['url']}';
+      String? thumbnail;
+      if (type.startsWith('image/')) {
+        if (Session.token == uploadToken) {
+          unawaited(ChatMediaCache.instance.seed(url, bytes));
+        }
+        final small = await preview;
+        if (small.isNotEmpty && small.length < bytes.length * .8) {
+          try {
+            final uploaded = await uploadBytes(
+              small,
+              'chat-preview.png',
+              'image/png',
+            );
+            thumbnail = '${uploaded['file_url'] ?? uploaded['url']}';
+            if (Session.token == uploadToken) {
+              unawaited(
+                ChatMediaCache.instance.seed(
+                  thumbnail,
+                  small,
+                  saveDisplay: false,
+                ),
+              );
+            }
+          } catch (_) {
+            /* A failed preview must not discard a successful photo upload. */
+          }
+        }
+      }
+      if (!type.startsWith('image/') && Session.token == uploadToken) {
+        await ChatFileCache.instance.seed(url, name, bytes);
       }
       return {
-        'url': result['file_url'] ?? result['url'],
+        'url': url,
         'name': result['originalname'] ?? name,
         'type': result['mimetype'] ?? type,
+        'thumbnail': ?thumbnail,
       };
     } finally {
       if (await file.exists()) await file.delete();

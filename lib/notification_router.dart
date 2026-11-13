@@ -1,3 +1,5 @@
+import 'screens/group_invitation_screen.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -103,10 +105,25 @@ class NotificationRouter {
       );
       return;
     }
-    if (kind == 'room' || kind == 'group_invite') {
+    if (kind == 'group_invite') {
+      final id = '${data['roomId'] ?? data['groupId'] ?? ''}'.trim();
+      if (id.isEmpty) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => GroupInvitationScreen(
+            groupId: id,
+            groupName: '${data['name'] ?? data['roomName'] ?? 'Group'}',
+          ),
+        ),
+      );
+      return;
+    }
+    if (kind == 'room' || kind == 'group_invite_response') {
       final roomId = '${data['roomId'] ?? data['groupId'] ?? ''}'.trim();
       if (roomId.isEmpty) return;
-      final name = '${data['name'] ?? data['roomName'] ?? 'Group'}';
+      final name = kind == 'group_invite_response'
+          ? '${data['roomName'] ?? 'Group'}'
+          : '${data['name'] ?? data['roomName'] ?? 'Group'}';
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ChatScreen(

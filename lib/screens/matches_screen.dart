@@ -81,11 +81,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
     backgroundColor: const Color(0xFFF7F6FC),
     appBar: const ClubHeader(
       title: 'Matches',
-      showBack: false,
+      showBack: true,
       showSearch: false,
       showSupport: false,
       uppercaseTitle: false,
-      backButtonWidth: 60,
     ),
     body: FutureBuilder<ClubContent>(
       future: _content,

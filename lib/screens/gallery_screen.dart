@@ -126,7 +126,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   Widget build(BuildContext context) {
     return ClubScaffold(
       backgroundColor: const Color(0xFFF7F8FA),
-      appBar: const ClubHeader(title: 'Gallery', showBack: false),
+      appBar: const ClubHeader(title: 'Gallery', showBack: true),
       bottomNavigationBar: const AppBottomNavigation(),
       body: RefreshIndicator(
         onRefresh: () => _loadItems(refresh: true),
@@ -441,7 +441,7 @@ class _AlbumGridScreen extends StatelessWidget {
       appBar: ClubHeader(
         title: title,
         subtitle: '$count ${count == 1 ? 'photo' : 'photos'}',
-        showBack: false,
+        showBack: true,
         showSearch: false,
         showSupport: false,
         uppercaseTitle: false,
@@ -507,7 +507,7 @@ class _AlbumPhotoScreenState extends State<_AlbumPhotoScreen> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.black,
     appBar: AppBar(
-      automaticallyImplyLeading: false,
+      automaticallyImplyLeading: true,
       backgroundColor: Colors.black,
       foregroundColor: Colors.white,
       elevation: 0,

@@ -6,6 +6,6 @@ Future<Map<String, dynamic>> loadBundledSplash() async => {
   'type': 'html',
   'html_content': await rootBundle.loadString('assets/splash/default.html'),
   'bg_color': '#0E1014',
-  'duration': 6,
+  'duration': 4,
   'allow_skip': false,
 };

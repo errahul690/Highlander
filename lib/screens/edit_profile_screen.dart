@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -28,6 +30,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _dobController;
 
   String _profilePhoto = '';
+  XFile? _cover;
   String _selectedGender = 'Male';
   String _selectedPlayer = 'Alaeddine Ajaraie';
   DateTime? _dob;
@@ -135,6 +138,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
+  Future<void> _chooseCover() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1800,
+        maxHeight: 1000,
+        imageQuality: 85,
+      );
+      if (file != null && mounted) setState(() => _cover = file);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open your cover photo. Try again.'),
+          ),
+        );
+      }
     }
   }
 
@@ -378,6 +401,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       if (Session.token.isEmpty)
         throw Exception('Please sign in again to save your profile.');
+      final cover = _cover;
+      final coverUrl = cover == null
+          ? null
+          : await PostsApi.instance.upload(cover);
       final result = await PostsApi.instance.request(
         '/api/auth/me',
         method: 'PUT',
@@ -386,6 +413,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           'city': newCity,
           'profile_photo': _profilePhoto,
           'profileImage': _profilePhoto,
+          if (coverUrl != null) ...{
+            'cover_photo': coverUrl,
+            'coverImage': coverUrl,
+          },
           'gender': _selectedGender,
           'dob': newDob,
           'location': newCity,
@@ -406,6 +437,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         name: saved['full_name'] as String? ?? newName,
         city: saved['city'] as String? ?? newCity,
         profilePhoto: savedPhoto,
+        coverPhoto: coverUrl == null
+            ? null
+            : (saved['cover_photo'] ?? saved['coverImage'] ?? coverUrl)
+                  as String,
         gender: _selectedGender,
         dob: newDob,
         favoritePlayer: _selectedPlayer,
@@ -440,8 +475,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  Widget _label(String text, {Widget? trailing}) => Padding(
-    padding: const EdgeInsets.only(top: 18, bottom: 7),
+  Widget _label(String text, {Widget? trailing, double top = 18}) => Padding(
+    padding: EdgeInsets.only(top: top, bottom: 7),
     child: Row(
       children: [
         Text(
@@ -472,23 +507,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-      automaticallyImplyLeading: false,
+          automaticallyImplyLeading: true,
+          toolbarHeight: 48,
           backgroundColor: Colors.white,
           foregroundColor: clubInk,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-
         ),
         body: SafeArea(
           top: false,
           child: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
               children: [
                 ProfileFormHeader(
                   action: 'Edit',
+                  overlapCover: true,
                   coverSource: Session.coverPhoto,
+                  coverPreview: _cover == null
+                      ? null
+                      : FileImage(File(_cover!.path)),
+                  onCoverTap: _saving || _uploadingPhoto ? null : _chooseCover,
                   photoKey: const ValueKey('edit-profile-photo'),
                   photoLabel: _profilePhoto.trim().isEmpty
                       ? 'Add photo'
@@ -517,7 +557,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           foregroundColor: authRed,
                         ),
                 ),
-                _label('Full name'),
+                _label('Full name', top: 4),
                 TextFormField(
                   key: const ValueKey('edit-profile-field-Full Name *'),
                   controller: _nameController,
@@ -638,7 +678,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       style: TextStyle(
                                         color: Color(0xFF22A55A),
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 13,
+                                        fontSize: 12,
                                       ),
                                     ),
                                   ],
@@ -676,14 +716,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   decoration: _field(hint: 'Enter mobile number').copyWith(
                     counterText: '',
                     prefixIcon: const Padding(
-                      padding: EdgeInsets.only(left: 14, right: 8),
-                      child: Text(
-                        '+91',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: clubInk,
-                        ),
+                      padding: EdgeInsets.only(left: 12, right: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '+91',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: clubInk,
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          SizedBox(
+                            width: 1,
+                            height: 24,
+                            child: ColoredBox(color: Color(0xFFC9CED8)),
+                          ),
+                        ],
                       ),
                     ),
                     prefixIconConstraints: const BoxConstraints(

@@ -4,6 +4,7 @@ import '../widgets/club_page_body.dart';
 import 'package:flutter/material.dart';
 
 import '../community_api.dart';
+import '../media_auto_download.dart';
 import '../theme.dart';
 
 import '../widgets/invite_members_sheet.dart';
@@ -45,6 +46,8 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
         _settings = Map<String, dynamic>.from(
           await CommunityApi.instance.request('/settings') as Map,
         );
+        await MediaAutoDownload.instance.restore();
+        _settings.addAll(MediaAutoDownload.instance.values);
       } else {
         _settings = Map<String, dynamic>.from(
           await CommunityApi.instance.request('$_path/settings') as Map,
@@ -83,6 +86,7 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
         method: 'PUT',
         body: values,
       );
+      if (_personal) await MediaAutoDownload.instance.save(_settings);
       if (mounted) Navigator.of(context).pop(values);
     } catch (error) {
       if (mounted) {
@@ -151,8 +155,9 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
           Navigator.of(context).pop({'deleted': true});
         }
       } catch (error) {
-        if (mounted)
+        if (mounted) {
           setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        }
       } finally {
         if (mounted) setState(() => _busy = false);
       }
@@ -176,7 +181,7 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
           : _personal
           ? 'Chat settings'
           : '${widget.kind == 'circles' ? 'Huddle' : 'Group'} settings',
-      showBack: false,
+      showBack: true,
       showSearch: false,
       showSupport: false,
       uppercaseTitle: false,
@@ -223,6 +228,31 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
                   const Text(
                     'When Anyone is on, every user can message you. When it is off, your other selected options apply. Turn all three off to stop new incoming messages.',
                     style: TextStyle(color: authMuted),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Media auto-download',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Automatically download received files on this device. Applies to all chats.',
+                    style: TextStyle(color: authMuted),
+                  ),
+                  _toggle(
+                    'autoPhotos',
+                    'Photos',
+                    'Download full photos automatically.',
+                  ),
+                  _toggle(
+                    'autoVideos',
+                    'Videos',
+                    'Download videos automatically.',
+                  ),
+                  _toggle(
+                    'autoDocuments',
+                    'Documents',
+                    'Download PDFs and other documents automatically.',
                   ),
                 ] else ...[
                   Text(
@@ -275,7 +305,7 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
                     _toggle(
                       'allowMemberInvites',
                       'Members can invite',
-                      'Allow any group member to add people. Admins can always add members.',
+                      "Allow members to invite people. Direct adding still follows each recipient's group privacy setting.",
                     ),
                   if (!isGroup)
                     _toggle(
@@ -285,6 +315,10 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
                     ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
+                    dropdownColor: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    elevation: 4,
+                    menuMaxHeight: 320,
                     initialValue: '${_settings['chatPermission'] ?? 'all'}',
                     decoration: const InputDecoration(
                       labelText: 'Who can send messages?',

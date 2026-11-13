@@ -4,18 +4,16 @@ import '../widgets/club_page_body.dart';
 import 'package:flutter/material.dart';
 
 import '../widgets/club_header.dart';
+import 'group_settings_screen.dart';
 
 import '../session.dart';
 import '../otp_api.dart';
 import '../feed_store.dart';
 import '../message_alerts.dart';
-import '../theme.dart';
 import '../legal_documents.dart';
 import 'chat_settings_screen.dart';
 import 'follow_settings_screen.dart';
 import 'follow_requests_screen.dart';
-import 'friends_screen.dart';
-import 'create_post_screen.dart';
 import 'login_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -27,7 +25,7 @@ class SettingsScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: const ClubHeader(
         title: 'Settings',
-        showBack: false,
+        showBack: true,
         backKey: ValueKey('settings-back-btn'),
       ),
       body: ListView(
@@ -40,8 +38,15 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.chat_bubble_outline_rounded,
             iconColor: brandAccent,
             title: 'Chat Settings',
-            subtitle: 'Direct messages, permissions & safety',
+            subtitle: 'Messages, permissions & media downloads',
             onTap: () => _open(context, const ChatSettingsScreen()),
+          ),
+          _SettingsTile(
+            icon: Icons.groups_outlined,
+            iconColor: brandAccent,
+            title: 'Group Settings',
+            subtitle: 'Invitations and group privacy',
+            onTap: () => _open(context, const GroupSettingsScreen()),
           ),
           _SettingsTile(
             icon: Icons.manage_accounts_outlined,
@@ -56,42 +61,6 @@ class SettingsScreen extends StatelessWidget {
             title: 'Follow Requests',
             subtitle: 'Pending requests from other fans',
             onTap: () => _open(context, const FollowRequestsScreen()),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Section 2: Friends & Community
-          _buildSectionHeader('COMMUNITY'),
-          const SizedBox(height: 8),
-          _SettingsTile(
-            icon: Icons.people_outline_rounded,
-            iconColor: brandAccent,
-            title: 'Followers List',
-            subtitle: 'Fans who follow your activity',
-            onTap: () =>
-                _open(context, const FriendsScreen(title: 'Followers')),
-          ),
-          _SettingsTile(
-            icon: Icons.person_search_outlined,
-            iconColor: brandAccent,
-            title: 'Following List',
-            subtitle: 'Highlanders you follow',
-            onTap: () =>
-                _open(context, const FriendsScreen(title: 'Following')),
-          ),
-          _SettingsTile(
-            icon: Icons.favorite_border_rounded,
-            iconColor: brandAccent,
-            title: 'Close Friends',
-            subtitle: 'Mutual connections & your huddles',
-            onTap: () => _open(context, const FriendsScreen(title: 'Friends')),
-          ),
-          _SettingsTile(
-            icon: Icons.edit_note_rounded,
-            iconColor: brandAccent,
-            title: 'Create a Post',
-            subtitle: 'Share highlights with the community',
-            onTap: () => _open(context, const CreatePostScreen()),
           ),
 
           const SizedBox(height: 24),

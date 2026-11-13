@@ -1,3 +1,5 @@
+import 'app_popup_menu.dart';
+import 'post_like_burst.dart';
 import '../brand_colors.dart';
 
 import 'package:flutter/material.dart';
@@ -12,6 +14,7 @@ import '../post_link_router.dart';
 import '../theme.dart';
 import '../session.dart';
 import '../screens/post_detail_screen.dart';
+import '../screens/post_activity_screen.dart';
 import '../screens/repost_screen.dart';
 import '../screens/user_profile_screen.dart';
 import '../screens/reels_screen.dart';
@@ -30,8 +33,10 @@ class FeedPostCard extends StatefulWidget {
     this.openComments = true,
     this.onChanged,
     this.videoPosts = const [],
+    this.embedded = false,
   });
   final Map<String, dynamic> post;
+  final bool embedded;
   final bool showActions;
   final bool openComments;
   final VoidCallback? onChanged;
@@ -45,6 +50,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
   bool _busy = false;
   bool _deleted = false;
   final _likeButtonKey = GlobalKey();
+  int _likeAnimation = 0;
 
   String get _postId =>
       _post['_id']?.toString() ?? _post['id']?.toString() ?? '';
@@ -628,6 +634,9 @@ class _FeedPostCardState extends State<FeedPostCard> {
 
     setState(() {
       _busy = true;
+      if (nextLiked && (!wasLiked || previousReaction != nextReaction)) {
+        _likeAnimation++;
+      }
       _post['liked'] = nextLiked;
       _post['likes'] = nextLikes;
       _post['reactionType'] = nextReaction;
@@ -736,8 +745,9 @@ class _FeedPostCardState extends State<FeedPostCard> {
       } catch (_) {}
     }
     final cardBg =
+        (widget.embedded ? const Color(0xFFF8EDF1) : null) ??
         customBg ??
-        (official ? const Color(0xFF131313) : const Color(0xFFFFFCFF));
+        (official ? const Color(0xFF131313) : Colors.white);
     final isDarkBg = cardBg.computeLuminance() < 0.5;
     final color = isDarkBg ? Colors.white : clubInk;
     final mutedColor = isDarkBg
@@ -768,16 +778,9 @@ class _FeedPostCardState extends State<FeedPostCard> {
     final author = _post['authorName'] as String? ?? 'Highlander';
     return Container(
       key: ValueKey('post-card-${_post['_id']}'),
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
       decoration: BoxDecoration(
         color: cardBg,
-        gradient: customBg == null && !isDarkBg
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFFFFFFF), Color(0xFFFFF8FB)],
-              )
-            : null,
         borderRadius: BorderRadius.circular(22),
         border: Border.fromBorderSide(
           BorderSide(
@@ -810,10 +813,9 @@ class _FeedPostCardState extends State<FeedPostCard> {
         children: [
           Row(
             children: [
-              const SizedBox(width: 6),
               official
                   ? CircleAvatar(
-                      radius: 30,
+                      radius: 19.5,
                       backgroundColor: logoBackground,
                       child: avatar.isEmpty
                           ? Icon(
@@ -831,8 +833,8 @@ class _FeedPostCardState extends State<FeedPostCard> {
                                 key: ValueKey(
                                   'post-avatar-$avatar-${MediaCache.instance.generation.value}',
                                 ),
-                                width: 60,
-                                height: 60,
+                                width: 39,
+                                height: 39,
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, error, stack) => Icon(
                                   official
@@ -845,7 +847,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
                             ),
                     )
                   : Container(
-                      padding: const EdgeInsets.all(3),
+                      padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: _postRed, width: 1.5),
@@ -856,7 +858,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
                         currentUser: _isOwnPost,
                         name: author,
                         image: avatar,
-                        radius: 26,
+                        radius: 17.5,
                       ),
                     ),
               const SizedBox(width: 10),
@@ -881,9 +883,10 @@ class _FeedPostCardState extends State<FeedPostCard> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: color,
+                                fontFamily: clubFontFamily,
                                 fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -.2,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0,
                               ),
                             ),
                           ),
@@ -905,7 +908,8 @@ class _FeedPostCardState extends State<FeedPostCard> {
                         time,
                         style: TextStyle(
                           color: mutedColor,
-                          fontSize: 13,
+                          fontFamily: clubFontFamily,
+                          fontSize: 11,
                           fontWeight: FontWeight.w400,
                           height: 1.3,
                         ),
@@ -936,21 +940,8 @@ class _FeedPostCardState extends State<FeedPostCard> {
                 ),
               ),
               if (!official)
-                PopupMenuButton<String>(
-                  padding: EdgeInsets.zero,
-                  offset: const Offset(0, 40),
-                  color: Colors.white,
-                  elevation: 12,
-                  shadowColor: const Color(0x2E000000),
-                  surfaceTintColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(32, 32),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: Colors.transparent,
-                  ),
+                AppPopupMenu<String>(
+                  buttonSize: 32,
                   icon: Icon(Icons.more_horiz, color: actionColor, size: 22),
                   onSelected: (value) async {
                     if (value == 'copy') {
@@ -976,45 +967,17 @@ class _FeedPostCardState extends State<FeedPostCard> {
                   },
                   itemBuilder: (_) {
                     if (_isOwnPost) {
-                      return const [
-                        PopupMenuItem(
+                      return [
+                        AppMenuItem<String>(
                           value: 'edit',
-                          height: 46,
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit_outlined, size: 18),
-                              SizedBox(width: 10),
-                              Text(
-                                'Edit Post',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
+                          label: 'Edit Post',
+                          icon: Icons.edit_outlined,
                         ),
-                        PopupMenuItem(
+                        AppMenuItem<String>(
                           value: 'delete',
-                          height: 46,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.delete_outline,
-                                size: 18,
-                                color: clubRed,
-                              ),
-                              SizedBox(width: 10),
-                              Text(
-                                'Delete Post',
-                                style: TextStyle(
-                                  color: clubRed,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
+                          label: 'Delete Post',
+                          icon: Icons.delete_outline,
+                          danger: true,
                         ),
                         // PopupMenuItem(
                         //   value: 'copy',
@@ -1028,45 +991,17 @@ class _FeedPostCardState extends State<FeedPostCard> {
                         // ),
                       ];
                     } else {
-                      return const [
-                        PopupMenuItem(
+                      return [
+                        AppMenuItem<String>(
                           value: 'report',
-                          height: 46,
-                          child: Row(
-                            children: [
-                              Icon(Icons.flag_outlined, size: 18),
-                              SizedBox(width: 10),
-                              Text(
-                                'Report Post',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
+                          label: 'Report Post',
+                          icon: Icons.flag_outlined,
                         ),
-                        PopupMenuItem(
+                        AppMenuItem<String>(
                           value: 'block',
-                          height: 46,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.block_outlined,
-                                size: 18,
-                                color: clubRed,
-                              ),
-                              SizedBox(width: 10),
-                              Text(
-                                'Block User',
-                                style: TextStyle(
-                                  color: clubRed,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
+                          label: 'Block User',
+                          icon: Icons.block_outlined,
+                          danger: true,
                         ),
                         // PopupMenuItem(
                         //   value: 'copy',
@@ -1085,9 +1020,9 @@ class _FeedPostCardState extends State<FeedPostCard> {
             ],
           ),
           if ((_post['content'] as String? ?? '').isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: EdgeInsets.zero,
               child: _PostText(
                 text: _post['content'] as String,
                 color: isDarkBg ? Colors.white : const Color(0xFF171717),
@@ -1169,6 +1104,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
             FeedPostCard(
               post: Map<String, dynamic>.from(_post['repost'] as Map),
               showActions: false,
+              embedded: true,
             ),
           ],
           if (_post['original_unavailable'] == true)
@@ -1185,57 +1121,63 @@ class _FeedPostCardState extends State<FeedPostCard> {
               children: [
                 SizedBox(
                   key: _likeButtonKey,
-                  width: 62,
-                  child: _PostAction(
-                    tooltip: 'Like post',
-                    onPressed: _busy ? null : _like,
-                    onLongPress: _busy ? null : _pickReaction,
-                    emoji:
-                        _post['liked'] == true &&
-                            _post['reactionType'] != 'like'
-                        ? PostReaction.fromValue(_post['reactionType'])?.emoji
-                        : null,
-                    icon: _post['liked'] == true
-                        ? Icons.thumb_up
-                        : Icons.thumb_up_outlined,
-                    color: _post['liked'] == true ? _postRed : actionColor,
-                    label: (_post['likes'] ?? 0).toString(),
-                    selected: _post['liked'] == true,
-                  ),
-                ),
-                _PostActionDivider(isDark: isDarkBg),
-                SizedBox(
-                  width: 52,
-                  child: _PostAction(
-                    tooltip: 'Comment on post',
-                    onPressed: widget.openComments ? _comments : null,
-                    icon: Icons.chat_bubble_outline,
-                    color: actionColor,
-                    label: (_post['comments'] ?? 0).toString(),
-                  ),
-                ),
-                if (!official) _PostActionDivider(isDark: isDarkBg),
-                if (!official)
-                  SizedBox(
-                    width: 56,
+                  width: 40,
+                  child: PostLikeBurst(
+                    trigger: _likeAnimation,
+                    reaction:
+                        PostReaction.fromValue(_post['reactionType']) ??
+                        PostReaction.like,
                     child: _PostAction(
-                      tooltip: 'Repost',
-                      onPressed: _repost,
-                      icon: Icons.repeat,
+                      tooltip: 'Like post',
+                      onPressed: _busy ? null : _like,
+                      onLongPress: _busy ? null : _pickReaction,
+                      asset: 'unlike-ic.png',
+                      reaction: _post['liked'] == true
+                          ? PostReaction.fromValue(_post['reactionType']) ??
+                                PostReaction.like
+                          : null,
                       color: actionColor,
-                      label: (_post['reposts'] ?? 0).toString(),
+                      selected: _post['liked'] == true,
                     ),
                   ),
-                const Spacer(),
-                SizedBox(
-                  width: 40,
-                  child: _PostAction(
-                    tooltip: 'Share post',
-                    onPressed: _share,
-                    icon: Icons.share_outlined,
+                ),
+                _PostAction(
+                  tooltip: 'Comment on post',
+                  onPressed: widget.openComments ? _comments : null,
+                  asset: 'comment-ic.png',
+                  color: actionColor,
+                  label: (_post['comments'] ?? 0).toString(),
+                ),
+                if (!official)
+                  _PostAction(
+                    tooltip: 'Repost',
+                    onPressed: _repost,
+                    asset: 'repost.png',
                     color: actionColor,
                   ),
+                _PostAction(
+                  tooltip: 'Share post',
+                  onPressed: _share,
+                  asset: 'share-ic.png',
+                  color: actionColor,
                 ),
+                const Spacer(),
+                if (((_post['likes'] as num?) ?? 0) > 0)
+                  _PostAction(
+                    tooltip: 'View reactions',
+                    iconSize: 18,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PostActivityScreen(post: _post),
+                      ),
+                    ),
+                    asset: 'unlike-ic.png',
+                    reaction:
+                        PostReaction.fromValue(_post['reactionType']) ??
+                        PostReaction.like,
+                    color: actionColor,
+                    label: (_post['likes'] ?? 0).toString(),
+                  ),
               ],
             ),
           ],
@@ -1335,8 +1277,8 @@ class _PostTextState extends State<_PostText> {
     fontFamily: clubFontFamily,
     color: widget.color,
     fontSize: 16,
-    fontWeight: FontWeight.w600,
-    height: 23 / 15,
+    fontWeight: FontWeight.w400,
+    height: 1.4,
     letterSpacing: 0,
   );
 
@@ -1476,38 +1418,25 @@ class _PostTextState extends State<_PostText> {
   }
 }
 
-class _PostActionDivider extends StatelessWidget {
-  const _PostActionDivider({required this.isDark});
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 1,
-    height: 20,
-    margin: const EdgeInsets.symmetric(horizontal: 2),
-    color: isDark ? const Color(0xFF45414A) : const Color(0xFFE5DDE7),
-  );
-}
-
 class _PostAction extends StatelessWidget {
   const _PostAction({
     required this.tooltip,
-    required this.icon,
+    required this.asset,
     required this.color,
     required this.onPressed,
     this.label,
     this.selected = false,
     this.onLongPress,
-    this.emoji,
+    this.reaction,
+    this.iconSize = 24,
   });
-  final String tooltip;
-  final IconData icon;
+  final String tooltip, asset;
   final Color color;
-  final VoidCallback? onPressed;
+  final VoidCallback? onPressed, onLongPress;
   final String? label;
   final bool selected;
-  final VoidCallback? onLongPress;
-  final String? emoji;
+  final PostReaction? reaction;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) => Tooltip(
@@ -1521,39 +1450,32 @@ class _PostAction extends StatelessWidget {
         onLongPress: onLongPress,
         style: TextButton.styleFrom(
           foregroundColor: color,
-          minimumSize: const Size(0, 36),
+          minimumSize: const Size(40, 44),
           padding: const EdgeInsets.symmetric(horizontal: 6),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          backgroundColor: selected
-              ? const Color(0xFFFCE5ED)
-              : Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
+          shape: const StadiumBorder(),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (emoji != null)
-              Text(emoji!, style: const TextStyle(fontSize: 18))
-            else if (selected)
-              Icon(icon, size: 18)
+            if (reaction != null)
+              PostReactionIcon(reaction: reaction!, size: iconSize)
             else
-              CustomPaint(
-                size: const Size(18, 18),
-                painter: _PostIconPainter(icon, color),
+              Image.asset(
+                'assets/icons/post-actions/$asset',
+                width: iconSize,
+                height: iconSize,
+                fit: BoxFit.contain,
+                color: color,
+                excludeFromSemantics: true,
               ),
             if (label != null) ...[
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
+              const SizedBox(width: 5),
+              Text(
+                label!,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ],
@@ -1562,89 +1484,4 @@ class _PostAction extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _PostIconPainter extends CustomPainter {
-  const _PostIconPainter(this.icon, this.color);
-  final IconData icon;
-  final Color color;
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.scale(size.width / 24, size.height / 24);
-    final pen = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    if (icon == Icons.thumb_up_outlined) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          const Rect.fromLTWH(2, 10, 4, 12),
-          const Radius.circular(1),
-        ),
-        pen,
-      );
-      canvas.drawPath(
-        Path()
-          ..moveTo(6, 11)
-          ..lineTo(11, 4)
-          ..lineTo(11, 2)
-          ..cubicTo(15, 1, 16, 5, 14, 10)
-          ..lineTo(20, 10)
-          ..quadraticBezierTo(23, 10, 22, 13)
-          ..lineTo(20, 20)
-          ..quadraticBezierTo(20, 22, 18, 22)
-          ..lineTo(6, 22),
-        pen,
-      );
-    } else if (icon == Icons.chat_bubble_outline) {
-      canvas.drawPath(
-        Path()
-          ..moveTo(21, 16)
-          ..quadraticBezierTo(21, 18, 19, 18)
-          ..lineTo(8, 18)
-          ..lineTo(3, 22)
-          ..lineTo(3, 4)
-          ..quadraticBezierTo(3, 2, 5, 2)
-          ..lineTo(19, 2)
-          ..quadraticBezierTo(21, 2, 21, 4)
-          ..close(),
-        pen,
-      );
-    } else if (icon == Icons.repeat) {
-      canvas.drawPath(
-        Path()
-          ..moveTo(3, 10)
-          ..lineTo(3, 8)
-          ..quadraticBezierTo(3, 5, 6, 5)
-          ..lineTo(20, 5)
-          ..moveTo(16, 1)
-          ..lineTo(20, 5)
-          ..lineTo(16, 9)
-          ..moveTo(21, 14)
-          ..lineTo(21, 16)
-          ..quadraticBezierTo(21, 19, 18, 19)
-          ..lineTo(4, 19)
-          ..moveTo(8, 15)
-          ..lineTo(4, 19)
-          ..lineTo(8, 23),
-        pen,
-      );
-    } else {
-      canvas.drawLine(const Offset(7, 11), const Offset(17, 5), pen);
-      canvas.drawLine(const Offset(7, 13), const Offset(17, 19), pen);
-      for (final point in [
-        const Offset(5, 12),
-        const Offset(19, 4),
-        const Offset(19, 20),
-      ]) {
-        canvas.drawCircle(point, 3, pen);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_PostIconPainter oldDelegate) =>
-      oldDelegate.icon != icon || oldDelegate.color != color;
 }

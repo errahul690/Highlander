@@ -100,7 +100,7 @@ class _MatchPreviewScreenState extends State<MatchPreviewScreen> {
     return ClubScaffold(
       appBar: const ClubHeader(
         title: 'Match preview',
-        showBack: false,
+        showBack: true,
         showSearch: false,
         showSupport: false,
         uppercaseTitle: false,

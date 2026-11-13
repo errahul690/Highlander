@@ -179,7 +179,7 @@ class _AppFeedMarqueeState extends State<AppFeedMarquee>
       ),
     );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Material(
         key: const ValueKey('app-marquee'),
         color: _background,

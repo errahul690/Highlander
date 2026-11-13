@@ -8,12 +8,14 @@ class PhotoViewerScreen extends StatefulWidget {
     super.key,
     required this.images,
     this.initialIndex = 0,
+    this.imageProvider,
     this.authorName,
     this.content,
     this.emptyMessage = 'No image available',
   });
 
   final List<String> images;
+  final ImageProvider? imageProvider;
   final int initialIndex;
   final String? authorName;
   final String? content;
@@ -60,7 +62,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (widget.images.isEmpty)
+            if (widget.images.isEmpty && widget.imageProvider == null)
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32),
@@ -91,6 +93,20 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+            if (widget.imageProvider != null)
+              GestureDetector(
+                onTap: _toggleOverlay,
+                child: Center(
+                  child: InteractiveViewer(
+                    minScale: .8,
+                    maxScale: 4,
+                    child: Image(
+                      image: widget.imageProvider!,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ),

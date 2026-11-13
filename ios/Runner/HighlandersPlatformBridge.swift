@@ -5,7 +5,7 @@ import UIKit
 import UniformTypeIdentifiers
 
 /// Implements the same channels used by the Android host and shared Dart UI.
-final class HighlandersPlatformBridge: NSObject, UIDocumentPickerDelegate {
+final class HighlandersPlatformBridge: NSObject, UIDocumentPickerDelegate, UIDocumentInteractionControllerDelegate {
   private let links: FlutterMethodChannel
   private let thumbnails: FlutterMethodChannel
   private let splash: FlutterMethodChannel
@@ -18,6 +18,7 @@ final class HighlandersPlatformBridge: NSObject, UIDocumentPickerDelegate {
   private var initialLink: String?
   private var linksReady = false
   private var attachmentResult: FlutterResult?
+  private var documentPreview: UIDocumentInteractionController?
   private let maximumAttachmentSize = 15 * 1024 * 1024
 
   init(messenger: FlutterBinaryMessenger) {
@@ -73,6 +74,29 @@ final class HighlandersPlatformBridge: NSObject, UIDocumentPickerDelegate {
       linksReady = true
       result(initialLink)
       initialLink = nil
+    case "openChatFile":
+      guard let path = arguments["path"] as? String,
+            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+        result(FlutterError(code: "open_failed", message: "Downloaded file is unavailable", details: nil))
+        return
+      }
+      let file = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL
+      let root = support.resolvingSymlinksInPath().standardizedFileURL.path + "/"
+      guard file.path.hasPrefix(root), file.path.contains("/chat-files/open/"), FileManager.default.fileExists(atPath: file.path) else {
+        result(FlutterError(code: "open_failed", message: "Downloaded file is unavailable", details: nil))
+        return
+      }
+      let controller = UIDocumentInteractionController(url: file)
+      controller.delegate = self
+      documentPreview = controller
+      guard let presenter = presenter else {
+        result(FlutterError(code: "open_failed", message: "Could not open this file", details: nil))
+        return
+      }
+      if !controller.presentPreview(animated: true) {
+        controller.presentOptionsMenu(from: presenter.view.bounds, in: presenter.view, animated: true)
+      }
+      result(nil)
     case "openUrl":
       guard let text = arguments["url"] as? String,
             let url = URL(string: text),
@@ -111,6 +135,7 @@ final class HighlandersPlatformBridge: NSObject, UIDocumentPickerDelegate {
       }
       let mimeTypes = [
         "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif",
+        "video/mp4", "video/quicktime", "video/webm",
         "application/pdf", "text/plain", "application/msword",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -228,4 +253,11 @@ final class HighlandersPlatformBridge: NSObject, UIDocumentPickerDelegate {
       return nil
     }
   }
+  func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
+    return presenter ?? UIViewController()
+  }
+  func documentInteractionControllerDidEndPreview(_ controller: UIDocumentInteractionController) {
+    documentPreview = nil
+  }
+
 }

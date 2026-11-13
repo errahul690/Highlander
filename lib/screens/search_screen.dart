@@ -8,6 +8,7 @@ import '../explore_repository.dart';
 import '../posts_api.dart';
 import '../theme.dart';
 import '../widgets/user_avatar.dart';
+import '../widgets/club_header.dart';
 import 'chat_screen.dart';
 import 'post_detail_screen.dart';
 import 'user_profile_screen.dart';
@@ -189,7 +190,9 @@ class _SearchScreenState extends State<SearchScreen>
     final tab = _tabsController.index;
     return Scaffold(
       backgroundColor: const Color(0xFFF9F7F3),
+      appBar: const ClubHeader(title: 'Search', showSearch: false),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             Padding(
@@ -308,11 +311,17 @@ class _SearchScreenState extends State<SearchScreen>
       ),
       trailing: TextButton(
         onPressed: _busy.contains(id) ? null : () => _follow(row),
-        child: Text(requested ? 'Requested' : following ? 'Following' : 'Follow'),
+        child: Text(
+          requested
+              ? 'Requested'
+              : following
+              ? 'Following'
+              : 'Follow',
+        ),
       ),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => UserProfileScreen(userId: id)),
-      ),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => UserProfileScreen(userId: id))),
     );
   }
 
@@ -362,9 +371,9 @@ class _SearchScreenState extends State<SearchScreen>
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => PostDetailScreen(postId: id)),
-      ),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => PostDetailScreen(postId: id))),
     );
   }
 }
