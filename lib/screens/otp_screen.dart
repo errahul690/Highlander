@@ -25,15 +25,18 @@ class _OtpScreenState extends State<OtpScreen> {
   int _seconds = _resendCooldownSeconds;
   bool _loading = false;
   bool _sending = false;
+  Future<void>? _delivery;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _code.addListener(_onCodeChanged);
     if (widget.sendOnOpen) {
       _sending = true;
       _startTimer();
-      unawaited(_deliver());
+      _delivery = _deliver();
+      unawaited(_delivery);
     } else {
       _seconds = Session.otpResendSeconds < _resendCooldownSeconds
           ? _resendCooldownSeconds
@@ -42,13 +45,27 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
-  Future<void> _deliver() async {
+  void _onCodeChanged() {
+    if (!mounted) return;
+    setState(() => _error = null);
+    if (_code.text.length == 6 && _codeFocus.hasFocus) {
+      _codeFocus.unfocus();
+    }
+  }
+
+  Future<void> _deliver({bool resend = false}) async {
     try {
       FeedStartup.start();
-      final result = await OtpApi.instance.sendEmail(Session.email);
+      final result = resend && Session.emailOtpRequestId.isNotEmpty
+          ? await OtpApi.instance.resendEmail(
+              Session.email,
+              Session.emailOtpRequestId,
+            )
+          : await OtpApi.instance.sendEmail(Session.email);
       if (!mounted) return;
       Session.emailOtpRequestId = result.requestId;
       Session.emailOtpDeliverySkipped = result.deliverySkipped;
+      Session.emailVerified = false;
       Session.otpResendSeconds =
           result.resendAfterSeconds < _resendCooldownSeconds
           ? _resendCooldownSeconds
@@ -56,7 +73,7 @@ class _OtpScreenState extends State<OtpScreen> {
       setState(() {
         _sending = false;
         _error = null;
-        if (_seconds == 0) _seconds = Session.otpResendSeconds;
+        if (resend || _seconds == 0) _seconds = Session.otpResendSeconds;
       });
       if (_seconds > 0 && _timer?.isActive != true) _startTimer();
     } catch (error) {
@@ -115,24 +132,33 @@ class _OtpScreenState extends State<OtpScreen> {
   void dispose() {
     _timer?.cancel();
     _codeFocus.dispose();
+    _code.removeListener(_onCodeChanged);
     _code.dispose();
     super.dispose();
   }
 
   Future<void> _verify() async {
     if (_code.text.length != 6 || _loading) return;
+    final code = _code.text;
+    _codeFocus.unfocus();
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
+      // Email can arrive before the first send response reaches the phone.
+      // Join that request instead of leaving a complete code disabled.
+      await _delivery;
+      if (!mounted) return;
+      // The server also supports its configured master OTP without a challenge.
+      // Let it validate the code even when delivery did not return a request ID.
       FeedStartup.start();
       // Reuse the verified proof when retrying a failed account lookup.
       if (!Session.emailVerified ||
           OtpApi.instance.emailVerificationToken.isEmpty) {
         await OtpApi.instance.verifyEmail(
           Session.email,
-          _code.text,
+          code,
           Session.emailOtpRequestId,
         );
         Session.emailVerified = true;
@@ -163,39 +189,15 @@ class _OtpScreenState extends State<OtpScreen> {
 
   Future<void> _resend() async {
     if (_loading || _sending || _seconds > 0) return;
+    _code.clear();
     setState(() {
       _sending = true;
       _seconds = _resendCooldownSeconds;
       _error = null;
     });
     _startTimer();
-    if (Session.emailOtpRequestId.isEmpty) {
-      await _deliver();
-      return;
-    }
-    try {
-      final result = await OtpApi.instance.resendEmail(
-        Session.email,
-        Session.emailOtpRequestId,
-      );
-      Session.emailVerified = false;
-      Session.emailOtpRequestId = result.requestId;
-      Session.emailOtpDeliverySkipped = result.deliverySkipped;
-      Session.otpResendSeconds =
-          result.resendAfterSeconds < _resendCooldownSeconds
-          ? _resendCooldownSeconds
-          : result.resendAfterSeconds;
-      if (!mounted) return;
-      setState(() {
-        _seconds = Session.otpResendSeconds;
-        _code.clear();
-      });
-      _startTimer();
-    } catch (error) {
-      _keepTimerInsteadOfWaitError(error);
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
+    _delivery = _deliver(resend: true);
+    await _delivery;
   }
 
   String get _otpHint {
@@ -222,7 +224,7 @@ class _OtpScreenState extends State<OtpScreen> {
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-      automaticallyImplyLeading: true,
+          automaticallyImplyLeading: true,
 
           backgroundColor: Colors.white,
           foregroundColor: clubInk,
@@ -383,7 +385,11 @@ class _OtpScreenState extends State<OtpScreen> {
                                   ],
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(6),
+                                    LengthLimitingTextInputFormatter(
+                                      6,
+                                      maxLengthEnforcement:
+                                          MaxLengthEnforcement.enforced,
+                                    ),
                                   ],
                                   style: const TextStyle(
                                     color: Colors.transparent,
@@ -402,8 +408,6 @@ class _OtpScreenState extends State<OtpScreen> {
                                     enabledBorder: InputBorder.none,
                                     focusedBorder: InputBorder.none,
                                   ),
-                                  onChanged: (_) =>
-                                      setState(() => _error = null),
                                   onSubmitted: (_) => _verify(),
                                 ),
                               ),
@@ -489,11 +493,7 @@ class _OtpScreenState extends State<OtpScreen> {
                               ),
                             ),
                           ),
-                      onPressed:
-                          _code.text.length == 6 &&
-                              !_loading &&
-                              !_sending &&
-                              Session.emailOtpRequestId.isNotEmpty
+                      onPressed: _code.text.length == 6 && !_loading
                           ? _verify
                           : null,
                       child: Row(
