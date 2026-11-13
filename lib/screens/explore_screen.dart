@@ -225,7 +225,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
     return exploreColor(val, fallback);
   }
-  Widget _header() => ClubHeader(
+
+  PreferredSizeWidget _header() => ClubHeader(
     title: _text('title'),
     subtitle: _text('headerSubtitle'),
     embedded: true,
@@ -237,85 +238,85 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _feature(Map<String, dynamic> item, double width) {
     final accent = _tone('cardAccent', authRed);
     return SizedBox(
-    width: width,
-    child: Material(
-      borderRadius: BorderRadius.circular(18),
-      clipBehavior: Clip.antiAlias,
-      color: const Color(0xFF3D1919),
-      child: InkWell(
-        key: ValueKey('explore-card-${item['id']}'),
-        onTap: () => _open('${item['link']}'),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.network(
-              ClubRepository.mediaUrl(item['image_url']),
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Center(
-                child: Icon(
-                  _exploreIcons[item['icon']] ?? Icons.sports_soccer,
-                  color: Colors.white54,
-                  size: 72,
+      width: width,
+      child: Material(
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        color: const Color(0xFF3D1919),
+        child: InkWell(
+          key: ValueKey('explore-card-${item['id']}'),
+          onTap: () => _open('${item['link']}'),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.network(
+                ClubRepository.mediaUrl(item['image_url']),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Center(
+                  child: Icon(
+                    _exploreIcons[item['icon']] ?? Icons.sports_soccer,
+                    color: Colors.white54,
+                    size: 72,
+                  ),
                 ),
               ),
-            ),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0, .4, 1],
-                  colors: [
-                    Color(0x88000000),
-                    Colors.transparent,
-                    Color(0x22000000),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0, .4, 1],
+                    colors: [
+                      Color(0x88000000),
+                      Colors.transparent,
+                      Color(0x22000000),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${item['label']}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: Colors.white,
+                          size: 23,
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 22,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: accent,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${item['label']}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ),
-                      const Icon(
-                        Icons.chevron_right,
-                        color: Colors.white,
-                        size: 23,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -334,225 +335,232 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final accent = _tone('accent', authRed);
     return Scaffold(
       backgroundColor: page,
-      body: Column(
-        children: [
-          _header(),
-          Expanded(
-            child: ClubPageBody(
-              color: page,
-              child: RefreshIndicator(
-                onRefresh: _load,
-                child: ListView(
-                  key: const PageStorageKey('explore-scroll'),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.paddingOf(context).bottom + 26,
+      body: ClubHeaderLayout(
+        header: _header(),
+        body: ClubPageBody(
+          color: page,
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              key: const PageStorageKey('explore-scroll'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom + 26,
+              ),
+              children: [
+                if (_config['showSearch'] != false)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    child: TextField(
+                      controller: _search,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => _searchPeople(),
+                      decoration: InputDecoration(
+                        hintText: _text('searchPlaceholder'),
+                        prefixIcon: Icon(Icons.search, color: muted),
+                        hintStyle: TextStyle(color: muted, fontSize: 15),
+                        filled: true,
+                        fillColor: _tone('search', const Color(0xFFF1EEEA)),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
                   ),
-                  children: [
-                    if (_config['showSearch'] != false)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                        child: TextField(
-                          controller: _search,
-                          textInputAction: TextInputAction.search,
-                          onChanged: (_) => setState(() {}),
-                          onSubmitted: (_) => _searchPeople(),
-                          decoration: InputDecoration(
-                            hintText: _text('searchPlaceholder'),
-                            prefixIcon: Icon(Icons.search, color: muted),
-                            hintStyle: TextStyle(color: muted, fontSize: 15),
-                            filled: true,
-                            fillColor: _tone('search', const Color(0xFFF1EEEA)),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(28),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(28),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(28),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
+                if (_search.text.trim().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TextButton.icon(
+                      onPressed: _searchPeople,
+                      icon: const Icon(Icons.person_search_outlined),
+                      label: const Text('Search people'),
+                    ),
+                  ),
+                if (_repository.hasError)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TextButton(
+                      onPressed: _load,
+                      child: const Text('Could not refresh Explore. Retry'),
+                    ),
+                  ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    14,
+                    _config['showSearch'] == false ? 14 : 0,
+                    14,
+                    10,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _text('heading'),
+                        style: TextStyle(
+                          color: heading,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -.3,
+                          height: 1.15,
                         ),
                       ),
-                    if (_search.text.trim().isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: TextButton.icon(
-                          onPressed: _searchPeople,
-                          icon: const Icon(Icons.person_search_outlined),
-                          label: const Text('Search people'),
+                      const SizedBox(height: 6),
+                      Text(
+                        _text('subtitle'),
+                        style: TextStyle(
+                          color: muted,
+                          fontSize: 14.5,
+                          height: 1.3,
                         ),
                       ),
-                    if (_repository.hasError)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: TextButton(
-                          onPressed: _load,
-                          child: const Text('Could not refresh Explore. Retry'),
-                        ),
-                      ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        14,
-                        _config['showSearch'] == false ? 14 : 0,
-                        14,
-                        10,
-                      ),
+                    ],
+                  ),
+                ),
+                if (cards.isNotEmpty)
+                  SizedBox(
+                    height: cardWidth * (270 / 169),
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      itemCount: cards.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 12),
+                      itemBuilder: (_, index) =>
+                          _feature(cards[index], cardWidth),
+                    ),
+                  ),
+                if (quick.isNotEmpty)
+                  ExploreQuickAccess(
+                    title: _text('quickTitle'),
+                    items: quick,
+                    onOpen: _open,
+                    colors: _colors,
+                  ),
+                if (links.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFCED3DF)),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0x0A000000), blurRadius: 5),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      clipBehavior: Clip.antiAlias,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            _text('heading'),
-                            style: TextStyle(
-                              color: heading,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -.3,
-                              height: 1.15,
+                          for (
+                            var index = 0;
+                            index < links.length;
+                            index++
+                          ) ...[
+                            if (index > 0)
+                              const Divider(
+                                height: 1,
+                                indent: 16,
+                                endIndent: 16,
+                              ),
+                            ListTile(
+                              key: ValueKey(
+                                'explore-link-${links[index]['id']}',
+                              ),
+                              onTap: () => _open('${links[index]['link']}'),
+                              leading: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: _tone(
+                                    'linkIcon',
+                                    const Color(0xFFFDECEC),
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Center(
+                                  child: _icon(
+                                    links[index],
+                                    size: 19,
+                                    color: accent,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                '${links[index]['label']}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              trailing: Icon(
+                                Icons.chevron_right,
+                                size: 19,
+                                color: _tone(
+                                  'chevron',
+                                  const Color(0xFFB7B3AE),
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _text('subtitle'),
-                            style: TextStyle(
-                              color: muted,
-                              fontSize: 14.5,
-                              height: 1.3,
-                            ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
-                    if (cards.isNotEmpty)
-                      SizedBox(
-                        height: cardWidth * (270 / 169),
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          itemCount: cards.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 12),
-                          itemBuilder: (_, index) =>
-                              _feature(cards[index], cardWidth),
+                  ),
+                if (cards.isEmpty &&
+                    quick.isEmpty &&
+                    links.isEmpty &&
+                    _search.text.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'No matches found.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                if (_config['showLogout'] != false)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 24, 18, 0),
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _tone(
+                          'logout',
+                          const Color(0xFFFBECEC),
+                        ),
+                        foregroundColor: _tone('logoutText', authRed),
+                        elevation: 0,
+                        minimumSize: const Size.fromHeight(46),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                    if (quick.isNotEmpty)
-                      ExploreQuickAccess(
-                        title: _text('quickTitle'),
-                        items: quick,
-                        onOpen: _open,
-                        colors: _colors,
-                      ),
-                    if (links.isNotEmpty)
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFCED3DF)),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x0A000000), blurRadius: 5),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          clipBehavior: Clip.antiAlias,
-                          child: Column(
-                            children: [
-                              for (
-                                var index = 0;
-                                index < links.length;
-                                index++
-                              ) ...[
-                                if (index > 0)
-                                  const Divider(
-                                    height: 1,
-                                    indent: 16,
-                                    endIndent: 16,
-                                  ),
-                                ListTile(
-                                  key: ValueKey(
-                                    'explore-link-${links[index]['id']}',
-                                  ),
-                                  onTap: () => _open('${links[index]['link']}'),
-                                  leading: Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: _tone('linkIcon', const Color(0xFFFDECEC)),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Center(
-                                      child: _icon(
-                                        links[index],
-                                        size: 19,
-                                        color: accent,
-                                      ),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    '${links[index]['label']}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  trailing: Icon(
-                                    Icons.chevron_right,
-                                    size: 19,
-                                    color: _tone('chevron', const Color(0xFFB7B3AE)),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                      onPressed: _logoutBusy ? null : _logout,
+                      child: Text(
+                        _logoutBusy ? 'Logging out…' : _text('logoutLabel'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
                         ),
                       ),
-                    if (cards.isEmpty &&
-                        quick.isEmpty &&
-                        links.isEmpty &&
-                        _search.text.isNotEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text(
-                          'No matches found.',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    if (_config['showLogout'] != false)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 24, 18, 0),
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: _tone('logout', const Color(0xFFFBECEC)),
-                            foregroundColor: _tone('logoutText', authRed),
-                            elevation: 0,
-                            minimumSize: const Size.fromHeight(46),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          onPressed: _logoutBusy ? null : _logout,
-                          child: Text(
-                            _logoutBusy ? 'Logging out…' : _text('logoutLabel'),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.1,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+                    ),
+                  ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

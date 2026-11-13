@@ -76,11 +76,12 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
         'knockoutMatches',
         'matches',
       ].contains(event['resource'])) {
-        setState(
-          () =>
-              _clubContent = (widget.clubRepository ?? ClubRepository.instance)
-                  .load(forceRefresh: true),
+        final club = (widget.clubRepository ?? ClubRepository.instance).load(
+          forceRefresh: true,
         );
+        setState(() {
+          _clubContent = club;
+        });
       }
     });
   }
@@ -106,7 +107,9 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     final club = (widget.clubRepository ?? ClubRepository.instance).load(
       forceRefresh: true,
     );
-    setState(() => _clubContent = club);
+    setState(() {
+      _clubContent = club;
+    });
     await Future.wait([
       club,
       _loadPosts(),
@@ -170,59 +173,55 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     child: FeedBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Column(
-          children: [
-            const _FeedHeader(),
-            Expanded(
-              child: ClubPageBody(
-                color: Colors.transparent,
-                child: RefreshIndicator(
-                  onRefresh: _refresh,
-                  child: PostListView(
-                    key: const PageStorageKey('feed-scroll'),
-                    pager: _pager,
-                    onChanged: _loadPosts,
-                    spacing: 6,
-                    emptyLoading: const StartupLoader(),
-                    inserts: [
-                      PostListInsert(
-                        afterPosts: _recentAfter,
-                        child: RecentResultsSection(content: _clubContent),
-                      ),
-                      PostListInsert(
-                        afterPosts: _focusAfter,
-                        child: const FeedGalleryFocus(),
-                      ),
-                    ],
-                    padding: EdgeInsets.fromLTRB(
-                      18,
-                      6,
-                      18,
-                      MediaQuery.paddingOf(context).bottom + 20,
-                    ),
-                    header: [
-                      const AppQuickLinks(),
-                      const AppFeedBanners(
-                        padding: EdgeInsets.only(top: 6),
-                      ),
-                      const SizedBox(height: 6),
-                      FeedMatchFeature(content: _clubContent, now: widget.now),
-                      const AppFeedMarquee(key: ValueKey('feed-announcements')),
-                      const AppFeedPoll(),
-                    ],
+        body: ClubHeaderLayout(
+          header: const _FeedHeader(),
+          body: ClubPageBody(
+            color: Colors.transparent,
+            child: RefreshIndicator(
+              onRefresh: _refresh,
+              child: PostListView(
+                key: const PageStorageKey('feed-scroll'),
+                pager: _pager,
+                onChanged: _loadPosts,
+                spacing: 6,
+                emptyLoading: const StartupLoader(),
+                inserts: [
+                  PostListInsert(
+                    afterPosts: _recentAfter,
+                    child: RecentResultsSection(content: _clubContent),
                   ),
+                  PostListInsert(
+                    afterPosts: _focusAfter,
+                    child: const FeedGalleryFocus(),
+                  ),
+                ],
+                padding: EdgeInsets.fromLTRB(
+                  18,
+                  6,
+                  18,
+                  MediaQuery.paddingOf(context).bottom + 20,
                 ),
+                header: [
+                  const AppQuickLinks(),
+                  const AppFeedBanners(padding: EdgeInsets.only(top: 6)),
+                  const SizedBox(height: 6),
+                  FeedMatchFeature(content: _clubContent, now: widget.now),
+                  const AppFeedMarquee(key: ValueKey('feed-announcements')),
+                  const AppFeedPoll(),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     ),
   );
 }
 
-class _FeedHeader extends StatelessWidget {
+class _FeedHeader extends StatelessWidget implements PreferredSizeWidget {
   const _FeedHeader();
+  @override
+  Size get preferredSize => const ClubHeader(title: '').preferredSize;
   @override
   Widget build(BuildContext context) => const ClubHeader(
     title: 'Highlanders',

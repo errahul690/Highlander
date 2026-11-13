@@ -1,5 +1,47 @@
 import 'package:flutter/material.dart';
 
+/// Keeps the scroll viewport behind the transparent curve of the fixed header.
+class ClubHeaderLayout extends StatelessWidget {
+  const ClubHeaderLayout({super.key, required this.header, required this.body});
+
+  final PreferredSizeWidget header;
+  final Widget body;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      _ClubHeaderScrollBody(
+        headerHeight:
+            MediaQuery.paddingOf(context).top + header.preferredSize.height,
+        body: body,
+      ),
+      Positioned(top: 0, left: 0, right: 0, child: header),
+    ],
+  );
+}
+
+class _ClubHeaderScrollBody extends StatelessWidget {
+  const _ClubHeaderScrollBody({
+    required this.headerHeight,
+    required this.body,
+    this.controller,
+  });
+
+  final double headerHeight;
+  final Widget body;
+  final ScrollController? controller;
+
+  @override
+  Widget build(BuildContext context) => NestedScrollView(
+    controller: controller,
+    headerSliverBuilder: (context, innerBoxIsScrolled) => [
+      SliverToBoxAdapter(child: SizedBox(height: headerHeight)),
+    ],
+    body: body,
+  );
+}
+
 /// The shared content surface below the club header.
 class ClubPageBody extends StatelessWidget {
   const ClubPageBody({
@@ -28,6 +70,7 @@ class ClubScaffold extends StatelessWidget {
     this.bottomNavigationBar,
     this.floatingActionButton,
     this.resizeToAvoidBottomInset,
+    this.scrollController,
   });
 
   final PreferredSizeWidget? appBar;
@@ -36,18 +79,26 @@ class ClubScaffold extends StatelessWidget {
   final Widget? bottomNavigationBar;
   final Widget? floatingActionButton;
   final bool? resizeToAvoidBottomInset;
+  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context) {
     final scaffold = Scaffold(
       appBar: appBar,
+      extendBodyBehindAppBar: appBar != null,
       backgroundColor: backgroundColor,
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       bottomNavigationBar: bottomNavigationBar,
       floatingActionButton: floatingActionButton,
       body: appBar == null
           ? body
-          : ClubPageBody(color: backgroundColor, child: body),
+          : _ClubHeaderScrollBody(
+              headerHeight:
+                  MediaQuery.paddingOf(context).top +
+                  appBar!.preferredSize.height,
+              controller: scrollController,
+              body: ClubPageBody(color: backgroundColor, child: body),
+            ),
     );
     return bottomNavigationBar == null
         ? scaffold

@@ -41,6 +41,19 @@ class PostListView extends StatefulWidget {
 
 class _PostListViewState extends State<PostListView> {
   final _scroll = ScrollController();
+  ScrollController? _primaryScroll;
+  ScrollController get _effectiveScroll => _primaryScroll ?? _scroll;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final primary = PrimaryScrollController.maybeOf(context);
+    if (identical(primary, _primaryScroll)) return;
+    _primaryScroll?.removeListener(_onScroll);
+    _primaryScroll = primary;
+    _primaryScroll?.addListener(_onScroll);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -49,8 +62,8 @@ class _PostListViewState extends State<PostListView> {
 
   void _onScroll() {
     if (widget.showPosts &&
-        _scroll.hasClients &&
-        _scroll.position.extentAfter < 500 &&
+        _effectiveScroll.hasClients &&
+        _effectiveScroll.position.extentAfter < 500 &&
         widget.pager.error == null) {
       widget.pager.next();
     }
@@ -58,6 +71,7 @@ class _PostListViewState extends State<PostListView> {
 
   @override
   void dispose() {
+    _primaryScroll?.removeListener(_onScroll);
     _scroll.dispose();
     super.dispose();
   }
@@ -113,7 +127,7 @@ class _PostListViewState extends State<PostListView> {
 
   @override
   Widget build(BuildContext context) => CustomScrollView(
-    controller: _scroll,
+    controller: _effectiveScroll,
     physics: const AlwaysScrollableScrollPhysics(),
     slivers: [
       if (widget.beforeHeader != null)

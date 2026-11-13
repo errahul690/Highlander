@@ -221,7 +221,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       value: SystemUiOverlayStyle.light.copyWith(
         statusBarColor: Colors.transparent,
       ),
-      child: Scaffold(
+      child: ClubScaffold(
         backgroundColor: Colors.white,
         appBar: ClubHeader(
           title: 'Create Post',

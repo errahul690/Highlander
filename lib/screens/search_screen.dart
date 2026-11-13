@@ -1,3 +1,4 @@
+import '../widgets/club_page_body.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -188,7 +189,7 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   Widget build(BuildContext context) {
     final tab = _tabsController.index;
-    return Scaffold(
+    return ClubScaffold(
       backgroundColor: const Color(0xFFF9F7F3),
       appBar: const ClubHeader(title: 'Search', showSearch: false),
       body: SafeArea(

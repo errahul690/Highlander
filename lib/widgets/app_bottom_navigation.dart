@@ -2,6 +2,7 @@ import '../brand_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:flutter/services.dart';
 
 import '../chat_updates.dart';
 import 'unread_chat_badge.dart';
@@ -70,6 +71,16 @@ class _AppBottomNavigationState extends State<AppBottomNavigation> {
   @override
   Widget build(BuildContext context) {
     final onFeed = selectedIndex == 2;
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    // Leave only the home indicator clearance on iOS, without floating the
+    // entire capsule above its full safe area.
+    final bottomGap = isAndroid
+        ? bottomInset
+        : (MediaQuery.paddingOf(context).bottom - 20).clamp(
+            0.0,
+            double.infinity,
+          );
     final textScaler = MediaQuery.textScalerOf(context);
     final barHeight = (35 + textScaler.scale(10) * 1.1).clamp(
       54.0,
@@ -87,7 +98,7 @@ class _AppBottomNavigationState extends State<AppBottomNavigation> {
       }
     }
 
-    return IgnorePointer(
+    final navigation = IgnorePointer(
       ignoring: !_visible,
       child: ExcludeSemantics(
         excluding: !_visible,
@@ -100,14 +111,7 @@ class _AppBottomNavigationState extends State<AppBottomNavigation> {
             opacity: _visible ? 1 : 0,
             duration: const Duration(milliseconds: 160),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                18,
-                10,
-                18,
-                Theme.of(context).platform == TargetPlatform.iOS
-                    ? MediaQuery.paddingOf(context).bottom
-                    : MediaQuery.viewPaddingOf(context).bottom + 4,
-              ),
+              padding: EdgeInsets.fromLTRB(18, 10, 18, bottomGap),
               child: Container(
                 key: const ValueKey('floating-bottom-bar'),
                 height: barHeight,
@@ -218,6 +222,35 @@ class _AppBottomNavigationState extends State<AppBottomNavigation> {
             ),
           ),
         ),
+      ),
+    );
+    if (!isAndroid) return navigation;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: Stack(
+        children: [
+          navigation,
+          // Paint behind Android's controls in edge-to-edge mode as well.
+          // Keep this outside the scroll animation so it stays black.
+          if (bottomInset > 0)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: bottomInset,
+              child: const IgnorePointer(
+                child: ColoredBox(
+                  key: ValueKey('android-navigation-background'),
+                  color: Colors.black,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -1,3 +1,4 @@
+import '../widgets/club_page_body.dart';
 import 'package:flutter/material.dart';
 
 import '../widgets/club_header.dart';
@@ -12,7 +13,7 @@ class GroupInvitationScreen extends StatelessWidget {
   final String groupId, groupName;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => ClubScaffold(
     appBar: const ClubHeader(title: 'Group Invitation', showSearch: false),
     body: Padding(
       padding: const EdgeInsets.all(20),

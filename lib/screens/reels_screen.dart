@@ -321,6 +321,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     value: SystemUiOverlayStyle.light,
     child: Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
       appBar: const ClubHeader(title: 'Reels', showSearch: false),
       body: SafeArea(
         top: false,

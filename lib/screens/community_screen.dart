@@ -287,7 +287,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
-  Widget _header() => ClubHeader(
+  PreferredSizeWidget _header() => ClubHeader(
     title: widget.title,
     embedded: true,
     showBack: true,
@@ -822,108 +822,103 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
-    body: Column(
-      children: [
-        _header(),
-        Expanded(
-          child: ClubPageBody(
-            color: Colors.white,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _tabsBar(),
-                _searchBar(),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: FutureBuilder<List<Map<String, dynamic>>>(
-                    future: _rows,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done) {
-                        return const Center(
-                          child: CircularProgressIndicator(color: brandAccent),
-                        );
-                      }
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text('Could not load community.'),
-                              TextButton(
-                                onPressed: () => setState(_reload),
-                                child: const Text('Retry'),
-                              ),
-                            ],
+    body: ClubHeaderLayout(
+      header: _header(),
+      body: ClubPageBody(
+        color: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _tabsBar(),
+            _searchBar(),
+            const SizedBox(height: 8),
+            Expanded(
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _rows,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: brandAccent),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Could not load community.'),
+                          TextButton(
+                            onPressed: () => setState(_reload),
+                            child: const Text('Retry'),
                           ),
-                        );
-                      }
-                      final query = _search.text.trim().toLowerCase();
-                      final allRows = snapshot.data ?? [];
-                      final rows = allRows
-                          .where(
-                            (row) =>
-                                _tab != 2 ||
-                                row['membership'] == 'active' ||
-                                row['canManage'] == true,
-                          )
-                          .where(
-                            (row) =>
-                                _rowName(row).toLowerCase().contains(query),
-                          )
-                          .toList();
+                        ],
+                      ),
+                    );
+                  }
+                  final query = _search.text.trim().toLowerCase();
+                  final allRows = snapshot.data ?? [];
+                  final rows = allRows
+                      .where(
+                        (row) =>
+                            _tab != 2 ||
+                            row['membership'] == 'active' ||
+                            row['canManage'] == true,
+                      )
+                      .where(
+                        (row) => _rowName(row).toLowerCase().contains(query),
+                      )
+                      .toList();
 
-                      if (rows.isEmpty) {
-                        return LayoutBuilder(
-                          builder: (context, constraints) => RefreshIndicator(
-                            onRefresh: () async {
-                              setState(_reload);
-                              await _rows;
-                            },
-                            child: SingleChildScrollView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: constraints.maxHeight,
-                                ),
-                                child: Center(child: _emptyState()),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-
-                      return RefreshIndicator(
+                  if (rows.isEmpty) {
+                    return LayoutBuilder(
+                      builder: (context, constraints) => RefreshIndicator(
                         onRefresh: () async {
                           setState(_reload);
                           await _rows;
                         },
-                        child: _tab == 2
-                            ? _buildGroupsView(rows)
-                            : ListView.builder(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: EdgeInsets.fromLTRB(
-                                  0,
-                                  4,
-                                  0,
-                                  MediaQuery.paddingOf(context).bottom + 180,
-                                ),
-                                itemCount: rows.length,
-                                itemBuilder: (context, index) {
-                                  final row = rows[index];
-                                  return _tab == 1
-                                      ? _chatTile(row)
-                                      : _circleTile(row);
-                                },
-                              ),
-                      );
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
+                            child: Center(child: _emptyState()),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      setState(_reload);
+                      await _rows;
                     },
-                  ),
-                ),
-              ],
+                    child: _tab == 2
+                        ? _buildGroupsView(rows)
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(
+                              0,
+                              4,
+                              0,
+                              MediaQuery.paddingOf(context).bottom + 180,
+                            ),
+                            itemCount: rows.length,
+                            itemBuilder: (context, index) {
+                              final row = rows[index];
+                              return _tab == 1
+                                  ? _chatTile(row)
+                                  : _circleTile(row);
+                            },
+                          ),
+                  );
+                },
+              ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     ),
   );
 

@@ -28,7 +28,8 @@ class MatchReportScreen extends StatefulWidget {
 
 class _MatchReportScreenState extends State<MatchReportScreen> {
   late bool _playing;
-  final _scrollController = ScrollController();
+  ScrollController? _scrollController;
+  final _headerScrollController = ScrollController();
   final _overviewKey = GlobalKey();
   Fixture get f => widget.fixture;
 
@@ -41,19 +42,24 @@ class _MatchReportScreenState extends State<MatchReportScreen> {
     _playing = widget.playHighlights && source.isNotEmpty;
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
   void _playHighlights() {
     setState(() => _playing = true);
-    _scrollController.animateTo(
+    _scrollController?.animateTo(
       0,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
     );
+    _headerScrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _headerScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -70,6 +76,7 @@ class _MatchReportScreenState extends State<MatchReportScreen> {
         ? f.highlightsUrl
         : matchHighlightsSource(f);
     return ClubScaffold(
+      scrollController: _headerScrollController,
       backgroundColor: const Color(0xFFFAF9F6),
       appBar: const ClubHeader(
         title: 'Match Report',
@@ -78,101 +85,110 @@ class _MatchReportScreenState extends State<MatchReportScreen> {
         showSearch: false,
         showSupport: false,
       ),
-      body: ListView(
-        controller: _scrollController,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-        children: [
-          Container(
-            key: const ValueKey('match-report-card'),
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: const Color(0xFF162B3D),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: _playing && source.isNotEmpty
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        height: 38,
-                        padding: const EdgeInsets.only(left: 12, right: 6),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF0C1722),
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Color(0xFF243442),
-                              width: .5,
+      body: Builder(
+        builder: (context) {
+          _scrollController = PrimaryScrollController.of(context);
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+            children: [
+              Container(
+                key: const ValueKey('match-report-card'),
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF162B3D),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: _playing && source.isNotEmpty
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            height: 38,
+                            padding: const EdgeInsets.only(left: 12, right: 6),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF0C1722),
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: Color(0xFF243442),
+                                  width: .5,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.play_circle_outline_rounded,
+                                  color: Color(0xFFEC424B),
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 7),
+                                const Text(
+                                  'Highlights',
+                                  style: TextStyle(
+                                    color: Color(0xFFF1F4F7),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const Spacer(),
+                                IconButton(
+                                  key: const ValueKey('close-match-highlights'),
+                                  tooltip: 'Close highlights',
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 28,
+                                    height: 28,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: const Color(0xFF25313D),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  color: Colors.white,
+                                  onPressed: () =>
+                                      setState(() => _playing = false),
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.play_circle_outline_rounded,
-                              color: Color(0xFFEC424B),
-                              size: 16,
-                            ),
-                            const SizedBox(width: 7),
-                            const Text(
-                              'Highlights',
-                              style: TextStyle(
-                                color: Color(0xFFF1F4F7),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              key: const ValueKey('close-match-highlights'),
-                              tooltip: 'Close highlights',
-                              constraints: const BoxConstraints.tightFor(
-                                width: 28,
-                                height: 28,
-                              ),
-                              padding: EdgeInsets.zero,
-                              style: IconButton.styleFrom(
-                                backgroundColor: const Color(0xFF25313D),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              color: Colors.white,
-                              onPressed: () => setState(() => _playing = false),
-                              icon: const Icon(Icons.close_rounded, size: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                      MatchHighlightsPlayer(
-                        key: ValueKey(source),
-                        source: source,
-                      ),
-                    ],
-                  )
-                : _hero(),
-          ),
-          const SizedBox(height: 18),
-          KeyedSubtree(key: _overviewKey, child: _overview()),
-          const SizedBox(height: 22),
-          if (f.details.stats.isNotEmpty)
-            _details(
-              'Match stats',
-              Column(
-                children: f.details.stats
-                    .map(
-                      (stat) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: MatchStatComparison(stat: stat),
-                      ),
-                    )
-                    .toList(),
+                          MatchHighlightsPlayer(
+                            key: ValueKey(source),
+                            source: source,
+                          ),
+                        ],
+                      )
+                    : _hero(),
               ),
-            ),
-          if (widget.lineups != null &&
-              (f.details.homeLineup.isNotEmpty ||
-                  f.details.awayLineup.isNotEmpty))
-            _details('Line-ups', widget.lineups!),
-          if (f.details.events.isNotEmpty)
-            _details('Match timeline', MatchTimeline(fixture: f)),
-        ],
+              const SizedBox(height: 18),
+              KeyedSubtree(key: _overviewKey, child: _overview()),
+              const SizedBox(height: 22),
+              if (f.details.stats.isNotEmpty)
+                _details(
+                  'Match stats',
+                  Column(
+                    children: f.details.stats
+                        .map(
+                          (stat) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: MatchStatComparison(stat: stat),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              if (widget.lineups != null &&
+                  (f.details.homeLineup.isNotEmpty ||
+                      f.details.awayLineup.isNotEmpty))
+                _details('Line-ups', widget.lineups!),
+              if (f.details.events.isNotEmpty)
+                _details('Match timeline', MatchTimeline(fixture: f)),
+            ],
+          );
+        },
       ),
     );
   }

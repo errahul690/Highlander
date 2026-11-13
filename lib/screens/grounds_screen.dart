@@ -903,7 +903,7 @@ class _GroundDetailScreenState extends State<GroundDetailScreen> {
         );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => ClubScaffold(
     backgroundColor: _background,
     appBar: const ClubHeader(
       title: 'GROUNDS',

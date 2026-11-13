@@ -1,3 +1,4 @@
+import '../widgets/club_page_body.dart';
 import '../brand_colors.dart';
 import 'dart:async';
 
@@ -77,7 +78,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => ClubScaffold(
     backgroundColor: const Color(0xFFF7F6FC),
     appBar: const ClubHeader(
       title: 'Matches',

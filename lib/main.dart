@@ -27,6 +27,7 @@ import 'screens/swoofi_screen.dart';
 import 'feed_startup.dart';
 import 'chat_media_cache.dart';
 import 'media_auto_download.dart';
+import 'widgets/android_navigation_background.dart';
 
 export 'post_link_router.dart' show postIdFromLink;
 
@@ -145,6 +146,8 @@ class HighlandersApp extends StatelessWidget {
       navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       theme: clubTheme(),
+      builder: (context, child) =>
+          AndroidNavigationBackground(child: child ?? const SizedBox.shrink()),
       home: displaySplash
           ? SplashScreen(
               resolveNext: _destination,

@@ -219,7 +219,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     }
   }
 
-  Widget _header() => ClubHeader(
+  PreferredSizeWidget _header() => ClubHeader(
     title: 'Friends',
     // subtitle: 'Your fellow Highlanders',
     embedded: true,
@@ -862,23 +862,17 @@ class _FriendsScreenState extends State<FriendsScreen>
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: const Color(0xFFFAF8F5),
-    body: Column(
-      children: [
-        _header(),
-        Expanded(
-          child: ClubPageBody(
-            color: const Color(0xFFFAF8F5),
-            child: Column(
-              children: [
-                _tabsBar(),
-                Expanded(
-                  child: _tab == 1 ? _requestsContent() : _peopleContent(),
-                ),
-              ],
-            ),
-          ),
+    body: ClubHeaderLayout(
+      header: _header(),
+      body: ClubPageBody(
+        color: const Color(0xFFFAF8F5),
+        child: Column(
+          children: [
+            _tabsBar(),
+            Expanded(child: _tab == 1 ? _requestsContent() : _peopleContent()),
+          ],
         ),
-      ],
+      ),
     ),
   );
 }
