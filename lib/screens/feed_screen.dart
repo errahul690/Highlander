@@ -26,6 +26,7 @@ import '../widgets/app_feed_banners.dart';
 import '../widgets/app_feed_marquee.dart';
 import '../widgets/app_feed_poll.dart';
 import '../post_pager.dart';
+import '../network_read.dart';
 import '../widgets/post_list_view.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -127,19 +128,17 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     final path = Session.token.isEmpty
         ? '/api/public/posts'
         : '/api/user/posts';
-    final response = await _client
-        .get(
-          Uri.parse('${OtpApi.apiBase}$path').replace(
-            queryParameters: {
-              'limit': '10',
-              if (cursor != null) 'cursor': cursor,
-            },
-          ),
-          headers: Session.token.isEmpty
-              ? const {}
-              : {'Authorization': 'Bearer ${Session.token}'},
-        )
-        .timeout(const Duration(seconds: 10));
+    final sessionToken = Session.token;
+    final response = await getWithRetry(
+      _client,
+      Uri.parse('${OtpApi.apiBase}$path').replace(
+        queryParameters: {'limit': '10', if (cursor != null) 'cursor': cursor},
+      ),
+      headers: sessionToken.isEmpty
+          ? const {}
+          : {'Authorization': 'Bearer $sessionToken'},
+      canRetry: () => mounted && Session.token == sessionToken,
+    );
     final data = jsonDecode(response.body);
     if (response.statusCode != 200 ||
         data is! Map ||

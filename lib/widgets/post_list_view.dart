@@ -181,8 +181,17 @@ class _PostListViewState extends State<PostListView> {
                         widget.pager.posts.isEmpty &&
                             (widget.pager.loading || widget.holdEmpty)
                         ? (widget.emptyLoading ?? const StartupLoader())
+                        : widget.pager.refreshing &&
+                              widget.pager.posts.isNotEmpty
+                        ? const SizedBox.shrink()
                         : widget.pager.loading
                         ? const StartupLoader()
+                        : widget.pager.refreshError != null
+                        ? TextButton.icon(
+                            onPressed: widget.pager.refresh,
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Refresh updates'),
+                          )
                         : widget.pager.error != null
                         ? TextButton(
                             onPressed: widget.pager.retry,

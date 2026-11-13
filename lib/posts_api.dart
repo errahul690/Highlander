@@ -13,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'otp_api.dart';
 import 'session.dart';
+import 'network_read.dart';
 
 class PostsApi {
   PostsApi({http.Client? client}) : _client = client ?? http.Client();
@@ -172,9 +173,25 @@ class PostsApi {
     } else if (method == 'DELETE') {
       response = await _client.delete(uri, headers: headers).timeout(timeout);
     } else {
-      response = await _client.get(uri, headers: headers).timeout(timeout);
+      response = await getWithRetry(
+        _client,
+        uri,
+        headers: headers,
+        timeout: timeout,
+        canRetry: () => Session.token == sessionToken,
+      );
     }
-    final result = jsonDecode(response.body);
+    dynamic result;
+    try {
+      result = jsonDecode(response.body);
+    } on FormatException {
+      throw ApiRequestException(
+        response.statusCode == 401
+            ? 'Please log in to continue.'
+            : 'Could not load this content. Please try again.',
+        response.statusCode,
+      );
+    }
     if (result is! Map<String, dynamic>) {
       throw Exception('Could not load post.');
     }
@@ -182,10 +199,16 @@ class PostsApi {
       await Session.invalidate(sessionToken);
     }
     if (response.statusCode == 401) {
-      throw Exception('Please log in to continue.');
+      throw ApiRequestException(
+        'Please log in to continue.',
+        response.statusCode,
+      );
     }
     if (response.statusCode >= 400 || result['success'] != true) {
-      throw Exception(result['message'] ?? 'Request failed.');
+      throw ApiRequestException(
+        '${result['message'] ?? 'Request failed.'}',
+        response.statusCode,
+      );
     }
     return result;
   }

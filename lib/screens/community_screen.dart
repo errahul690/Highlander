@@ -14,6 +14,7 @@ import '../widgets/support_hub_avatar.dart';
 import '../widgets/unread_chat_badge.dart';
 
 import '../community_api.dart';
+import '../network_read.dart';
 import '../chat_updates.dart';
 import '../realtime_client.dart';
 import '../support_hub_repository.dart';
@@ -50,6 +51,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
   late int _tab;
   final _search = TextEditingController();
   late Future<List<Map<String, dynamic>>> _rows;
+  final _rowReads = <String, RetainedRead<List<Map<String, dynamic>>>>{};
+
+  Future<List<Map<String, dynamic>>> _loadRows(String kind) => _rowReads
+      .putIfAbsent(kind, () => RetainedRead<List<Map<String, dynamic>>>())
+      .load(() => CommunityApi.instance.list('/$kind'));
   final _joining = <String>{};
   StreamSubscription<void>? _chatSubscription;
   StreamSubscription<Map<String, dynamic>>? _supportHub;
@@ -98,7 +104,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     try {
       do {
         _chatRefreshPending = false;
-        final rows = await CommunityApi.instance.list('/chats');
+        final rows = await _loadRows('chats');
         if (mounted && _tab == 1) {
           setState(() {
             _rows = Future.value(rows);
@@ -123,7 +129,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   void _reload() {
-    _rows = CommunityApi.instance.list('/$_kind');
+    _rows = _loadRows(_kind);
     if (_tab == 1) ChatUpdates.instance.refreshUnreadCount();
   }
 
@@ -834,9 +840,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
             const SizedBox(height: 8),
             Expanded(
               child: FutureBuilder<List<Map<String, dynamic>>>(
+                key: ValueKey(_kind),
+                initialData: _rowReads[_kind]?.value,
                 future: _rows,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
+                  if (snapshot.connectionState != ConnectionState.done &&
+                      !snapshot.hasData) {
                     return const Center(
                       child: CircularProgressIndicator(color: brandAccent),
                     );

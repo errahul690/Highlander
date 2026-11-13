@@ -1,4 +1,5 @@
 import '../brand_colors.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -153,7 +154,21 @@ class _AppQuickLinksState extends State<AppQuickLinks>
         children: [
           for (var index = 0; index < _buttons.length; index++) ...[
             if (index > 0) const SizedBox(width: 2),
-            SizedBox(width: 98, child: _card(_buttons[index], index)),
+            if (Theme.of(context).platform == TargetPlatform.android)
+              SizedBox(
+                width: 88,
+                height: 161 * 88 / 98,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 98,
+                    child: _card(_buttons[index], index),
+                  ),
+                ),
+              )
+            else
+              SizedBox(width: 98, child: _card(_buttons[index], index)),
           ],
         ],
       ),
@@ -273,7 +288,7 @@ class _AppQuickLinksState extends State<AppQuickLinks>
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontFamily: clubFontFamily,
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     height: 1.15,
                     color: Color(0xFF191919),

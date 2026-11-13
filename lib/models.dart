@@ -366,12 +366,14 @@ class ClubContent {
     required this.fixtures,
     required this.stories,
     this.fixturesUnavailable = false,
+    this.playersUnavailable = false,
     this.defaultMatchThumbnail = '',
   });
 
   final List<Player> players;
   final List<Fixture> fixtures;
   final bool fixturesUnavailable;
+  final bool playersUnavailable;
   final String defaultMatchThumbnail;
   final List<Story> stories;
 }

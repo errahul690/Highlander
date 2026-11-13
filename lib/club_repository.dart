@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'match_card_cache.dart';
 import 'models.dart';
 import 'otp_api.dart';
+import 'network_read.dart';
 
 class ClubRepository {
   ClubRepository({http.Client? client, MatchCardCache? cards})
@@ -64,16 +65,14 @@ class ClubRepository {
   static String _storyHtml(Object? value) {
     return '${value ?? ''}'
         .replaceAll(
-          RegExp(
-            r'<(script|style)\b[^>]*>[\s\S]*?</\1>',
-            caseSensitive: false,
-          ),
+          RegExp(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', caseSensitive: false),
           '',
         )
         .trim();
   }
 
   ClubContent? _cached;
+  List<Player>? _lastPlayers;
   Future<ClubContent>? _pending;
   int _loadGeneration = 0;
 
@@ -110,22 +109,28 @@ class ClubRepository {
     return pending;
   }
 
-  Future<ClubContent> _fetch(int generation, {bool forceRefresh = false}) async {
+  Future<ClubContent> _fetch(
+    int generation, {
+    bool forceRefresh = false,
+  }) async {
     final stamp = forceRefresh
         ? '${DateTime.now().microsecondsSinceEpoch}'
         : null;
     final headers = forceRefresh
         ? const {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'}
         : const <String, String>{};
-    Uri endpoint(String path) => Uri.parse('$apiBase$path').replace(
-      queryParameters: stamp == null ? null : {'t': stamp},
-    );
+    Uri endpoint(String path) =>
+        Uri.parse('$apiBase$path')
+            .replace(queryParameters: stamp == null ? null : {'t': stamp});
     try {
       final futures = await Future.wait([
-        _client
-            .get(endpoint('/api/public/squad-members'), headers: headers)
-            .timeout(const Duration(seconds: 4))
-            .catchError((_) => http.Response('[]', 500)),
+        getWithRetry(
+          _client,
+          endpoint('/api/public/squad-members'),
+          headers: headers,
+          timeout: const Duration(seconds: 4),
+          canRetry: () => generation == _loadGeneration,
+        ).catchError((_) => http.Response('[]', 500)),
         _client
             .get(endpoint('/api/public/knockout-matches'), headers: headers)
             .timeout(Duration(seconds: forceRefresh ? 12 : 4))
@@ -140,7 +145,8 @@ class ClubRepository {
             .catchError((_) => http.Response('{}', 500)),
       ]);
 
-      List<Player> players = fallbackPlayers;
+      List<Player> players = _lastPlayers ?? _cached?.players ?? const [];
+      var playersUnavailable = true;
       if (futures[0].statusCode == 200) {
         try {
           final parsed = (jsonDecode(futures[0].body) as List)
@@ -170,9 +176,9 @@ class ClubRepository {
               )
               .where((player) => player.name.isNotEmpty)
               .toList();
-          if (parsed.isNotEmpty) {
-            players = parsed;
-          }
+          players = parsed;
+          playersUnavailable = false;
+          if (generation == _loadGeneration) _lastPlayers = parsed;
         } catch (_) {}
       }
 
@@ -229,14 +235,24 @@ class ClubRepository {
                             .toList()
                       : [],
                   previewPhotos: row['preview_photos'] is List
-                      ? (row['preview_photos'] as List).whereType<Map>().map((photo) {
-                          final url = mediaUrl(photo['url']);
-                          return url.isEmpty
-                              ? null
-                              : MatchPhoto(url: url, caption: '${photo['caption'] ?? ''}');
-                        }).whereType<MatchPhoto>().toList()
+                      ? (row['preview_photos'] as List)
+                            .whereType<Map>()
+                            .map((photo) {
+                              final url = mediaUrl(photo['url']);
+                              return url.isEmpty
+                                  ? null
+                                  : MatchPhoto(
+                                      url: url,
+                                      caption: '${photo['caption'] ?? ''}',
+                                    );
+                            })
+                            .whereType<MatchPhoto>()
+                            .toList()
                       : [],
-                  previewVideos: _links(row['preview_videos'], allowUploads: true),
+                  previewVideos: _links(
+                    row['preview_videos'],
+                    allowUploads: true,
+                  ),
                   videos: _links(row['videos'], allowUploads: true),
                   links: _links(row['links']),
                 ),
@@ -286,16 +302,22 @@ class ClubRepository {
       }
       final content = ClubContent(
         players: players,
+        playersUnavailable: playersUnavailable,
         fixtures: fixtures,
         fixturesUnavailable: fixturesUnavailable,
         stories: stories,
         defaultMatchThumbnail: defaultThumbnail,
       );
-      if (generation == _loadGeneration && !fixturesUnavailable) _cached = content;
+      if (generation == _loadGeneration &&
+          !fixturesUnavailable &&
+          !playersUnavailable) {
+        _cached = content;
+      }
       return content;
     } catch (_) {
       return ClubContent(
-        players: _cached?.players ?? fallbackPlayers,
+        players: _lastPlayers ?? _cached?.players ?? const [],
+        playersUnavailable: true,
         fixtures: const [],
         stories: _cached?.stories ?? clubFallback.stories,
         fixturesUnavailable: true,
@@ -306,74 +328,8 @@ class ClubRepository {
   }
 }
 
-const fallbackPlayers = [
-  Player(
-    name: 'Redeem Tlang',
-    jersey: 10,
-    position: 'Midfielder',
-    image: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/0cd35e30e_image.png',
-    frontImage: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/0cd35e30e_image.png',
-    quote: 'Shillong raised me. This badge repays it.',
-    nationality: 'India',
-  ),
-  Player(
-    name: 'Parthib Gogoi',
-    jersey: 14,
-    position: 'Forward',
-    image: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/c74912fe7_image.png',
-    frontImage: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/c74912fe7_image.png',
-    quote: 'I played on these streets. Now I play for them.',
-    nationality: 'India',
-  ),
-  Player(
-    name: 'Alaeddine Ajaraie',
-    jersey: 9,
-    position: 'Forward',
-    image: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/71e6ac447_image.png',
-    frontImage: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/71e6ac447_image.png',
-    quote: 'Give me half a chance. I only need half.',
-    nationality: 'Morocco',
-  ),
-  Player(
-    name: 'Michel Zabaco',
-    jersey: 5,
-    position: 'Defender',
-    image: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/9cbcbcbb6_image.png',
-    frontImage: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/9cbcbcbb6_image.png',
-    quote: 'Defence is a language. I speak it fluently.',
-    nationality: 'Spain',
-  ),
-  Player(
-    name: 'Louis Nickson',
-    jersey: 6,
-    position: 'Midfielder',
-    image: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/f723b4e88_image.png',
-    frontImage: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/f723b4e88_image.png',
-    quote: 'I break up the play so the artists can paint.',
-    nationality: 'India',
-  ),
-  Player(
-    name: 'Ankith Padmanabhan',
-    jersey: 11,
-    position: 'Forward',
-    image: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/358482816_image.png',
-    frontImage: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/358482816_image.png',
-    quote: 'Speed is my language - I speak it in the final third.',
-    nationality: 'India',
-  ),
-  Player(
-    name: 'Tondonba Singh',
-    jersey: 2,
-    position: 'Defender',
-    image: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/6c3c58e9d_image.png',
-    frontImage: 'https://media.base44.com/images/public/6a7206ad13fad16ac9170985/6c3c58e9d_image.png',
-    quote: 'From Imphal to the fortress - I guard the left flank.',
-    nationality: 'India',
-  ),
-];
-
 const clubFallback = ClubContent(
-  players: fallbackPlayers,
+  players: [],
   fixtures: [],
   stories: [
     Story(

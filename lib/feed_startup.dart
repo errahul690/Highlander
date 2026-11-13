@@ -18,6 +18,7 @@ import 'screens/swoofi_screen.dart';
 import 'media_cache.dart';
 import 'otp_api.dart';
 import 'session.dart';
+import 'network_read.dart';
 import 'widgets/quick_card_image.dart';
 
 /// Starts Feed requests at launch for a saved login, or alongside sign-in and sign-up.
@@ -193,16 +194,16 @@ class FeedStartup {
     final path = Session.token.isEmpty
         ? '/api/public/posts'
         : '/api/user/posts';
-    final response = await _client
-        .get(
-          Uri.parse('${OtpApi.apiBase}$path')
-              .replace(queryParameters: const {'limit': '10'}),
-          headers: {
-            if (Session.token.isNotEmpty)
-              'Authorization': 'Bearer ${Session.token}',
-          },
-        )
-        .timeout(const Duration(seconds: 10));
+    final sessionToken = Session.token;
+    final response = await getWithRetry(
+      _client,
+      Uri.parse('${OtpApi.apiBase}$path')
+          .replace(queryParameters: const {'limit': '10'}),
+      headers: {
+        if (sessionToken.isNotEmpty) 'Authorization': 'Bearer $sessionToken',
+      },
+      canRetry: () => Session.token == sessionToken,
+    );
     final data = jsonDecode(response.body);
     if (response.statusCode != 200 ||
         data is! Map ||

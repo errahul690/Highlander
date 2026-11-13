@@ -1,5 +1,6 @@
 import '../widgets/app_popup_menu.dart';
 import '../brand_colors.dart';
+import '../network_read.dart';
 
 import 'package:flutter/material.dart';
 
@@ -40,6 +41,9 @@ class _FriendsScreenState extends State<FriendsScreen>
   int _tab = 0;
   late int _friendTab;
   late Future<List<List<Map<String, dynamic>>>> _people;
+  final _peopleReads = <String, RetainedRead<List<Map<String, dynamic>>>>{};
+  List<List<Map<String, dynamic>>>? _shownPeople;
+  int _peopleVersion = 0;
   Map<String, dynamic>? _requestData;
   bool _requestsLoading = true;
   String? _requestsError;
@@ -102,10 +106,23 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   void _loadPeople() {
-    _people = Future.wait([
-      for (final relation in _relations)
-        CommunityApi.instance.list('/people?relation=$relation'),
-    ]);
+    final version = ++_peopleVersion;
+    _people =
+        Future.wait([
+          for (final relation in _relations)
+            _peopleReads
+                .putIfAbsent(
+                  relation,
+                  () => RetainedRead<List<Map<String, dynamic>>>(),
+                )
+                .load(
+                  () =>
+                      CommunityApi.instance.list('/people?relation=$relation'),
+                ),
+        ]).then((people) {
+          if (mounted && version == _peopleVersion) _shownPeople = people;
+          return people;
+        });
   }
 
   Future<void> _loadRequests() async {
@@ -686,9 +703,11 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   Widget _peopleContent() => FutureBuilder<List<List<Map<String, dynamic>>>>(
+    initialData: _shownPeople,
     future: _people,
     builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done) {
+      if (snapshot.connectionState != ConnectionState.done &&
+          !snapshot.hasData) {
         return const Center(child: CircularProgressIndicator());
       }
       if (snapshot.hasError) {

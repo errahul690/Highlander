@@ -76,7 +76,7 @@ class _AppBottomNavigationState extends State<AppBottomNavigation> {
     // Leave only the home indicator clearance on iOS, without floating the
     // entire capsule above its full safe area.
     final bottomGap = isAndroid
-        ? bottomInset
+        ? bottomInset + 8
         : (MediaQuery.paddingOf(context).bottom - 20).clamp(
             0.0,
             double.infinity,

@@ -5,6 +5,7 @@ import '../models.dart';
 import '../widgets/club_bar.dart';
 import '../widgets/club_page_body.dart';
 import '../widgets/squad_showcase.dart';
+import '../widgets/squad_load_state.dart';
 
 class SquadScreen extends StatefulWidget {
   const SquadScreen({super.key});
@@ -22,7 +23,9 @@ class _SquadScreenState extends State<SquadScreen> {
 
   Future<void> _refresh() async {
     final future = ClubRepository.instance.load(forceRefresh: true);
-    setState(() => _content = future);
+    setState(() {
+      _content = future;
+    });
     await future;
   }
 
@@ -34,11 +37,21 @@ class _SquadScreenState extends State<SquadScreen> {
       onRefresh: _refresh,
       child: FutureBuilder<ClubContent>(
         future: _content,
-        initialData: ClubRepository.instance.cachedContent,
-        builder: (_, snapshot) => SquadShowcase(
-          players:
-              (snapshot.data ?? ClubRepository.instance.cachedContent).players,
-        ),
+        initialData: ClubRepository.instance.cachedOrNull,
+        builder: (_, snapshot) {
+          final content = snapshot.data;
+          if (content == null || content.players.isEmpty) {
+            return SquadLoadState(
+              onRefresh: _refresh,
+              loading:
+                  content == null &&
+                  snapshot.connectionState != ConnectionState.done,
+              unavailable:
+                  snapshot.hasError || content?.playersUnavailable == true,
+            );
+          }
+          return SquadShowcase(players: content.players);
+        },
       ),
     ),
   );

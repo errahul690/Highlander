@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'club_repository.dart';
 import 'otp_api.dart';
+import 'network_read.dart';
 
 void warmNetworkImage(String raw) {
   final testing = WidgetsBinding.instance.runtimeType
@@ -17,15 +18,14 @@ void warmNetworkImage(String raw) {
   if (testing) return;
   final url = ClubRepository.mediaUrl(raw);
   if (url.isEmpty) return;
-  NetworkImage(url).resolve(const ImageConfiguration()).addListener(
-    ImageStreamListener((_, _) {}, onError: (_, _) {}),
-  );
+  NetworkImage(url)
+      .resolve(const ImageConfiguration())
+      .addListener(ImageStreamListener((_, _) {}, onError: (_, _) {}));
 }
 
 Color exploreColor(Object? value, Color fallback) {
-  final hex = RegExp(
-    r'^#([0-9a-fA-F]{6})$',
-  ).firstMatch('${value ?? ''}'.trim());
+  final hex = RegExp(r'^#([0-9a-fA-F]{6})$')
+      .firstMatch('${value ?? ''}'.trim());
   if (hex == null) return fallback;
   return Color(0xFF000000 | int.parse(hex.group(1)!, radix: 16));
 }
@@ -189,12 +189,16 @@ class ExploreRepository extends ChangeNotifier {
       }
     }
   }
+
   Future<Map<String, dynamic>> load() async {
     final request = ++_request;
     try {
-      final response = await _client
-          .get(Uri.parse('${OtpApi.apiBase}/api/public/explore'))
-          .timeout(const Duration(seconds: 8));
+      final response = await getWithRetry(
+        _client,
+        Uri.parse('${OtpApi.apiBase}/api/public/explore'),
+        timeout: const Duration(seconds: 8),
+        canRetry: () => request == _request,
+      );
       final body = jsonDecode(response.body);
       if (response.statusCode != 200 ||
           body is! Map ||

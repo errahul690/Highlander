@@ -98,8 +98,20 @@ class PostReactionIcon extends StatelessWidget {
   final double size;
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
-    child: reaction == PostReaction.like
-        ? Icon(Icons.thumb_up, size: size, color: brandAccent)
-        : Text(reaction.emoji, style: TextStyle(fontSize: size, height: 1)),
+    child: SizedBox.square(
+      dimension: size,
+      child: reaction == PostReaction.like
+          ? Icon(Icons.thumb_up, size: size, color: brandAccent)
+          : FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                reaction.emoji,
+                textScaler: TextScaler.noScaling,
+                maxLines: 1,
+                softWrap: false,
+                style: TextStyle(fontSize: size, height: 1),
+              ),
+            ),
+    ),
   );
 }

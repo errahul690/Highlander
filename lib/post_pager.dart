@@ -36,9 +36,11 @@ class PostPager extends ChangeNotifier {
   Map<String, dynamic> response = {};
   bool loading = false, hasMore = true;
   String? error, _cursor;
+  String? refreshError;
   int _generation = 0;
   bool _disposed = false, _refreshAgain = false, _failedReset = true;
   Future<void>? _refreshing;
+  bool get refreshing => loading && _failedReset;
 
   Future<void> refresh() {
     if (_disposed) return Future.value();
@@ -75,6 +77,7 @@ class PostPager extends ChangeNotifier {
     _failedReset = reset;
     loading = true;
     error = null;
+    refreshError = null;
     notifyListeners();
     try {
       final data = await fetch(cursor);
@@ -108,12 +111,19 @@ class PostPager extends ChangeNotifier {
       }
       posts = unique.values.toList();
       response = data;
-      await _warmPostPhotos(page);
       _cursor = more ? nextCursor as String : null;
       hasMore = more;
+      // Pictures must not turn a successful page into a failed load.
+      unawaited(_warmPostPhotos(page).catchError((Object _) {}));
     } catch (_) {
       if (!_disposed && generation == _generation) {
-        error = 'Could not load posts. Tap to retry.';
+        if (reset && posts.isNotEmpty) {
+          refreshError = 'Could not refresh. Showing previously loaded posts.';
+        } else {
+          error = posts.isEmpty
+              ? 'Posts are unavailable right now. Try again.'
+              : 'Could not load more posts. Try again.';
+        }
       }
     } finally {
       if (!_disposed && generation == _generation) {
@@ -139,9 +149,9 @@ class PostPager extends ChangeNotifier {
     if (rest.isNotEmpty) unawaited(MediaCache.instance.prefetch(rest));
     if (first.isEmpty) return;
     try {
-      await MediaCache.instance.prefetch(first).timeout(
-        const Duration(seconds: 2),
-      );
+      await MediaCache.instance
+          .prefetch(first)
+          .timeout(const Duration(seconds: 2));
     } catch (_) {}
   }
 
