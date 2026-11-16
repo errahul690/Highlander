@@ -3,6 +3,55 @@
 Flutter app for Android and iOS. Both platforms use the same Dart screens and API
 configuration in `.env`.
 
+## Source layout
+
+The app groups code by feature. `lib/main.dart` remains the Flutter entry point.
+
+```text
+lib/
+  main.dart
+  app/                  App shell and app-wide navigation
+  core/
+    media/              Shared downloads, media cache and thumbnails
+    network/            Read recovery and realtime connection
+    notifications/      Push delivery and notification routing
+    session/            Signed-in session and secure storage
+    theme/              Brand colours and app theme
+  shared/
+    branding/           Club identity helpers
+    data/               Club data, cities and shared header configuration
+    models/             Player, fixture and club-content models
+    widgets/            Headers, navigation, avatars and reusable UI
+  features/
+    auth/               Login, OTP and account creation
+    chat/               Messages, attachments and chat settings
+    community/          Friends, follows, huddles and groups
+    explore/            Explore configuration and cards
+    feed/               Feed startup, banners, quick links and sections
+    gallery/            Galleries and photo viewer
+    grounds/            Grounds data, maps and venue screens
+    matches/            Fixtures, results, live match and reports
+    notifications/      Notifications screen
+    polls/              Poll data and voting UI
+    posts/              Post cards, reactions, comments, reposts and reels
+    profile/            Profile screens, covers and editing
+    search/             App search
+    settings/           Settings screens and legal links
+    splash/             Launch screen and bundled splash configuration
+    squad/              Squad, player screens and squad presentation
+    support/            Support hub data and care-chat widgets
+    swoofi/             Swoofi screen
+```
+
+Within each feature, use `data/` for repositories, API clients and caches,
+`screens/` for routes, and `widgets/` for feature-specific UI. Add `services/` or
+`utils/` only when the feature needs them. Keep code in its owning feature;
+move it into `shared/` when several features genuinely reuse it.
+
+Use `package:Highlanders/...` imports for app code, including in local tests.
+The package name is case-sensitive. Android/iOS native projects and asset paths
+remain in their existing top-level folders.
+
 ## Android
 
 ```sh

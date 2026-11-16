@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Highlanders</string>
+	<string>NEUFC</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>highlanders</string>
+	<string>NEUFC</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -42,11 +42,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Take profile photos and share photos in Highlanders chats.</string>
+	<string>Take profile photos and share photos in NEUFC chats.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Record audio when capturing a video in Highlanders.</string>
+	<string>Record audio when capturing a video in NEUFC.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Choose photos and videos for your Highlanders profile, posts, and chats.</string>
+	<string>Choose photos and videos for your NEUFC profile, posts, and chats.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

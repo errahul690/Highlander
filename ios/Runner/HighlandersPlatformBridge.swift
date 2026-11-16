@@ -70,6 +70,27 @@ final class HighlandersPlatformBridge: NSObject, UIDocumentPickerDelegate, UIDoc
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     let arguments = call.arguments as? [String: Any] ?? [:]
     switch call.method {
+    case "checkStoreUpdate":
+      guard let bundleID = Bundle.main.bundleIdentifier,
+            let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String else { result(nil); return }
+      var components = URLComponents(string: "https://itunes.apple.com/lookup")!
+      let country = Locale.current.regionCode?.lowercased() ?? "in"
+      components.queryItems = [URLQueryItem(name: "bundleId", value: bundleID), URLQueryItem(name: "country", value: country)]
+      guard let url = components.url else { result(nil); return }
+      var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
+      request.setValue("application/json", forHTTPHeaderField: "Accept")
+      URLSession.shared.dataTask(with: request) { data, response, _ in
+        var update: [String: Any]? = nil
+        if (response as? HTTPURLResponse)?.statusCode == 200, let data = data,
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let apps = json["results"] as? [[String: Any]],
+           let app = apps.first(where: { $0["bundleId"] as? String == bundleID }),
+           let latest = app["version"] as? String,
+           let storeURL = app["trackViewUrl"] as? String {
+          update = ["available": latest.compare(current, options: .numeric) == .orderedDescending, "version": latest, "url": storeURL]
+        }
+        DispatchQueue.main.async { result(update) }
+      }.resume()
     case "getInitialLink":
       linksReady = true
       result(initialLink)

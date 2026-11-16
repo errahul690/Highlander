@@ -1,5 +1,5 @@
 name: Highlanders
-description: "Highlanders Android and iOS app."
+description: "NEUFC Android and iOS app."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+5
+version: 1.0.0+1
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
@@ -99,6 +99,7 @@ flutter:
     - assets/icons/profile-followers.png
     - assets/icons/profile-following.png
     - assets/images/header-logo.png
+    - assets/images/store-update-artwork.png
     - assets/images/header-background.png
     - assets/images/header-edge.png
     - assets/images/feed-background.png

@@ -1,35 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:Highlanders/features/settings/widgets/store_update_gate.dart';
 
 import 'dart:async';
 
 import 'package:flutter/services.dart';
 
-import 'otp_api.dart';
-import 'push_alerts.dart';
-import 'message_alerts.dart';
-import 'feed_store.dart';
-import 'screens/login_screen.dart';
-import 'screens/shell.dart';
-import 'session.dart';
-import 'club_repository.dart';
-import 'match_card_cache.dart';
-import 'realtime_client.dart';
-import 'theme.dart';
-import 'post_link_router.dart';
+import 'package:Highlanders/features/auth/data/otp_api.dart';
+import 'package:Highlanders/core/notifications/push_alerts.dart';
+import 'package:Highlanders/core/notifications/message_alerts.dart';
+import 'package:Highlanders/features/feed/data/feed_store.dart';
+import 'package:Highlanders/features/settings/data/app_settings_repository.dart';
+import 'package:Highlanders/features/auth/screens/login_screen.dart';
+import 'package:Highlanders/app/shell.dart';
+import 'package:Highlanders/core/session/session.dart';
+import 'package:Highlanders/shared/data/club_repository.dart';
+import 'package:Highlanders/features/matches/data/match_card_cache.dart';
+import 'package:Highlanders/core/network/realtime_client.dart';
+import 'package:Highlanders/core/theme/theme.dart';
+import 'package:Highlanders/features/posts/services/post_link_router.dart';
 
-import 'screens/splash_screen.dart';
-import 'bundled_splash.dart';
-import 'grounds_repository.dart';
-import 'header_icons_repository.dart';
-import 'chat_background_repository.dart';
-import 'explore_repository.dart';
-import 'screens/swoofi_screen.dart';
-import 'feed_startup.dart';
-import 'chat_media_cache.dart';
-import 'media_auto_download.dart';
-import 'widgets/android_navigation_background.dart';
+import 'package:Highlanders/features/splash/screens/splash_screen.dart';
+import 'package:Highlanders/features/splash/data/bundled_splash.dart';
+import 'package:Highlanders/features/grounds/data/grounds_repository.dart';
+import 'package:Highlanders/shared/data/header_icons_repository.dart';
+import 'package:Highlanders/features/chat/data/chat_background_repository.dart';
+import 'package:Highlanders/features/explore/data/explore_repository.dart';
+import 'package:Highlanders/features/swoofi/screens/swoofi_screen.dart';
+import 'package:Highlanders/features/feed/services/feed_startup.dart';
+import 'package:Highlanders/features/chat/data/chat_media_cache.dart';
+import 'package:Highlanders/core/media/media_auto_download.dart';
+import 'package:Highlanders/shared/widgets/android_navigation_background.dart';
 
-export 'post_link_router.dart' show postIdFromLink;
+export 'package:Highlanders/features/posts/services/post_link_router.dart'
+    show postIdFromLink;
 
 final appNavigatorKey = GlobalKey<NavigatorState>();
 const _links = MethodChannel('highlanders/app_links');
@@ -48,6 +51,7 @@ Future<void> main() async {
     );
   };
   await OtpApi.loadEnvironment();
+  await AppSettingsRepository.instance.restore();
   FeedStartup.warmBanners();
   unawaited(FeedStartup.ready());
   final selectedSplash = await loadBundledSplash();
@@ -131,7 +135,10 @@ class HighlandersApp extends StatelessWidget {
   final Map<String, dynamic>? initialSplash;
 
   Widget _destination() =>
-      home ?? (Session.isSignedIn ? const AppShell() : const LoginScreen());
+      home ??
+      (Session.isSignedIn
+          ? const AppShell()
+          : const StoreUpdateGate(child: LoginScreen()));
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +149,7 @@ class HighlandersApp extends StatelessWidget {
     final displaySplash = showSplash ?? !isRunningInTest;
 
     return MaterialApp(
-      title: 'Highlanders',
+      title: 'NEUFC',
       navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       theme: clubTheme(),

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#180911">
+<title>Highlanders — Football Loader</title>
+<style>
+  :root {
+    --hl-bg: #180911;
+    --hl-red: #df263b;
+    --hl-orange: #ff9a30;
+    --hl-white: #fff6f1;
+    --hl-cycle: 3.8s;
+  }
+  * { box-sizing: border-box; }
+  html, body { width: 100%; min-height: 100%; margin: 0; }
+  body { background: var(--hl-bg); }
+
+  /* A standalone full-screen loader. Remove position:fixed to embed inline. */
+  .hl-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    isolation: isolate;
+    background:
+      radial-gradient(ellipse 54% 37% at 50% 46%, rgba(126, 20, 42, .42), transparent 95%),
+      radial-gradient(ellipse 55% 45% at 70% 0%, rgba(255, 146, 38, .055), transparent 90%),
+      linear-gradient(155deg, #230c19 0%, #160911 55%, #10080e 100%);
+    transition: opacity 420ms ease, visibility 420ms ease;
+  }
+  .hl-loader.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  .hl-loader::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: .35;
+    background: repeating-linear-gradient(
+       115deg, transparent 0, transparent 38px, rgba(255, 255, 255, .012) 39px, transparent 40px
+    );
+  }
+  .hl-loader__art {
+    position: relative;
+    display: block;
+    width: min(89vw, 390px);
+    max-height: min(74svh, 420px);
+    overflow: visible;
+    filter: drop-shadow(0 20px 33px rgba(3, 1, 4, .38));
+  }
+  .hl-loader__art .pitch-outline { opacity: .38; }
+  .hl-loader__art .pitch-detail { opacity: .27; }
+  .hl-loader__art .route { opacity: .56; }
+  .hl-loader__art .touch-mark { opacity: .95; }
+  .hl-loader__art .football-mover {
+    transform-origin: 0 0;
+    animation: hl-pass var(--hl-cycle) linear infinite;
+    will-change: transform, opacity;
+  }
+  .hl-loader__art .football-rotation {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: hl-spin var(--hl-cycle) linear infinite;
+  }
+  .hl-loader__art .contact-shadow {
+    transform-origin: 0 0;
+    animation: hl-shadow var(--hl-cycle) linear infinite;
+  }
+  .hl-loader__art .tap-a { transform-box: fill-box; animation: hl-tap-a var(--hl-cycle) ease-out infinite; transform-origin: center; }
+  .hl-loader__art .tap-b { transform-box: fill-box; animation: hl-tap-b var(--hl-cycle) ease-out infinite; transform-origin: center; }
+  .hl-loader__art .tap-c { transform-box: fill-box; animation: hl-tap-c var(--hl-cycle) ease-out infinite; transform-origin: center; }
+  .hl-loader__art .goal-glow { transform-box: fill-box; animation: hl-goal-flash var(--hl-cycle) ease-out infinite; transform-origin: center; }
+  .hl-loader__art .goal-net { animation: hl-net var(--hl-cycle) ease-out infinite; }
+  .hl-loader__art .pass-light {
+    stroke-dasharray: 7 15;
+    animation: hl-dash 1.65s linear infinite;
+  }
+  .hl-loader__art .shot-line {
+    stroke-dasharray: 230;
+    stroke-dashoffset: 230;
+    animation: hl-shot var(--hl-cycle) linear infinite;
+  }
+  .hl-loader__art .ground-light { transform-box: fill-box; transform-origin: center; animation: hl-breathe 3.8s ease-in-out infinite; }
+
+  @keyframes hl-pass {
+    0%, 7%    { transform: translate(93px, 254px) scale(1); opacity: 1; }
+    28%, 32%  { transform: translate(195px, 188px) scale(.91); opacity: 1; }
+    53%, 57%  { transform: translate(302px, 255px) scale(1); opacity: 1; }
+    79%       { transform: translate(200px, 63px) scale(.43); opacity: 1; }
+    84%       { transform: translate(200px, 63px) scale(.31); opacity: 0; }
+    85%, 94%  { transform: translate(93px, 254px) scale(.85); opacity: 0; }
+    100%      { transform: translate(93px, 254px) scale(1); opacity: 1; }
+  }
+  @keyframes hl-shadow {
+    0%, 7% { transform: translate(93px,268px) scale(1); opacity:.48; }
+    28%,32% { transform:translate(195px,201px) scale(.8); opacity:.37; }
+    53%,57% { transform:translate(302px,269px) scale(1); opacity:.48; }
+    79%, 100% { transform:translate(200px,75px) scale(.25); opacity:0; }
+  }
+  @keyframes hl-spin { to { transform:rotate(1080deg); } }
+  @keyframes hl-tap-a {
+    0% { opacity:0; transform:scale(.15); }
+    6% { opacity:.85; transform:scale(.5); }
+    17% { opacity:0; transform:scale(2.6); }
+    18%,100% { opacity:0; transform:scale(2.6); }
+  }
+  @keyframes hl-tap-b {
+    0%,27% { opacity:0; transform:scale(.15); }
+    30% { opacity:.9; transform:scale(.5); }
+    42% { opacity:0; transform:scale(2.6); }
+    43%,100% { opacity:0; transform:scale(2.6); }
+  }
+  @keyframes hl-tap-c {
+    0%,52% { opacity:0; transform:scale(.15); }
+    56% { opacity:.95; transform:scale(.5); }
+    70% { opacity:0; transform:scale(2.6); }
+    71%,100% { opacity:0; transform:scale(2.6); }
+  }
+  @keyframes hl-goal-flash {
+    0%,76% { opacity:0; transform:scale(.5); }
+    80% { opacity:.92; transform:scale(1); }
+    89% { opacity:0; transform:scale(2.3); }
+    90%,100% { opacity:0; transform:scale(2.3); }
+  }
+  @keyframes hl-net {
+    0%,77%,89%,100% { transform:translateY(0); }
+    80% { transform:translateY(-3px); }
+    83% { transform:translateY(3px); }
+    86% { transform:translateY(-1px); }
+  }
+  @keyframes hl-shot {
+    0%,57% { stroke-dashoffset:230; opacity:0; }
+    59% { opacity:.9; }
+    80% { stroke-dashoffset:0; opacity:.9; }
+    86%,100% { stroke-dashoffset:0; opacity:0; }
+  }
+  @keyframes hl-dash { to { stroke-dashoffset:-44; } }
+  @keyframes hl-breathe { 50% { opacity:.7; transform:scale(1.11); } }
+
+  /* Accessibility and low-power fallback */
+  @media (prefers-reduced-motion: reduce) {
+    .hl-loader__art * { animation: none !important; }
+    .hl-loader__art .football-mover { transform: translate(195px, 188px); }
+    .hl-loader__art .shot-line { opacity:0; }
+  }
+</style>
+</head>
+<body>
+<div class="hl-loader" id="highlandersLoader" role="status" aria-label="Loading Highlanders app">
+  <svg class="hl-loader__art" viewBox="0 0 400 325" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="pitchTint" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#542031" stop-opacity=".40"/>
+        <stop offset="1" stop-color="#79253a" stop-opacity=".16"/>
+      </linearGradient>
+      <linearGradient id="fieldStroke" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffdfd2" stop-opacity=".35"/>
+        <stop offset="1" stop-color="#ff8f92" stop-opacity=".46"/>
+      </linearGradient>
+      <linearGradient id="ballSurface" x1=".1" y1=".05" x2=".9" y2=".9">
+        <stop offset="0" stop-color="#ffffff"/>
+        <stop offset=".55" stop-color="#f6f4f0"/>
+        <stop offset="1" stop-color="#b6b5ba"/>
+      </linearGradient>
+      <radialGradient id="stadiumHalo">
+        <stop offset="0" stop-color="#ff6f48" stop-opacity=".20"/>
+        <stop offset=".6" stop-color="#ef2745" stop-opacity=".08"/>
+        <stop offset="1" stop-color="#f3263c" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="goalAura">
+        <stop offset="0" stop-color="#ffa640" stop-opacity=".94"/>
+        <stop offset=".42" stop-color="#f14547" stop-opacity=".45"/>
+        <stop offset="1" stop-color="#dc2047" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="ballDrop" x="-80%" y="-80%" width="260%" height="260%">
+        <feDropShadow dx="1" dy="3" stdDeviation="2" flood-color="#10030b" flood-opacity=".65"/>
+      </filter>
+      <filter id="orangeGlow" x="-200%" y="-200%" width="500%" height="500%">
+        <feGaussianBlur stdDeviation="4"/>
+      </filter>
+    </defs>
+
+    <!-- Soft stadium ambience -->
+    <ellipse class="ground-light" cx="200" cy="168" rx="169" ry="138" fill="url(#stadiumHalo)"/>
+    <path d="M 80 74 L 5 290" stroke="#fbb2a2" stroke-opacity=".04" stroke-width="23"/>
+    <path d="M 320 74 L 395 290" stroke="#fbb2a2" stroke-opacity=".04" stroke-width="23"/>
+
+    <!-- An abstract miniature football pitch; no words and no brand mark -->
+    <path d="M 127 71 L 273 71 L 357 291 L 43 291 Z" fill="url(#pitchTint)" stroke="url(#fieldStroke)" stroke-width="1.5" class="pitch-outline"/>
+    <path d="M 110 118 L 290 118 M 68 241 L 332 241" stroke="#fff0ec" stroke-width="1.2" class="pitch-detail"/>
+    <path d="M 150 71 L 250 71 L 270 135 L 130 135 Z" fill="none" stroke="#fff0ec" stroke-width="1.3" class="pitch-detail"/>
+    <path d="M 179 71 L 221 71 L 229 104 L 171 104 Z" fill="none" stroke="#fff0ec" stroke-width="1.2" class="pitch-detail"/>
+    <ellipse cx="200" cy="241" rx="38" ry="21" fill="none" stroke="#fff0ec" stroke-width="1.4" class="pitch-detail"/>
+    <circle cx="200" cy="241" r="2" fill="#fff0ec" opacity=".28"/>
+    <path d="M 159 135 Q 200 170 241 135" fill="none" stroke="#fff0ec" stroke-width="1.2" class="pitch-detail"/>
+
+    <!-- Goal and restrained net animation -->
+    <ellipse cx="200" cy="69" rx="43" ry="25" fill="url(#goalAura)" opacity=".1" class="goal-glow"/>
+    <g class="goal-net">
+      <path d="M 168 70 L 168 47 L 176 35 L 224 35 L 232 47 L 232 70" fill="rgba(255, 247, 240, .045)" stroke="#ffe9d9" stroke-opacity=".66" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M 176 35 L 176 67 M 188 35 L 188 69 M 200 35 L 200 70 M 212 35 L 212 69 M 224 35 L 224 67 M 170 48 H230 M 170 57 H230" stroke="#fff2ef" stroke-width=".7" opacity=".30"/>
+      <path d="M 168 47 H232" fill="none" stroke="#fffaf2" stroke-width="2.5" stroke-linecap="round"/>
+    </g>
+
+    <!-- Football tactical route, a dotted hint rather than a progress bar -->
+    <path class="route pass-light" d="M 93 254 Q 140 226 195 188 Q 238 204 302 255" fill="none" stroke="#ffc18d" stroke-opacity=".50" stroke-width="1.9" stroke-linecap="round"/>
+    <path d="M 302 255 Q 267 157 200 63" fill="none" stroke="#f5b9ab" stroke-opacity=".18" stroke-width="1.3" stroke-dasharray="3 9"/>
+    <path class="shot-line" d="M 302 255 Q 267 157 200 63" fill="none" stroke="#ffb057" stroke-opacity=".9" stroke-width="3.5" stroke-linecap="round"/>
+
+    <!-- Three passing targets -->
+    <g class="touch-mark" transform="translate(93 254)">
+      <circle r="19" fill="none" stroke="#fa9b70" stroke-opacity=".22" stroke-width="1" stroke-dasharray="3 6"/>
+      <circle r="5" fill="#ffad6e" fill-opacity=".33"/>
+      <circle class="tap-a" r="13" fill="none" stroke="#ffb55f" stroke-width="2.5"/>
+    </g>
+    <g class="touch-mark" transform="translate(195 188)">
+      <circle r="19" fill="none" stroke="#fa9b70" stroke-opacity=".22" stroke-width="1" stroke-dasharray="3 6"/>
+      <circle r="5" fill="#ffad6e" fill-opacity=".33"/>
+      <circle class="tap-b" r="13" fill="none" stroke="#ffb55f" stroke-width="2.5"/>
+    </g>
+    <g class="touch-mark" transform="translate(302 255)">
+      <circle r="19" fill="none" stroke="#fa9b70" stroke-opacity=".22" stroke-width="1" stroke-dasharray="3 6"/>
+      <circle r="5" fill="#ffad6e" fill-opacity=".33"/>
+      <circle class="tap-c" r="13" fill="none" stroke="#ffb55f" stroke-width="2.5"/>
+    </g>
+
+    <!-- Goal hit flash -->
+    <g transform="translate(200 62)">
+      <circle class="goal-glow" r="25" fill="url(#goalAura)"/>
+      <circle class="goal-glow" r="12" fill="none" stroke="#ffcf8b" stroke-width="1.8"/>
+    </g>
+
+    <!-- Ground contact shadow, travels separately from the ball -->
+    <g class="contact-shadow">
+      <ellipse rx="17" ry="5.5" fill="#020103" opacity=".55" filter="url(#orangeGlow)"/>
+    </g>
+
+    <!-- Custom vector football, embedded and offline-ready -->
+    <g class="football-mover" filter="url(#ballDrop)">
+      <g class="football-rotation">
+        <circle r="14.5" fill="url(#ballSurface)"/>
+        <path d="M 0 -6.6 L 6.4 -2.1 L 4 5.6 L -4 5.6 L -6.4 -2.1 Z" fill="#2b2630"/>
+        <path d="M 0 -6.6 L -2 -14 M 6.4 -2.1 L 13 -5 M 4 5.6 L 9.3 11.5 M -4 5.6 L -9.3 11.5 M -6.4 -2.1 L -13 -5" fill="none" stroke="#39303a" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M -8 -11 L -2 -14 M 8 -11 L 13 -5 M 14 3 L 9 11.5 M -14 3 L -9 11.5" fill="none" stroke="#dedde0" stroke-width="1.5"/>
+        <circle cx="-4" cy="-6" r="4" fill="#ffffff" opacity=".20"/>
+        <circle r="14.5" fill="none" stroke="#ffffff" stroke-opacity=".65" stroke-width=".6"/>
+      </g>
+    </g>
+  </svg>
+</div>
+<script>
+  // Call when your app data/navigation is ready. This loader never auto-finishes.
+  window.hideHighlandersLoader = function () {
+    const loader = document.getElementById('highlandersLoader');
+    if (!loader || loader.classList.contains('is-hidden')) return;
+    loader.classList.add('is-hidden');
+    loader.addEventListener('transitionend', () => loader.remove(), { once: true });
+  };
+</script>
+</body>
+</html>

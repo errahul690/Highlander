@@ -16,12 +16,15 @@ import android.provider.OpenableColumns
 import android.view.Gravity
 import android.view.ViewGroup
 import android.webkit.WebView
+import android.webkit.WebChromeClient
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.TextView
 import java.io.File
 import java.util.UUID
 import org.json.JSONObject
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.install.model.UpdateAvailability
 
 class MainActivity : FlutterActivity() {
     private var linksChannel: MethodChannel? = null
@@ -69,12 +72,14 @@ class MainActivity : FlutterActivity() {
             }
         }
         val page = html ?: return
-        splashMinimumDurationMs = 4000L
+        splashMinimumDurationMs = 5000L
         val overlay = FrameLayout(this)
         val webView = WebView(this)
-        overlay.setBackgroundColor(Color.parseColor("#0E1014"))
-        webView.setBackgroundColor(Color.parseColor("#0E1014"))
+        overlay.setBackgroundColor(Color.rgb(14, 16, 20))
+        webView.setBackgroundColor(Color.rgb(14, 16, 20))
         webView.settings.javaScriptEnabled = true
+        webView.settings.mediaPlaybackRequiresUserGesture = false
+        webView.webChromeClient = WebChromeClient()
         webView.settings.allowFileAccess = true
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -246,6 +251,23 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "neufc/store_update").setMethodCallHandler { call, result ->
+            if (call.method != "check") {
+                result.notImplemented()
+            } else {
+                AppUpdateManagerFactory.create(this).appUpdateInfo
+                    .addOnSuccessListener { info ->
+                        result.success(mapOf(
+                            "available" to (info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE),
+                            "version" to info.availableVersionCode().toString(),
+                            "url" to "https://play.google.com/store/apps/details?id=$packageName"
+                        ))
+                    }
+                    .addOnFailureListener { error ->
+                        result.error("store_update_failed", error.message, null)
+                    }
+            }
+        }
         videoThumbnails = VideoThumbnailChannel(this, flutterEngine.dartExecutor.binaryMessenger)
         linksChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "highlanders/app_links")
         splashChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "highlanders/splash")
