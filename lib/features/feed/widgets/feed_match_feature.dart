@@ -1,4 +1,5 @@
 import 'package:Highlanders/core/theme/brand_colors.dart';
+import 'package:Highlanders/shared/widgets/story_html.dart';
 
 import 'dart:async';
 
@@ -386,10 +387,9 @@ class _BeforeKickoffCard extends StatelessWidget {
                                   .trim()
                                   .isNotEmpty) ...[
                                 const SizedBox(height: 4),
-                                Text(
-                                  fixture.previewDescription.trim(),
+                                StoryHtml(
+                                  html: fixture.previewDescription.trim(),
                                   maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     fontFamily: clubFontFamily,
                                     fontSize: 12,

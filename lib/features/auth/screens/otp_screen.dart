@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:Highlanders/features/feed/services/feed_startup.dart';
 import 'package:Highlanders/core/session/session.dart';
 import 'package:Highlanders/features/auth/data/otp_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/features/auth/screens/complete_profile_screen.dart';
 import 'package:Highlanders/app/shell.dart';
@@ -98,7 +99,7 @@ class _OtpScreenState extends State<OtpScreen> {
     setState(() {
       _sending = false;
       _seconds = 0;
-      _error = message;
+      _error = userFacingError(error);
     });
   }
 
@@ -181,7 +182,7 @@ class _OtpScreenState extends State<OtpScreen> {
         );
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

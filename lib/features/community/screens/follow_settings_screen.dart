@@ -3,6 +3,7 @@ import 'package:Highlanders/shared/widgets/club_page_body.dart';
 import 'package:flutter/material.dart';
 
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/shared/widgets/club_bar.dart';
 import 'package:Highlanders/features/community/screens/follow_requests_screen.dart';
@@ -38,7 +39,7 @@ class _FollowSettingsScreenState extends State<FollowSettingsScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted) {
@@ -63,7 +64,7 @@ class _FollowSettingsScreenState extends State<FollowSettingsScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted) {

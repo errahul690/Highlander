@@ -129,13 +129,13 @@ class _MatchPreviewScreenState extends State<MatchPreviewScreen> {
                   ),
                   if (fixture.previewDescription.trim().isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    Text(
-                      fixture.previewDescription.trim(),
+                    StoryHtml(
+                      html: fixture.previewDescription.trim(),
                       style: const TextStyle(
                         fontFamily: clubFontFamily,
                         fontSize: 16,
                         height: 1.45,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w400,
                         color: Color(0xFF3A3F4B),
                       ),
                     ),

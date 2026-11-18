@@ -10,6 +10,7 @@ import 'package:Highlanders/app/app_navigation.dart';
 import 'package:Highlanders/features/chat/data/chat_updates.dart';
 import 'package:Highlanders/shared/data/club_repository.dart';
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/notifications/notification_router.dart';
 import 'package:Highlanders/features/auth/data/otp_api.dart';
 import 'package:Highlanders/core/session/session.dart';
@@ -24,6 +25,29 @@ import 'package:Highlanders/features/posts/screens/post_detail_screen.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
+
+  static const routeName = '/alerts';
+  static final _routes = Expando<Route<void>>();
+
+  static Future<void> open(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    final existing = _routes[navigator];
+    if (existing != null && existing.isActive) {
+      navigator.popUntil((route) => identical(route, existing));
+      return;
+    }
+    final route = MaterialPageRoute<void>(
+      settings: const RouteSettings(name: routeName),
+      builder: (_) => const AlertsScreen(),
+    );
+    // Reserve synchronously so repeated taps during the transition reuse it.
+    _routes[navigator] = route;
+    try {
+      await navigator.push<void>(route);
+    } finally {
+      if (identical(_routes[navigator], route)) _routes[navigator] = null;
+    }
+  }
 
   @override
   State<AlertsScreen> createState() => _AlertsScreenState();
@@ -106,7 +130,7 @@ class _AlertsScreenState extends State<AlertsScreen>
       ChatUpdates.instance.noteUnreadNotifications(_unreadCount);
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -137,7 +161,7 @@ class _AlertsScreenState extends State<AlertsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$error'.replaceFirst('Exception: ', '')),
+            content: Text(userFacingError(error)),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -343,7 +367,14 @@ class _AlertsScreenState extends State<AlertsScreen>
       case 'unread':
         return _items.where((i) => i['read'] != true).toList();
       case 'invites':
-        return _items.where((i) => ['group_invite', 'group_invite_response'].contains('${i['type']}')).toList();
+        return _items
+            .where(
+              (i) => [
+                'group_invite',
+                'group_invite_response',
+              ].contains('${i['type']}'),
+            )
+            .toList();
       default:
         return _items;
     }
@@ -657,7 +688,12 @@ class _AlertsScreenState extends State<AlertsScreen>
   Widget build(BuildContext context) {
     final displayed = _filteredItems;
     final inviteCount = _items
-        .where((i) => ['group_invite', 'group_invite_response'].contains('${i['type']}'))
+        .where(
+          (i) => [
+            'group_invite',
+            'group_invite_response',
+          ].contains('${i['type']}'),
+        )
         .length;
 
     // Group displayed items by date category while preserving chronological order
@@ -756,8 +792,10 @@ class _AlertsScreenState extends State<AlertsScreen>
                         ),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.error_outline,
+                            Icon(
+                              _error == connectionErrorMessage
+                                  ? Icons.wifi_off_rounded
+                                  : Icons.error_outline,
                               color: authRed,
                               size: 20,
                             ),

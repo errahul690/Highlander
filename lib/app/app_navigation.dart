@@ -15,15 +15,19 @@ import 'package:Highlanders/features/polls/screens/polls_screen.dart';
 import 'package:Highlanders/features/settings/screens/settings_screen.dart';
 import 'package:Highlanders/features/squad/screens/squad_screen.dart';
 import 'package:Highlanders/features/swoofi/screens/swoofi_screen.dart';
+import 'package:Highlanders/features/sponsors/screens/sponsors_screen.dart';
 
 Future<void> openAppDestination(BuildContext context, String link) async {
+  if (link == AlertsScreen.routeName) {
+    AlertsScreen.open(context);
+    return;
+  }
   if (link == '/grounds' && GroundsHost.open(context)) return;
   final pages = <String, Widget>{
     '/squad': const SquadScreen(),
     '/matches': const MatchesScreen(),
     '/gallery': const GalleryScreen(),
     '/grounds': const GroundsScreen(),
-    '/alerts': const AlertsScreen(),
     '/profile': const ProfileScreen(),
     '/polls': const PollsScreen(),
     '/settings': const SettingsScreen(),
@@ -31,6 +35,7 @@ Future<void> openAppDestination(BuildContext context, String link) async {
     '/circles': const CommunityScreen(),
     '/explore': const ExploreScreen(),
     '/swoofi': const SwoofiScreen(),
+    SponsorsScreen.routeName: const SponsorsScreen(),
   };
   if (pages[link] != null) {
     Navigator.of(context).push(
@@ -43,16 +48,18 @@ Future<void> openAppDestination(BuildContext context, String link) async {
   if (link.isEmpty) return;
   try {
     final uri = Uri.parse(link);
-    if (!['http', 'https'].contains(uri.scheme) || uri.host.isEmpty)
+    if (!['http', 'https'].contains(uri.scheme) || uri.host.isEmpty) {
       throw const FormatException();
+    }
     await const MethodChannel('highlanders/app_links')
         .invokeMethod<void>('openUrl', {'url': uri.toString()});
   } catch (_) {
-    if (context.mounted)
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Could not open this link. Please try again.'),
         ),
       );
+    }
   }
 }

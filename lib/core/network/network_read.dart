@@ -21,6 +21,44 @@ bool isTemporaryReadFailure(Object error) =>
     error is http.ClientException ||
     (error is ApiRequestException && _temporaryStatus(error.statusCode));
 
+const connectionErrorMessage =
+    'No internet connection. Check your network and try again.';
+
+bool _looksLikeConnectionFailure(String text) {
+  final lower = text.toLowerCase();
+  return lower.contains('clientexception') ||
+      lower.contains('socketexception') ||
+      lower.contains('socketfailed') ||
+      lower.contains('failed host lookup') ||
+      lower.contains('no address associated') ||
+      lower.contains('network is unreachable') ||
+      lower.contains('connection refused') ||
+      lower.contains('connection reset') ||
+      lower.contains('connection timed out') ||
+      lower.contains('connection abort') ||
+      lower.contains('handshakeexception') ||
+      lower.contains('errno =');
+}
+
+/// DNS, socket, and timeout failures are connectivity problems, not app bugs.
+bool isConnectionFailure(Object error) =>
+    error is SocketException ||
+    error is http.ClientException ||
+    error is TimeoutException ||
+    error is HandshakeException ||
+    error is TlsException ||
+    _looksLikeConnectionFailure(error.toString());
+
+/// Text safe to show in a banner or snackbar. Server messages stay as written.
+String userFacingError(Object error) {
+  if (isConnectionFailure(error)) return connectionErrorMessage;
+  final raw = error.toString();
+  if (raw.startsWith('Exception: ')) {
+    return raw.substring('Exception: '.length);
+  }
+  return raw;
+}
+
 /// Retry only reads, once, without replaying user actions or auth failures.
 Future<http.Response> getWithRetry(
   http.Client client,

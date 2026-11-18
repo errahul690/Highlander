@@ -19,6 +19,11 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    // Legacy HTML previews stay in the working tree, outside the runtime APK.
+    // This source directory contains only the retired splash/default.html.
+    // Flutter's generated asset source is registered separately by its plugin.
+    sourceSets.getByName("main").assets.setSrcDirs(emptyList<String>())
+
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17

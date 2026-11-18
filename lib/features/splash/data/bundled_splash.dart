@@ -1,11 +1,10 @@
-import 'package:flutter/services.dart';
-
 /// The app always uses the shipped artwork, independent of admin settings.
 Future<Map<String, dynamic>> loadBundledSplash() async => {
   'enabled': true,
-  'type': 'html',
-  'html_content': await rootBundle.loadString('assets/splash/default.html'),
-  'bg_color': '#0E1014',
-  'duration': 5,
+  'type': 'stadium',
+  'url': 'assets/splash/splash_original.mp4',
+  'bg_color': '#160B09',
+  // Playback completion, rather than time since Flutter launch, owns handoff.
+  'wait_for_completion': true,
   'allow_skip': false,
 };

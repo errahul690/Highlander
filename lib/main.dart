@@ -20,7 +20,6 @@ import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/features/posts/services/post_link_router.dart';
 
 import 'package:Highlanders/features/splash/screens/splash_screen.dart';
-import 'package:Highlanders/features/splash/data/bundled_splash.dart';
 import 'package:Highlanders/features/grounds/data/grounds_repository.dart';
 import 'package:Highlanders/shared/data/header_icons_repository.dart';
 import 'package:Highlanders/features/chat/data/chat_background_repository.dart';
@@ -50,32 +49,56 @@ Future<void> main() async {
       (_) => false,
     );
   };
-  await OtpApi.loadEnvironment();
-  await AppSettingsRepository.instance.restore();
-  FeedStartup.warmBanners();
-  unawaited(FeedStartup.ready());
-  final selectedSplash = await loadBundledSplash();
+  _links.setMethodCallHandler((call) async {
+    if (call.method == 'incomingLink' && call.arguments is String) {
+      PostLinkRouter.handle(call.arguments as String);
+    }
+  });
+  unawaited(_captureInitialLink());
+  final binding = WidgetsBinding.instance;
+  binding.deferFirstFrame();
   final startupReady = Completer<void>();
-  try {
-    await const MethodChannel('highlanders/splash')
-        .invokeMethod<void>('prepare', selectedSplash)
-        .timeout(const Duration(milliseconds: 500));
-  } catch (_) {
-    // iOS renders the bundled HTML in Flutter.
-  }
   runApp(
     HighlandersApp(
       sessionReady: startupReady.future,
-      initialSplash: selectedSplash,
+      retryBootstrap: _bootstrapApp,
+      releaseNativeLaunch: binding.allowFirstFrame,
     ),
   );
-  final sessionReady = Session.restore();
-  startupReady.complete(sessionReady.then<void>((_) {}));
+  startupReady.complete(_bootstrapApp());
+}
+
+Future<void> _captureInitialLink() async {
+  try {
+    final initial = await _links.invokeMethod<String>('getInitialLink');
+    if (initial != null) PostLinkRouter.handle(initial);
+  } on MissingPluginException {
+    // Platforms without the native link channel can still run the app.
+  } on PlatformException catch (error) {
+    debugPrint('Initial link unavailable: ${error.code}');
+  }
+}
+
+Future<void> _bootstrapApp() async {
+  await OtpApi.loadEnvironment();
+  await AppSettingsRepository.instance.restore();
+  await Session.restore();
+  unawaited(
+    _warmApp().catchError((Object error) {
+      debugPrint('Optional startup work failed: ${error.runtimeType}');
+    }),
+  );
+}
+
+Future<void> _warmApp() async {
+  FeedStartup.warmBanners();
+  unawaited(FeedStartup.ready());
+  final sessionReady = Future<void>.value();
   FeedStartup.warm(sessionReady);
   unawaited(
     sessionReady
-        .then((signedIn) async {
-          if (signedIn) {
+        .then((_) async {
+          if (Session.isSignedIn) {
             await Future.wait([
               ChatMediaCache.instance.restoreRecent(),
               MediaAutoDownload.instance.restore(),
@@ -105,19 +128,6 @@ Future<void> main() async {
   );
   await GroundsRepository.instance.restore();
   unawaited(GroundsRepository.instance.preload());
-  _links.setMethodCallHandler((call) async {
-    if (call.method == 'incomingLink' && call.arguments is String) {
-      PostLinkRouter.handle(call.arguments as String);
-    }
-  });
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    try {
-      final initial = await _links.invokeMethod<String>('getInitialLink');
-      if (initial != null) PostLinkRouter.handle(initial);
-    } on MissingPluginException {
-      // Platforms without the native link channel can still run the app.
-    }
-  });
 }
 
 class HighlandersApp extends StatelessWidget {
@@ -127,12 +137,16 @@ class HighlandersApp extends StatelessWidget {
     this.showSplash,
     this.sessionReady,
     this.initialSplash,
+    this.retryBootstrap,
+    this.releaseNativeLaunch,
   });
 
   final Widget? home;
   final bool? showSplash;
   final Future<void>? sessionReady;
   final Map<String, dynamic>? initialSplash;
+  final Future<void> Function()? retryBootstrap;
+  final VoidCallback? releaseNativeLaunch;
 
   Widget _destination() =>
       home ??
@@ -153,13 +167,27 @@ class HighlandersApp extends StatelessWidget {
       navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       theme: clubTheme(),
-      builder: (context, child) =>
-          AndroidNavigationBackground(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => Actions(
+        actions: <Type, Action<Intent>>{
+          EditableTextTapOutsideIntent:
+              CallbackAction<EditableTextTapOutsideIntent>(
+                onInvoke: (intent) {
+                  intent.focusNode.unfocus();
+                  return null;
+                },
+              ),
+        },
+        child: AndroidNavigationBackground(
+          child: child ?? const SizedBox.shrink(),
+        ),
+      ),
       home: displaySplash
           ? SplashScreen(
               resolveNext: _destination,
               sessionReady: sessionReady,
               initialSplash: initialSplash,
+              retryBootstrap: retryBootstrap,
+              releaseNativeLaunch: releaseNativeLaunch,
             )
           : _destination(),
     );

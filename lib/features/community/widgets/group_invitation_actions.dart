@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/chat/screens/chat_screen.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 
@@ -60,7 +61,7 @@ class _GroupInvitationActionsState extends State<GroupInvitationActions> {
       if (action == 'join' && _status == 'active') _open();
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
         await _load();
       }
     } finally {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:Highlanders/app/app_navigation.dart';
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/explore/data/explore_repository.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
 import 'package:Highlanders/core/theme/theme.dart';
@@ -83,7 +84,7 @@ class _SearchScreenState extends State<SearchScreen>
       setState(() {
         _rows = [];
         _loading = false;
-        _error = '$error'.replaceFirst('Exception: ', '');
+        _error = userFacingError(error);
       });
     }
   }
@@ -147,7 +148,7 @@ class _SearchScreenState extends State<SearchScreen>
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
       }
     } finally {
@@ -166,7 +167,7 @@ class _SearchScreenState extends State<SearchScreen>
       } catch (error) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+            SnackBar(content: Text(userFacingError(error))),
           );
         }
       } finally {

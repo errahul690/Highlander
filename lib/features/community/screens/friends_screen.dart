@@ -14,6 +14,7 @@ import 'package:Highlanders/features/community/data/community_api.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/features/chat/screens/chat_screen.dart';
 import 'package:Highlanders/features/profile/screens/user_profile_screen.dart';
+import 'package:Highlanders/features/community/widgets/friends_banner.dart';
 
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({
@@ -143,7 +144,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     } catch (error) {
       if (mounted && version == _requestLoadVersion) {
         setState(
-          () => _requestsError = '$error'.replaceFirst('Exception: ', ''),
+          () => _requestsError = userFacingError(error),
         );
       }
     } finally {
@@ -191,7 +192,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
       }
     } finally {
@@ -228,7 +229,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
       }
     } finally {
@@ -743,18 +744,7 @@ class _FriendsScreenState extends State<FriendsScreen>
             if (_tab == 0) ...[
               _connectionStats(),
               const SizedBox(height: 14),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: AspectRatio(
-                  aspectRatio: 378 / 129,
-                  child: Image.asset(
-                    'assets/images/friends-connect-banner.png',
-                    key: const ValueKey('friends-connect-banner'),
-                    fit: BoxFit.cover,
-                    semanticLabel: 'Connect with fellow Highlanders. Follow, engage and grow the club community.',
-                  ),
-                ),
-              ),
+              const FriendsBanner(),
               const SizedBox(height: 14),
             ],
             Row(
@@ -883,6 +873,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     backgroundColor: const Color(0xFFFAF8F5),
     body: ClubHeaderLayout(
       header: _header(),
+      scrollBehindHeader: false,
       body: ClubPageBody(
         color: const Color(0xFFFAF8F5),
         child: Column(

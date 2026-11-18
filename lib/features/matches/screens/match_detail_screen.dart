@@ -270,10 +270,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
             ),
             if (fixture.summary.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text(
-                fixture.summary,
+              StoryHtml(
+                html: fixture.summary,
                 style: const TextStyle(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w400,
                   height: 1.5,
                 ),
               ),

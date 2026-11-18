@@ -10,13 +10,12 @@ export 'package:Highlanders/features/feed/widgets/feed_match_feature.dart';
 
 import 'package:Highlanders/app/app_navigation.dart';
 import 'package:Highlanders/features/gallery/data/gallery_repository.dart';
-import 'package:Highlanders/features/gallery/widgets/gallery_image.dart';
+import 'package:Highlanders/features/feed/widgets/feed_focus_showcase.dart';
+
 import 'package:Highlanders/features/feed/data/feed_focus_repository.dart';
 import 'package:Highlanders/core/network/realtime_client.dart';
-import 'package:Highlanders/features/gallery/screens/gallery_screen.dart';
-import 'package:Highlanders/features/matches/widgets/match_highlights_player.dart';
+
 import 'package:Highlanders/shared/branding/club_identity.dart';
-import 'package:Highlanders/shared/data/club_repository.dart';
 import 'package:Highlanders/core/media/media_cache.dart';
 import 'package:Highlanders/shared/models/club_content.dart';
 import 'package:Highlanders/features/matches/screens/match_detail_screen.dart';
@@ -403,7 +402,12 @@ class _UniformResultLogoState extends State<_UniformResultLogo> {
 
   Future<Rect> _opaqueBounds(ui.Image image) async {
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-    final full = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
+    final full = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
     if (data == null) return full;
     final pixels = data.buffer.asUint8List();
     final visible = _pixelBounds(
@@ -442,7 +446,12 @@ class _UniformResultLogoState extends State<_UniformResultLogo> {
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x++) {
         final index = (y * width + x) * 4;
-        if (!keep(pixels[index], pixels[index + 1], pixels[index + 2], pixels[index + 3])) {
+        if (!keep(
+          pixels[index],
+          pixels[index + 1],
+          pixels[index + 2],
+          pixels[index + 3],
+        )) {
           continue;
         }
         if (x < minX) minX = x;
@@ -609,219 +618,20 @@ class _FeedGalleryFocusState extends State<FeedGalleryFocus>
     super.dispose();
   }
 
-  void _play(BuildContext context, GalleryItem video) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.black,
-        clipBehavior: Clip.antiAlias,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 30),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    video.title,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Close video',
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  icon: const Icon(Icons.close, color: Colors.white),
-                ),
-              ],
-            ),
-            MatchHighlightsPlayer(
-              source: ClubRepository.mediaUrl(video.videoUrl),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-      final moments = _videos
-          .where(
-            (item) => item.type == 'videos' && item.videoUrl.trim().isNotEmpty,
-          )
-          .take(6)
-          .toList();
-      if (moments.isEmpty) return const SizedBox.shrink();
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEAF7FE),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: _focus.subtitle.trim().isEmpty ? 8 : 3,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _focus.title,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        height: 1.25,
-                        letterSpacing: 0,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF0F0F0F),
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFEF4136),
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const GalleryScreen(initialTab: 'videos'),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'View All',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Icon(Icons.arrow_forward_rounded, size: 20),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_focus.subtitle.trim().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  _focus.subtitle,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.4,
-                    color: Color(0xFF747474),
-                  ),
-                ),
-              ),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final single = moments.length == 1;
-                final width = single ? constraints.maxWidth : 230.0;
-                const captionStyle = TextStyle(
-                  fontSize: 14,
-                  height: 20 / 14,
-                  fontWeight: FontWeight.w400,
-                  color: Color(0xFF171717),
-                );
-                final title = TextPainter(
-                  text: TextSpan(
-                    text: moments.first.title,
-                    style: DefaultTextStyle.of(context).style
-                        .merge(captionStyle),
-                  ),
-                  maxLines: 1,
-                  textDirection: Directionality.of(context),
-                  textScaler: MediaQuery.textScalerOf(context),
-                )..layout(maxWidth: width - 32);
-                final height = single
-                    ? width * 9 / 16 + 8 + title.height
-                    : 176.0;
-                title.dispose();
-                return SizedBox(
-                  height: height,
-                  child: ListView.separated(
-                    physics: single
-                        ? const NeverScrollableScrollPhysics()
-                        : null,
-                    scrollDirection: Axis.horizontal,
-                    itemCount: moments.length,
-                    separatorBuilder: (_, index) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final video = moments[index];
-                      return SizedBox(
-                        key: ValueKey('focus-video-${video.id}'),
-                        width: width,
-                        child: InkWell(
-                          onTap: () => _play(context, video),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      GalleryImage(
-                                        key: ValueKey(video.thumbnail),
-                                        url: video.thumbnail,
-                                        placeholder: const Color(0xFF283934),
-                                      ),
-                                      const Center(
-                                        child: CircleAvatar(
-                                          backgroundColor: Colors.white,
-                                          radius: 22,
-                                          child: Icon(
-                                            Icons.play_arrow,
-                                            color: Colors.black,
-                                            size: 30,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                child: Text(
-                                  video.title,
-                                  textAlign: TextAlign.left,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: captionStyle,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-          ),
-          const SizedBox(height: 6),
-        ],
-      );
+    final moments = _videos
+        .where(
+          (item) => item.type == 'videos' && item.videoUrl.trim().isNotEmpty,
+        )
+        .take(10)
+        .toList();
+    if (moments.isEmpty) return const SizedBox.shrink();
+    return FeedFocusShowcase(
+      key: ValueKey('feed-focus-${moments.map((item) => item.id).join(',')}'),
+      items: moments,
+      title: _focus.title,
+      subtitle: _focus.subtitle,
+    );
   }
 }

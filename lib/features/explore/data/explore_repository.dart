@@ -152,6 +152,7 @@ class ExploreRepository extends ChangeNotifier {
   bool hasError = false;
   bool warmed = false;
   int _request = 0;
+  int? _networkRevision;
 
   Future<File> _cacheFile() async {
     final directory = await getApplicationSupportDirectory();
@@ -218,9 +219,10 @@ class ExploreRepository extends ChangeNotifier {
           throw const FormatException();
         }
       }
-      // A slow earlier response must not roll back a newly published revision.
+      // Cached revisions can belong to another server or an older database.
+      // Only compare revisions fetched from the server during this session.
       final revision = (config['revision'] as num?)?.toInt();
-      final currentRevision = (_current['revision'] as num?)?.toInt();
+      final currentRevision = _networkRevision;
       if (request == _request &&
           (revision == null ||
               currentRevision == null ||
@@ -234,10 +236,15 @@ class ExploreRepository extends ChangeNotifier {
           colors['page'] = '#F9F7F3';
         }
         _current = {...defaultExplore, ...config, 'colors': colors};
+        _networkRevision = revision;
         hasError = false;
         warmed = true;
         unawaited(_persist(_current));
         _precache(_current);
+        notifyListeners();
+      }
+      if (request == _request && hasError) {
+        hasError = false;
         notifyListeners();
       }
     } catch (_) {

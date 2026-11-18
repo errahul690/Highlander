@@ -9,13 +9,35 @@ bool storyHasText(String value) {
 }
 
 class StoryHtml extends StatelessWidget {
-  const StoryHtml({super.key, required this.html, required this.style});
+  const StoryHtml({
+    super.key,
+    required this.html,
+    required this.style,
+    this.maxLines,
+  });
   final String html;
   final TextStyle style;
+  final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
     final blocks = storyBlocks(html, style);
+    if (maxLines != null) {
+      final spans = <InlineSpan>[];
+      for (final block in blocks) {
+        final text = (block as Padding).child! as Text;
+        if (spans.isNotEmpty) spans.add(const TextSpan(text: '\n'));
+        spans.add(
+          text.textSpan ?? TextSpan(text: text.data, style: text.style),
+        );
+      }
+      return Text.rich(
+        TextSpan(children: spans),
+        style: style,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: blocks,
@@ -41,9 +63,8 @@ List<Widget> storyBlocks(String source, TextStyle style) {
   final runs = <TextSpan>[];
   var current = style;
   final stack = <TextStyle>[style];
-  final tokens = RegExp(
-    r'<(/?)([a-zA-Z0-9]+)([^>]*)>|([^<]+)',
-  ).allMatches(html);
+  final tokens = RegExp(r'<(/?)([a-zA-Z0-9]+)([^>]*)>|([^<]+)')
+      .allMatches(html);
 
   void flush() {
     final text = runs.map((span) => span.text ?? '').join();
@@ -152,10 +173,7 @@ String _decode(String value) {
             ? String.fromCharCode(code)
             : match.group(0)!;
       })
-      .replaceAll(
-        RegExp('&nbsp;', caseSensitive: false),
-        ' ',
-      )
+      .replaceAll(RegExp('&nbsp;', caseSensitive: false), ' ')
       .replaceAll('&amp;', '&')
       .replaceAll('&lt;', '<')
       .replaceAll('&gt;', '>')

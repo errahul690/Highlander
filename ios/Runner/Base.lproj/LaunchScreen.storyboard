@@ -16,19 +16,15 @@
                     <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchLogo" translatesAutoresizingMaskIntoConstraints="NO" id="neufc-launch-logo">
-                                <rect key="frame" x="91.5" y="237.5" width="192" height="192"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" constant="192" id="neufc-logo-width"/>
-                                    <constraint firstAttribute="height" constant="192" id="neufc-logo-height"/>
-                                </constraints>
-                            </imageView>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFill" clipsSubviews="YES" image="StadiumLaunch" translatesAutoresizingMaskIntoConstraints="NO" id="launch-logo"/>
                         </subviews>
-                        <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="neufc-launch-logo" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="neufc-logo-center-x"/>
-                            <constraint firstItem="neufc-launch-logo" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="neufc-logo-center-y"/>
+                            <constraint firstItem="launch-logo" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="stadium-leading"/>
+                            <constraint firstItem="launch-logo" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing" id="stadium-trailing"/>
+                            <constraint firstItem="launch-logo" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="stadium-top"/>
+                            <constraint firstItem="launch-logo" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="stadium-bottom"/>
                         </constraints>
+                        <color key="backgroundColor" red="0.0862745098" green="0.0431372549" blue="0.0352941176" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                     </view>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
@@ -37,6 +33,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="LaunchLogo" width="192" height="192"/>
+        <image name="StadiumLaunch" width="608" height="1080"/>
     </resources>
 </document>

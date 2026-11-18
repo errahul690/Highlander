@@ -22,6 +22,7 @@ import 'package:Highlanders/features/matches/screens/matches_screen.dart';
 import 'package:Highlanders/features/profile/screens/profile_screen.dart';
 import 'package:Highlanders/features/settings/screens/settings_screen.dart';
 import 'package:Highlanders/features/squad/screens/squad_screen.dart';
+import 'package:Highlanders/features/sponsors/screens/sponsors_screen.dart';
 import 'package:Highlanders/features/swoofi/screens/swoofi_screen.dart';
 
 const _icons = <String, IconData>{
@@ -124,19 +125,23 @@ class _AppQuickLinksState extends State<AppQuickLinks>
   }
 
   Future<void> _open(AppQuickButton button) async {
+    if (button.link == AlertsScreen.routeName) {
+      AlertsScreen.open(context);
+      return;
+    }
     if (button.link == '/grounds' && GroundsHost.open(context)) return;
     final pages = <String, Widget>{
       '/squad': const SquadScreen(),
       '/matches': const MatchesScreen(),
       '/gallery': const GalleryScreen(),
       '/grounds': const GroundsScreen(),
-      '/alerts': const AlertsScreen(),
       '/profile': const ProfileScreen(),
       '/settings': const SettingsScreen(),
       '/friends': const FriendsScreen(title: 'Friends'),
       '/circles': const CommunityScreen(),
       '/explore': const ExploreScreen(),
       '/swoofi': const SwoofiScreen(),
+      SponsorsScreen.routeName: const SponsorsScreen(),
     };
     final page = pages[button.link];
     if (page != null) {

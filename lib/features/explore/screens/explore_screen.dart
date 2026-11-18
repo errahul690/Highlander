@@ -95,17 +95,19 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  List<Map<String, dynamic>> _items(String field) =>
-      (_config[field] as List? ?? [])
-          .map((row) => Map<String, dynamic>.from(row as Map))
-          .where(
-            (row) =>
-                row['enabled'] != false &&
-                '${row['label']}'.toLowerCase().contains(
-                  _search.text.trim().toLowerCase(),
-                ),
-          )
-          .toList();
+  List<Map<String, dynamic>> _items(String field) {
+    return (_config[field] as List? ?? [])
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .where(
+          (row) =>
+              row['enabled'] != false &&
+              '${row['label']}'.toLowerCase().contains(
+                _search.text.trim().toLowerCase(),
+              ),
+        )
+        .toList();
+  }
+
   Future<void> _open(String link) async {
     if (link == '/help') {
       await showModalBottomSheet<void>(

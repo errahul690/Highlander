@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/session/session.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/shared/widgets/user_avatar.dart';
@@ -82,7 +83,7 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = '$e'.replaceFirst('Exception: ', '');
+          _error = userFacingError(e);
           _loading = false;
         });
       }
@@ -142,7 +143,7 @@ class _InviteMembersSheetState extends State<InviteMembersSheet> {
       if (mounted) {
         setState(() => _busyEmails.remove(email));
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(e))),
         );
       }
     }

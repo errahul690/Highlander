@@ -30,16 +30,24 @@ import 'package:Highlanders/features/posts/data/post_pager.dart';
 import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/posts/widgets/post_list_view.dart';
 import 'package:Highlanders/features/feed/widgets/feed_loading_gate.dart';
+import 'package:Highlanders/features/feed/widgets/feed_welcome.dart';
 import 'package:Highlanders/features/settings/data/app_settings_repository.dart';
 import 'package:Highlanders/features/feed/data/app_banners_repository.dart';
 import 'package:Highlanders/features/feed/data/app_marquee_repository.dart';
 import 'package:Highlanders/features/polls/data/app_poll_repository.dart';
 
 class FeedScreen extends StatefulWidget {
-  const FeedScreen({super.key, this.client, this.clubRepository, this.now});
+  const FeedScreen({
+    super.key,
+    this.client,
+    this.clubRepository,
+    this.now,
+    this.welcomeGreetingSlot,
+  });
   final http.Client? client;
   final ClubRepository? clubRepository;
   final DateTime? now;
+  final Widget? welcomeGreetingSlot;
   @override
   State<FeedScreen> createState() => _FeedScreenState();
 }
@@ -154,7 +162,9 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
       _pager.posts,
       now: widget.now,
     );
-    if (mounted) FeedStartup.prefetchOtherScreens();
+    if (mounted) {
+      FeedStartup.prefetchOtherScreens();
+    }
   }
 
   Future<void> _refresh() async {
@@ -218,7 +228,13 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+  Widget build(BuildContext context) => widget.welcomeGreetingSlot == null
+      ? FeedWelcome(now: widget.now, builder: _buildFeed)
+      : _buildFeed(widget.welcomeGreetingSlot!);
+
+  Widget _buildFeed(
+    Widget greetingSlot,
+  ) => AnnotatedRegion<SystemUiOverlayStyle>(
     value: SystemUiOverlayStyle.light.copyWith(
       statusBarColor: Colors.transparent,
     ),
@@ -226,7 +242,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: ClubHeaderLayout(
-          header: const _FeedHeader(),
+          header: _FeedHeader(greetingSlot: greetingSlot),
           body: ClubPageBody(
             color: Colors.transparent,
             child: FeedLoadingGate(
@@ -274,14 +290,15 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
 }
 
 class _FeedHeader extends StatelessWidget implements PreferredSizeWidget {
-  const _FeedHeader();
+  const _FeedHeader({required this.greetingSlot});
+  final Widget greetingSlot;
   @override
   Size get preferredSize => const ClubHeader(title: '').preferredSize;
   @override
-  Widget build(BuildContext context) => const ClubHeader(
+  Widget build(BuildContext context) => ClubHeader(
     title: 'NORTHEAST UNITED',
     showBack: false,
-    showLogo: true,
+    titleWidget: greetingSlot,
     uppercaseTitle: true,
     // subtitle: 'FAN COMMUNITY',
     embedded: true,

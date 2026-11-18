@@ -6,6 +6,7 @@ import 'package:Highlanders/shared/widgets/user_avatar.dart';
 
 import 'package:Highlanders/shared/data/club_repository.dart';
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/shared/widgets/club_bar.dart';
 import 'package:Highlanders/features/profile/screens/user_profile_screen.dart';
@@ -56,7 +57,7 @@ class _FollowRequestsScreenState extends State<FollowRequestsScreen>
       }
     } catch (error) {
       if (mounted && version == _loadVersion) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted && version == _loadVersion) {
@@ -79,7 +80,7 @@ class _FollowRequestsScreenState extends State<FollowRequestsScreen>
       await _load();
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted) {

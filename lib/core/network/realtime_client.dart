@@ -61,6 +61,7 @@ class RealtimeClient with WidgetsBindingObserver {
           'explore',
           'header_icons',
           'chat-background',
+          'friends-banner',
           'matches',
           'feed-match',
           'feed-focus',

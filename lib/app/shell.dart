@@ -18,6 +18,7 @@ import 'package:Highlanders/features/swoofi/screens/swoofi_screen.dart';
 
 import 'package:Highlanders/shared/widgets/app_bottom_navigation.dart';
 import 'package:Highlanders/features/feed/widgets/feed_background.dart';
+import 'package:Highlanders/features/feed/widgets/feed_welcome.dart';
 import 'package:Highlanders/features/grounds/widgets/grounds_host.dart';
 import 'package:Highlanders/features/community/screens/community_screen.dart';
 import 'package:Highlanders/features/posts/screens/create_post_screen.dart';
@@ -188,35 +189,41 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         child: GroundsHost(
           child: FeedBackground(
             child: ScrollNotificationObserver(
-              child: Scaffold(
-                extendBody: true,
-                backgroundColor: Colors.transparent,
-                body: IndexedStack(
-                  index: _index,
-                  children: [
-                    FriendsScreen(
-                      title: 'Friends',
-                      showBack: true,
-                      isActive: _index == 0,
-                    ),
-                    CommunityScreen(title: 'Huddles', isActive: _index == 1),
-                    TickerMode(enabled: _index == 2, child: const FeedScreen()),
-                    const ExploreScreen(),
-                    ProfileScreen(
-                      isActive: _index == 4,
-                      onBack: () => setState(() => _index = 2),
-                    ),
-                  ],
-                ),
-                bottomNavigationBar: AppBottomNavigation(
-                  selectedIndex: _index,
-                  onSelect: (index) {
-                    if (index == 2) {
-                      _centerTap();
-                    } else {
-                      setState(() => _index = index);
-                    }
-                  },
+              child: FeedWelcome(
+                enabled: _index == 2,
+                builder: (greetingSlot) => Scaffold(
+                  extendBody: true,
+                  backgroundColor: Colors.transparent,
+                  body: IndexedStack(
+                    index: _index,
+                    children: [
+                      FriendsScreen(
+                        title: 'Friends',
+                        showBack: true,
+                        isActive: _index == 0,
+                      ),
+                      CommunityScreen(title: 'Huddles', isActive: _index == 1),
+                      TickerMode(
+                        enabled: _index == 2,
+                        child: FeedScreen(welcomeGreetingSlot: greetingSlot),
+                      ),
+                      const ExploreScreen(),
+                      ProfileScreen(
+                        isActive: _index == 4,
+                        onBack: () => setState(() => _index = 2),
+                      ),
+                    ],
+                  ),
+                  bottomNavigationBar: AppBottomNavigation(
+                    selectedIndex: _index,
+                    onSelect: (index) {
+                      if (index == 2) {
+                        _centerTap();
+                      } else {
+                        setState(() => _index = index);
+                      }
+                    },
+                  ),
                 ),
               ),
             ),

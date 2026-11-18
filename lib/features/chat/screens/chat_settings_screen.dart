@@ -4,6 +4,7 @@ import 'package:Highlanders/shared/widgets/club_page_body.dart';
 import 'package:flutter/material.dart';
 
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/media/media_auto_download.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 
@@ -57,7 +58,7 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
         }
       }
     } catch (error) {
-      _error = '$error'.replaceFirst('Exception: ', '');
+      _error = userFacingError(error);
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -90,7 +91,7 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
       if (mounted) Navigator.of(context).pop(values);
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -111,7 +112,7 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
       if (mounted) setState(() => _requests.remove(member));
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -156,7 +157,7 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
         }
       } catch (error) {
         if (mounted) {
-          setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+          setState(() => _error = userFacingError(error));
         }
       } finally {
         if (mounted) setState(() => _busy = false);

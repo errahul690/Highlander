@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:Highlanders/core/media/media_cache.dart';
+import 'package:Highlanders/shared/widgets/profile_photo_transition.dart';
 
 import 'package:Highlanders/features/auth/data/otp_api.dart';
 import 'package:Highlanders/features/gallery/screens/photo_viewer_screen.dart';
@@ -40,6 +41,9 @@ class UserAvatar extends StatelessWidget {
           ? ''
           : Uri.parse(OtpApi.apiBase).resolve(photo).toString();
       final savedPhoto = MediaCache.instance.bytesFor(url);
+      final ImageProvider photoProvider = savedPhoto == null
+          ? NetworkImage(url)
+          : MemoryImage(savedPhoto);
       final avatar = CircleAvatar(
         radius: radius,
         backgroundColor: backgroundColor,
@@ -49,9 +53,7 @@ class UserAvatar extends StatelessWidget {
             child: url.isEmpty
                 ? _initial(label)
                 : Image(
-                    image: savedPhoto == null
-                        ? NetworkImage(url)
-                        : MemoryImage(savedPhoto),
+                    image: photoProvider,
                     key: ValueKey(own ? '$url:$revision' : url),
                     fit: BoxFit.cover,
                     errorBuilder: (_, error, stack) => _initial(label),
@@ -66,13 +68,38 @@ class UserAvatar extends StatelessWidget {
             : 'View $label profile photo',
         child: GestureDetector(
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => PhotoViewerScreen(
-                  images: url.isEmpty ? const [] : [url],
+            final reducedMotion = MediaQuery.disableAnimationsOf(context);
+            final navigator = Navigator.of(context);
+            final box = context.findRenderObject()! as RenderBox;
+            final overlayBox =
+                navigator.overlay!.context.findRenderObject()! as RenderBox;
+            final origin = overlayBox.globalToLocal(
+              box.localToGlobal(Offset.zero),
+            );
+            final sourceRect = origin & box.size;
+            navigator.push(
+              PageRouteBuilder<void>(
+                opaque: false,
+                transitionDuration: Duration(
+                  milliseconds: reducedMotion ? 0 : 520,
+                ),
+                reverseTransitionDuration: Duration(
+                  milliseconds: reducedMotion ? 0 : 300,
+                ),
+                pageBuilder: (_, _, _) => PhotoViewerScreen(
+                  images: const [],
+                  imageProvider: url.isEmpty ? null : photoProvider,
                   authorName: label,
                   emptyMessage: 'No Profile Pic',
                 ),
+                transitionsBuilder: (_, animation, _, child) => url.isEmpty
+                    ? FadeTransition(opacity: animation, child: child)
+                    : ProfilePhotoTransition(
+                        animation: animation,
+                        source: sourceRect,
+                        image: photoProvider,
+                        child: child,
+                      ),
               ),
             );
           },

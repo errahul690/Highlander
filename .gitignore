@@ -60,6 +60,17 @@ app.*.map.json
 *.test.ts
 *.test.tsx
 
+# Local previews, backups, generated files and vendored tests
+/Exact_Video_Stadium/
+/ios-old/
+/android/build/
+/docs/
+/tool/
+/assets/swoofi/*.prompt.txt
+/assets/splash/logo.png
+/third_party/*/android/src/test/
+/third_party/*/darwin/RunnerTests/
+
 # Local environment configuration
 .env
 .env.*

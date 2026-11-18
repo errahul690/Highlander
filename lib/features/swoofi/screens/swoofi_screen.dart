@@ -14,6 +14,9 @@ import 'package:Highlanders/app/app_navigation.dart';
 import 'package:Highlanders/shared/data/club_repository.dart';
 import 'package:Highlanders/features/explore/data/explore_repository.dart';
 import 'package:Highlanders/features/auth/data/otp_api.dart';
+import 'package:Highlanders/features/swoofi/widgets/swoofi_pet_invite.dart';
+import 'package:Highlanders/features/swoofi/widgets/swoofi_html_page.dart';
+import 'package:Highlanders/features/swoofi/data/swoofi_store_links.dart';
 
 class SwoofiCard {
   const SwoofiCard({required this.imageUrl, required this.link});
@@ -27,6 +30,11 @@ class SwoofiRepository extends ChangeNotifier {
   final http.Client _client;
   List<SwoofiCard> cards = const [];
   bool loaded = false;
+  String contentType = 'cards';
+  String htmlUrl = '';
+  String playStoreUrl = SwoofiStoreLinks.playStore;
+  String appStoreUrl = SwoofiStoreLinks.appStore;
+  bool get showsHtml => contentType == 'html' && htmlUrl.isNotEmpty;
   Future<List<SwoofiCard>>? _pending;
 
   Future<File> _cacheFile() async {
@@ -41,6 +49,7 @@ class SwoofiRepository extends ChangeNotifier {
       final data = jsonDecode(await file.readAsString());
       if (data is! Map || data['cards'] is! List) return;
       cards = _cardsFrom(data['cards'] as List);
+      _readPageSettings(data);
       loaded = true;
       for (final card in cards) {
         warmNetworkImage(card.imageUrl);
@@ -54,6 +63,10 @@ class SwoofiRepository extends ChangeNotifier {
       final file = await _cacheFile();
       await file.writeAsString(
         jsonEncode({
+          'content_type': contentType,
+          'html_url': htmlUrl,
+          'play_store_url': playStoreUrl,
+          'app_store_url': appStoreUrl,
           'cards': [
             for (final card in cards)
               {'image_url': card.imageUrl, 'link': card.link},
@@ -73,6 +86,21 @@ class SwoofiRepository extends ChangeNotifier {
           link: item['link'] is String ? item['link'] as String : '',
         ),
   ];
+
+  void _readPageSettings(Map data) {
+    playStoreUrl = SwoofiStoreLinks.resolve(
+      data['play_store_url'],
+      SwoofiStoreLinks.playStore,
+    );
+    appStoreUrl = SwoofiStoreLinks.resolve(
+      data['app_store_url'],
+      SwoofiStoreLinks.appStore,
+    );
+    contentType = data['content_type'] == 'html' ? 'html' : 'cards';
+    htmlUrl = data['html_url'] is String
+        ? (data['html_url'] as String).trim()
+        : '';
+  }
 
   Future<List<SwoofiCard>> load({bool force = false}) {
     if (loaded && !force) return Future.value(cards);
@@ -98,6 +126,7 @@ class SwoofiRepository extends ChangeNotifier {
       throw const FormatException();
     }
     cards = _cardsFrom((body['swoofi'] as Map)['cards'] as List);
+    _readPageSettings(body['swoofi'] as Map);
     loaded = true;
     unawaited(_persist());
     for (final card in cards) {
@@ -122,6 +151,23 @@ class _SwoofiScreenState extends State<SwoofiScreen> {
       widget.repository ?? SwoofiRepository.instance;
   List<SwoofiCard> _cards = const [];
   bool _loading = true;
+  final _inviteTrigger = ValueNotifier(false);
+  bool _inviteScheduled = false;
+
+  void _scheduleInvite() {
+    if (_loading ||
+        _cards.isEmpty ||
+        _repository.showsHtml ||
+        _inviteTrigger.value ||
+        _inviteScheduled) {
+      return;
+    }
+    _inviteScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _inviteScheduled = false;
+      if (mounted && !_repository.showsHtml) _inviteTrigger.value = true;
+    });
+  }
 
   @override
   void initState() {
@@ -130,6 +176,7 @@ class _SwoofiScreenState extends State<SwoofiScreen> {
     _loading = !_repository.loaded;
     _repository.addListener(_applyCards);
     if (!_repository.loaded) _loadCards();
+    _scheduleInvite();
   }
 
   void _applyCards() {
@@ -138,6 +185,7 @@ class _SwoofiScreenState extends State<SwoofiScreen> {
       _cards = _repository.cards;
       _loading = false;
     });
+    _scheduleInvite();
   }
 
   Future<void> _loadCards() async {
@@ -148,6 +196,7 @@ class _SwoofiScreenState extends State<SwoofiScreen> {
         _cards = cards;
         _loading = false;
       });
+      _scheduleInvite();
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -156,6 +205,7 @@ class _SwoofiScreenState extends State<SwoofiScreen> {
   @override
   void dispose() {
     _repository.removeListener(_applyCards);
+    _inviteTrigger.dispose();
     super.dispose();
   }
 
@@ -165,17 +215,30 @@ class _SwoofiScreenState extends State<SwoofiScreen> {
     await openAppDestination(context, link);
   }
 
+  bool _onScroll(ScrollUpdateNotification notification) {
+    if (_repository.showsHtml ||
+        _inviteTrigger.value ||
+        notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    final metrics = notification.metrics;
+    final contentHeight = metrics.maxScrollExtent + metrics.viewportDimension;
+    final threshold = (contentHeight * .74 - metrics.viewportDimension * .72)
+        .clamp(40.0, double.infinity);
+    if (metrics.pixels >= threshold) _inviteTrigger.value = true;
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Theme(
+    final page = Theme(
       data: Theme.of(context).copyWith(
         textTheme: Theme.of(context).textTheme.apply(fontFamily: 'Gilroy'),
       ),
       child: ClubScaffold(
         backgroundColor: const Color(0xFFF7F4EF),
         appBar: const ClubHeader(
-          title: 'Swoofi',
-          subtitle: 'ABOUT THE APP',
+          title: 'Animal Welfare',
           showBack: true,
           showSearch: false,
           showSupport: false,
@@ -183,6 +246,18 @@ class _SwoofiScreenState extends State<SwoofiScreen> {
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
+            : _repository.showsHtml
+            ? SwoofiHtmlPage(
+                key: ValueKey((
+                  _repository.htmlUrl,
+                  _repository.playStoreUrl,
+                  _repository.appStoreUrl,
+                )),
+                url: ClubRepository.mediaUrl(_repository.htmlUrl),
+                onOpenLink: (link) => openAppDestination(context, link),
+                playStoreUrl: _repository.playStoreUrl,
+                appStoreUrl: _repository.appStoreUrl,
+              )
             : _cards.isEmpty
             ? const Center(
                 child: Text(
@@ -196,23 +271,34 @@ class _SwoofiScreenState extends State<SwoofiScreen> {
                   ),
                 ),
               )
-            : SingleChildScrollView(
-                key: const PageStorageKey('swoofi-scroll'),
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.paddingOf(context).bottom,
-                ),
-                child: Column(
-                  children: [
-                    for (var index = 0; index < _cards.length; index++)
-                      _UploadedCard(
-                        card: _cards[index],
-                        index: index,
-                        onOpen: () => _openCard(_cards[index]),
-                      ),
-                  ],
+            : NotificationListener<ScrollUpdateNotification>(
+                onNotification: _onScroll,
+                child: SingleChildScrollView(
+                  key: const PageStorageKey('swoofi-scroll'),
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.paddingOf(context).bottom,
+                  ),
+                  child: Column(
+                    children: [
+                      for (var index = 0; index < _cards.length; index++)
+                        _UploadedCard(
+                          card: _cards[index],
+                          index: index,
+                          onOpen: () => _openCard(_cards[index]),
+                        ),
+                    ],
+                  ),
                 ),
               ),
       ),
+    );
+    if (_repository.showsHtml) return page;
+    return SwoofiPetInvite(
+      trigger: _inviteTrigger,
+      onOpenStore: (link) => openAppDestination(context, link),
+      playStoreUrl: _repository.playStoreUrl,
+      appStoreUrl: _repository.appStoreUrl,
+      child: page,
     );
   }
 }
@@ -242,7 +328,7 @@ class _UploadedCard extends StatelessWidget {
           child: Center(child: CircularProgressIndicator()),
         );
       },
-      errorBuilder: (_, __, ___) => const SizedBox(
+      errorBuilder: (_, _, _) => const SizedBox(
         height: 160,
         child: ColoredBox(
           color: Color(0xFFF4F1EC),

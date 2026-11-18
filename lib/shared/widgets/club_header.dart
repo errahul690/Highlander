@@ -208,9 +208,7 @@ class ClubHeader extends StatelessWidget implements PreferredSizeWidget {
                   padding: EdgeInsets.zero,
                 ),
                 padding: EdgeInsets.zero,
-                onPressed: () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const AlertsScreen())),
+                onPressed: () => AlertsScreen.open(context),
                 icon: ValueListenableBuilder<int>(
                   valueListenable: ChatUpdates.instance.unreadNotifications,
                   builder: (_, count, _) => Stack(

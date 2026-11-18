@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/chat/screens/chat_screen.dart';
 import 'package:Highlanders/features/support/data/support_hub_repository.dart';
 import 'package:Highlanders/shared/widgets/header_action_icon.dart';
@@ -47,7 +48,7 @@ class _CustomerSupportButtonState extends State<CustomerSupportButton> {
     } catch (error) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
     } finally {
       if (mounted) setState(() => _loading = false);

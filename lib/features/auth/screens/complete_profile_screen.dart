@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:Highlanders/features/feed/services/feed_startup.dart';
 import 'package:Highlanders/features/auth/data/otp_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
 import 'package:Highlanders/core/session/session.dart';
 import 'package:Highlanders/core/theme/theme.dart';
@@ -274,7 +275,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         (_) => false,
       );
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

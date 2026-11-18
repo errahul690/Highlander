@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:Highlanders/shared/widgets/user_avatar.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/session/session.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/shared/widgets/club_bar.dart';
@@ -41,7 +42,7 @@ class _RepostScreenState extends State<RepostScreen> {
     } catch (error) {
       if (mounted)
         setState(
-          () => _error = error.toString().replaceFirst('Exception: ', ''),
+          () => _error = userFacingError(error),
         );
     } finally {
       if (mounted) setState(() => _saving = false);

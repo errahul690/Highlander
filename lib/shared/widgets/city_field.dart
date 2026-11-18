@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:Highlanders/shared/data/cities_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 
 class CityField extends StatefulWidget {
@@ -36,7 +37,7 @@ class _CityFieldState extends State<CityField> {
         final cities = await CitiesApi.instance.search(value.trim());
         if (mounted && request == _request) setState(() => _cities = cities);
       } catch (error) {
-        if (mounted && request == _request) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+        if (mounted && request == _request) setState(() => _error = userFacingError(error));
       } finally {
         if (mounted && request == _request) setState(() => _loading = false);
       }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:Highlanders/features/posts/widgets/post_reaction.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/posts/widgets/feed_post_card.dart';
 import 'package:Highlanders/shared/widgets/user_avatar.dart';
 import 'package:Highlanders/shared/widgets/club_header.dart';
@@ -70,7 +71,7 @@ class _PostActivityScreenState extends State<PostActivityScreen> {
       });
     } catch (error) {
       if (mounted && version == _version) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted && version == _version) setState(() => _loading = false);

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:Highlanders/features/auth/data/otp_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 
 class VerifiedEmailChange {
@@ -80,7 +81,7 @@ class _ChangeEmailSheetState extends State<ChangeEmailSheet> {
         if (_seconds == 0) timer.cancel();
       });
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -117,7 +118,7 @@ class _ChangeEmailSheetState extends State<ChangeEmailSheet> {
         );
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

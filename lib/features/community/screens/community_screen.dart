@@ -136,7 +136,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   void _error(Object error) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(userFacingError(error))),
       );
     }
   }
@@ -830,6 +830,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     backgroundColor: Colors.white,
     body: ClubHeaderLayout(
       header: _header(),
+      scrollBehindHeader: false,
       body: ClubPageBody(
         color: Colors.white,
         child: Column(
@@ -987,7 +988,7 @@ class _CreateGroupState extends State<_CreateGroup> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1216,7 +1217,7 @@ class _PeopleScreenState extends State<CommunityPeopleScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
       }
     } finally {

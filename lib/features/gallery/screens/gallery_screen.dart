@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:Highlanders/core/theme/brand_colors.dart';
 
 import 'package:Highlanders/shared/widgets/club_page_body.dart';
@@ -11,7 +12,16 @@ import 'package:Highlanders/shared/widgets/app_bottom_navigation.dart';
 import 'package:Highlanders/features/gallery/data/gallery_repository.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/features/gallery/widgets/gallery_image.dart';
+import 'package:Highlanders/features/gallery/widgets/gallery_featured_carousel.dart';
+import 'package:Highlanders/features/gallery/widgets/gallery_video_stack.dart';
 import 'package:Highlanders/features/matches/widgets/match_highlights_player.dart';
+
+Future<void> showGalleryVideoPopup(BuildContext context, GalleryItem item) =>
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: .9),
+      builder: (_) => _VideoPlayerModal(item: item),
+    );
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key, this.initialTab = 'images'});
@@ -115,32 +125,37 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   void _openVideo(GalleryItem item) {
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.9),
-      builder: (ctx) => _VideoPlayerModal(item: item),
-    );
+    showGalleryVideoPopup(context, item);
   }
 
   @override
   Widget build(BuildContext context) {
+    final featured = _items.where((item) => item.isFeatured).toList();
+    final videoFallback = _selectedTab == 'videos' && featured.isEmpty;
+    final carouselItems = videoFallback ? _items : featured;
+    final albums = videoFallback
+        ? <GalleryItem>[]
+        : _items.where((item) => !item.isFeatured).toList();
     return ClubScaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: const Color(0xFFFAF8FA),
       appBar: const ClubHeader(title: 'Gallery', showBack: true),
-      bottomNavigationBar: const AppBottomNavigation(),
+      bottomNavigationBar: const AppBottomNavigation(selectedIndex: 2),
       body: RefreshIndicator(
         onRefresh: () => _loadItems(refresh: true),
         color: clubRed,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Segmented Tab Selector: [ Images | Videos ]
-              _buildSegmentedTabPill(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildSegmentedTabPill(),
+              ),
 
-              const SizedBox(height: 18),
+              SizedBox(height: _selectedTab == 'videos' ? 8 : 18),
 
               // Content List
               if (_loading)
@@ -177,8 +192,60 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     ),
                   ),
                 )
-              else
-                _buildGalleryCardsLayout(),
+              else ...[
+                if (carouselItems.isNotEmpty && _selectedTab == 'videos')
+                  GalleryVideoStack(
+                    key: ValueKey(
+                      'videos-${carouselItems.map((item) => item.id).join(',')}',
+                    ),
+                    items: carouselItems,
+                    onOpen: _openVideo,
+                    imageBuilder: (item) =>
+                        _buildThumbnailImage(item.thumbnail),
+                    subtitle: _getAutoTagline,
+                  ),
+                if (featured.isNotEmpty && _selectedTab != 'videos')
+                  GalleryFeaturedCarousel(
+                    key: ValueKey(
+                      '$_selectedTab-${featured.map((item) => item.id).join(',')}',
+                    ),
+                    items: featured,
+                    onOpen: _openItem,
+                    imageBuilder: (item) =>
+                        _buildThumbnailImage(item.thumbnail),
+                    subtitle: _getAutoTagline,
+                  ),
+                if (albums.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 5,
+                          height: 19,
+                          decoration: BoxDecoration(
+                            color: brandAccent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          _selectedTab == 'videos'
+                              ? (featured.isEmpty ? 'Videos' : 'More videos')
+                              : (featured.isEmpty ? 'Albums' : 'More albums'),
+                          style: const TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildGalleryCardsLayout(albums),
+                ),
+              ],
 
               const SizedBox(height: 24),
             ],
@@ -191,92 +258,57 @@ class _GalleryScreenState extends State<GalleryScreen> {
   // --------------------------------------------------------------------------
   // Segmented Pill Tab Switcher: [ Images | Videos ]
   // --------------------------------------------------------------------------
-  Widget _buildSegmentedTabPill() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFECEEF2),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _onTabChanged('images'),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: _selectedTab == 'images'
-                      ? brandAccent
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: _selectedTab == 'images'
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.06),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ]
-                      : null,
+  Widget _buildSegmentedTabPill() => Container(
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF0EDF1),
+      borderRadius: BorderRadius.circular(30),
+    ),
+    child: Row(
+      children: [
+        _buildTab('images', 'Photos', Icons.image_outlined),
+        _buildTab('videos', 'Videos', Icons.play_circle_outline_rounded),
+      ],
+    ),
+  );
+
+  Widget _buildTab(String tab, String label, IconData icon) {
+    final selected = _selectedTab == tab;
+    return Expanded(
+      child: Semantics(
+        selected: selected,
+        button: true,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(26),
+          onTap: () => _onTabChanged(tab),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: selected ? brandAccent : Colors.transparent,
+              borderRadius: BorderRadius.circular(26),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 21,
+                  color: selected ? Colors.white : const Color(0xFF788192),
                 ),
-                child: Text(
-                  'Images',
-                  textAlign: TextAlign.center,
+                const SizedBox(width: 12),
+                Text(
+                  label,
                   style: TextStyle(
-                    color: _selectedTab == 'images'
-                        ? Colors.white
-                        : const Color(0xFF6B7280),
-                    fontSize: 13,
-                    fontWeight: _selectedTab == 'images'
-                        ? FontWeight.w800
-                        : FontWeight.w600,
+                    color: selected ? Colors.white : const Color(0xFF788192),
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
-              ),
+              ],
             ),
           ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _onTabChanged('videos'),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: _selectedTab == 'videos'
-                      ? brandAccent
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: _selectedTab == 'videos'
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.06),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Text(
-                  'Videos',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _selectedTab == 'videos'
-                        ? Colors.white
-                        : const Color(0xFF6B7280),
-                    fontSize: 13,
-                    fontWeight: _selectedTab == 'videos'
-                        ? FontWeight.w800
-                        : FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -285,13 +317,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
   // Auto-calculated Count Tagline Helper
   // --------------------------------------------------------------------------
   String _getAutoTagline(GalleryItem item) {
-    if (item.tagline.isNotEmpty) {
-      return item.tagline;
-    }
-    if (item.images.isNotEmpty) {
+    if (item.type == 'images') {
       final count = item.images.length;
       return '$count ${count == 1 ? 'photo' : 'photos'}';
     }
+    if (item.tagline.isNotEmpty) return item.tagline;
     if (item.videoUrl.isNotEmpty) {
       return '1 video';
     }
@@ -301,18 +331,26 @@ class _GalleryScreenState extends State<GalleryScreen> {
   // --------------------------------------------------------------------------
   // Gallery Cards Layout (Uniform 2-Column Grid Rows)
   // --------------------------------------------------------------------------
-  Widget _buildGalleryCardsLayout() {
+  void _openItem(GalleryItem item) {
+    if (_selectedTab == 'videos') {
+      _openVideo(item);
+    } else {
+      _openAlbum(item);
+    }
+  }
+
+  Widget _buildGalleryCardsLayout(List<GalleryItem> albums) {
     final rows = <Widget>[];
-    for (int i = 0; i < _items.length;) {
-      final itemA = _items[i];
+    for (int i = 0; i < albums.length;) {
+      final itemA = albums[i];
       if (itemA.fullWidth) {
         rows.add(_buildColumnCard(itemA));
         rows.add(const SizedBox(height: 18));
         i++;
         continue;
       }
-      final itemB = i + 1 < _items.length && !_items[i + 1].fullWidth
-          ? _items[i + 1]
+      final itemB = i + 1 < albums.length && !albums[i + 1].fullWidth
+          ? albums[i + 1]
           : null;
 
       rows.add(
@@ -448,34 +486,120 @@ class _AlbumGridScreen extends StatelessWidget {
       ),
       body: photos.isEmpty
           ? const Center(child: Text('No photos in this album'))
-          : GridView.builder(
+          : CustomScrollView(
               key: const ValueKey('album-grid'),
-              padding: const EdgeInsets.all(8),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 6,
-                crossAxisSpacing: 6,
-              ),
-              itemCount: photos.length,
-              itemBuilder: (context, index) => GestureDetector(
-                key: ValueKey('album-photo-$index'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        _AlbumPhotoScreen(photos: photos, initialIndex: index),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF101014),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '$count ${count == 1 ? 'photo' : 'photos'}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF8E96A5),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: GalleryImage(
-                    key: ValueKey(photos[index]),
-                    url: photos[index],
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverToBoxAdapter(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cell = (constraints.maxWidth - 8) / 3;
+                        return SizedBox(
+                          height: cell * 2 + 4,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                width: cell * 2 + 4,
+                                child: _photo(context, 0),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    SizedBox(
+                                      height: cell,
+                                      child: photos.length > 1
+                                          ? _photo(context, 1)
+                                          : const SizedBox.shrink(),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    SizedBox(
+                                      height: cell,
+                                      child: photos.length > 2
+                                          ? _photo(context, 2)
+                                          : const SizedBox.shrink(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
+                if (photos.length > 3)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                    sliver: SliverGrid.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 4,
+                          ),
+                      itemCount: photos.length - 3,
+                      itemBuilder: (context, index) =>
+                          _photo(context, index + 3),
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              ],
             ),
     );
   }
+
+  Widget _photo(BuildContext context, int index) => Semantics(
+    label: 'Photo ${index + 1} of ${photos.length}',
+    button: true,
+    child: GestureDetector(
+      key: ValueKey('album-photo-$index'),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              _AlbumPhotoScreen(photos: photos, initialIndex: index),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: GalleryImage(
+          key: ValueKey(photos[index]),
+          url: photos[index],
+          placeholder: const Color(0xFFDDD1D9),
+        ),
+      ),
+    ),
+  );
 }
 
 class _AlbumPhotoScreen extends StatefulWidget {
@@ -534,91 +658,155 @@ class _AlbumPhotoScreenState extends State<_AlbumPhotoScreen> {
 }
 
 // --------------------------------------------------------------------------
-// Video Player Modal Placeholder
+// Video preview pauses in the center, then settles at the top of the screen.
 // --------------------------------------------------------------------------
-class _VideoPlayerModal extends StatelessWidget {
+class _VideoPlayerModal extends StatefulWidget {
   const _VideoPlayerModal({required this.item});
 
   final GalleryItem item;
 
   @override
+  State<_VideoPlayerModal> createState() => _VideoPlayerModalState();
+}
+
+class _VideoPlayerModalState extends State<_VideoPlayerModal> {
+  Timer? _moveTimer;
+  bool _atTop = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _moveTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _atTop = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _moveTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 30),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF101014),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 10, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-              ),
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: item.videoUrl.isEmpty
-                    ? const ColoredBox(
-                        color: Colors.black,
-                        child: Center(
-                          child: Icon(
-                            Icons.play_disabled_rounded,
-                            color: Colors.white54,
-                            size: 36,
-                          ),
-                        ),
-                      )
-                    : MatchHighlightsPlayer(source: item.videoUrl),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      item.tagline.isNotEmpty
-                          ? item.tagline
-                          : 'Highlights Stream',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      item.videoUrl.isNotEmpty ? 'HD 1080p' : 'Official Media',
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
+    final item = widget.item;
+    return TweenAnimationBuilder<Alignment>(
+      tween: AlignmentTween(
+        begin: Alignment.center,
+        end: _atTop ? Alignment.topCenter : Alignment.center,
+      ),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOutCubic,
+      builder: (context, alignment, child) => Dialog(
+        key: const ValueKey('gallery-video-dialog'),
+        alignment: alignment,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF18171C),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withValues(alpha: .14)),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black54,
+                blurRadius: 36,
+                offset: Offset(0, 16),
               ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(23),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [brandAccent, Color(0xFF4D0B23)],
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 10, 8),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.play_circle_outline_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Close video',
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: .12),
+                        ),
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: item.videoUrl.isEmpty
+                        ? const ColoredBox(
+                            color: Colors.black,
+                            child: Center(
+                              child: Icon(
+                                Icons.play_disabled_rounded,
+                                color: Colors.white54,
+                                size: 36,
+                              ),
+                            ),
+                          )
+                        : MatchHighlightsPlayer(source: item.videoUrl),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Icon(
+                        Icons.videocam_outlined,
+                        size: 18,
+                        color: Colors.white54,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          item.tagline.isNotEmpty ? item.tagline : 'Video',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

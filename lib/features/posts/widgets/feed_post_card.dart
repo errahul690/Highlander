@@ -10,6 +10,7 @@ import 'package:Highlanders/shared/data/club_repository.dart';
 import 'package:Highlanders/core/media/media_cache.dart';
 import 'package:Highlanders/features/auth/data/otp_api.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/posts/widgets/post_reaction.dart';
 import 'package:Highlanders/features/posts/services/post_link_router.dart';
 import 'package:Highlanders/core/theme/theme.dart';
@@ -597,7 +598,7 @@ class _FeedPostCardState extends State<FeedPostCard> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          content: Text(userFacingError(error)),
         ),
       );
     }

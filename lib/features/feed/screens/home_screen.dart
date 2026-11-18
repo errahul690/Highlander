@@ -77,7 +77,7 @@ class HomeScreen extends StatelessWidget {
                   _Shortcut(
                     label: 'Alerts',
                     icon: Icons.campaign_outlined,
-                    onTap: () => _open(context, const AlertsScreen()),
+                    onTap: () => AlertsScreen.open(context),
                   ),
                 ],
               ),

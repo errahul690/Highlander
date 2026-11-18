@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 
 import 'package:Highlanders/shared/data/club_repository.dart';
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/session/session.dart';
 import 'package:Highlanders/features/posts/data/post_pager.dart';
 import 'package:Highlanders/features/posts/widgets/post_list_view.dart';
@@ -140,7 +141,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     } catch (error) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
     } finally {
       if (mounted) setState(() => _saving = false);

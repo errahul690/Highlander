@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 
 import 'package:Highlanders/features/auth/data/otp_api.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/posts/services/post_link_router.dart';
 import 'package:Highlanders/core/network/realtime_client.dart';
 import 'package:Highlanders/core/session/session.dart';
@@ -172,7 +173,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   void _message(Object error) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(userFacingError(error))),
       );
     }
   }

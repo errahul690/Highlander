@@ -325,12 +325,12 @@ class _MatchReportScreenState extends State<MatchReportScreen> {
                   left: BorderSide(color: Color(0xFFD91624), width: 3),
                 ),
               ),
-              child: Text(
-                summary,
+              child: StoryHtml(
+                html: summary,
                 style: const TextStyle(
                   fontSize: 14.5,
                   height: 1.55,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w400,
                   color: Color(0xFF2C3848),
                 ),
               ),

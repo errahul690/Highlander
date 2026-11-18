@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/network/realtime_client.dart';
 import 'package:Highlanders/core/session/session.dart';
 import 'package:Highlanders/features/posts/widgets/post_video.dart';
@@ -61,7 +62,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (error) {
       if (mounted) {
         setState(
-          () => _error = error.toString().replaceFirst('Exception: ', ''),
+          () => _error = userFacingError(error),
         );
       }
     }
@@ -83,7 +84,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (error) {
       if (mounted) {
         setState(
-          () => _error = error.toString().replaceFirst('Exception: ', ''),
+          () => _error = userFacingError(error),
         );
       }
     }
@@ -117,7 +118,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (error) {
       if (mounted) {
         setState(
-          () => _error = error.toString().replaceFirst('Exception: ', ''),
+          () => _error = userFacingError(error),
         );
       }
     } finally {
@@ -155,7 +156,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     } catch (error) {
       if (mounted) {
         setState(
-          () => _error = error.toString().replaceFirst('Exception: ', ''),
+          () => _error = userFacingError(error),
         );
       }
     } finally {
@@ -192,14 +193,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     Text(
                       title,
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       subtitle,
-                      style: const TextStyle(fontSize: 10, color: authMuted),
+                      style: const TextStyle(fontSize: 12, color: authMuted),
                     ),
                   ],
                 ),
@@ -214,6 +215,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   @override
   Widget build(BuildContext context) {
     final busy = _saving || _rewriting;
+    final bottomGap = MediaQuery.viewInsetsOf(context).bottom > 0
+        ? 8.0
+        : Theme.of(context).platform == TargetPlatform.iOS
+        ? 12.0
+        : 20.0;
     final name = Session.name.trim().isEmpty
         ? 'Highlander'
         : Session.name.trim();
@@ -297,14 +303,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                   textAlignVertical: TextAlignVertical.top,
                                   onChanged: (_) => setState(() {}),
                                   style: const TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 16,
                                     height: 1.5,
                                   ),
                                   decoration: const InputDecoration(
                                     hintText: 'What is on your mind?',
                                     hintStyle: TextStyle(
                                       color: authMuted,
-                                      fontSize: 14,
+                                      fontSize: 16,
                                     ),
                                     counterText: '',
                                     filled: false,
@@ -332,7 +338,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           color: authMuted,
-                                          fontSize: 10,
+                                          fontSize: 12,
                                         ),
                                       ),
                                     ),
@@ -344,7 +350,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                       ].join('/'),
                                       style: const TextStyle(
                                         color: authMuted,
-                                        fontSize: 10,
+                                        fontSize: 12,
                                       ),
                                     ),
                                   ],
@@ -425,7 +431,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               const Expanded(
                                 child: Text(
                                   'Selected video',
-                                  style: TextStyle(fontSize: 12),
+                                  style: TextStyle(fontSize: 14),
                                 ),
                               ),
                               IconButton(
@@ -448,7 +454,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
+                  padding: EdgeInsets.fromLTRB(22, 8, 22, bottomGap),
                   child: Column(
                     children: [
                       if (_error.isNotEmpty)
@@ -458,11 +464,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             _error,
                             style: const TextStyle(
                               color: authRed,
-                              fontSize: 12,
+                              fontSize: 14,
                             ),
                           ),
                         ),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Expanded(
                             child: OutlinedButton(
@@ -477,8 +484,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
+                                  vertical: 8,
                                 ),
-                                minimumSize: const Size(0, 46),
+                                minimumSize: const Size(0, 52),
                               ),
                               onPressed: busy || _body.text.trim().isEmpty
                                   ? null
@@ -488,7 +496,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                 children: [
                                   const Icon(
                                     Icons.auto_awesome_outlined,
-                                    size: 17,
+                                    size: 18,
                                   ),
                                   const SizedBox(width: 7),
                                   Flexible(
@@ -499,14 +507,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                       children: [
                                         Text(
                                           _rewriting ? 'Writing...' : 'Rewrite',
-                                          style: const TextStyle(fontSize: 12),
+                                          style: const TextStyle(fontSize: 14),
                                         ),
                                         const Text(
                                           'Football fan caption',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 10,
                                             color: authMuted,
                                           ),
                                         ),
@@ -529,8 +537,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
+                                  vertical: 8,
                                 ),
-                                minimumSize: const Size(0, 46),
+                                minimumSize: const Size(0, 52),
                               ),
                               onPressed:
                                   busy ||
@@ -542,14 +551,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.send_outlined, size: 16),
+                                  const Icon(Icons.send_outlined, size: 18),
                                   const SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
                                       _saving ? 'Posting...' : 'Submit Post',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 12),
+                                      style: const TextStyle(fontSize: 14),
                                     ),
                                   ),
                                 ],

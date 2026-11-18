@@ -2,20 +2,35 @@ import 'package:flutter/material.dart';
 
 /// Keeps the scroll viewport behind the transparent curve of the fixed header.
 class ClubHeaderLayout extends StatelessWidget {
-  const ClubHeaderLayout({super.key, required this.header, required this.body});
+  const ClubHeaderLayout({
+    super.key,
+    required this.header,
+    required this.body,
+    this.scrollBehindHeader = true,
+  });
 
   final PreferredSizeWidget header;
   final Widget body;
+  final bool scrollBehindHeader;
 
   @override
   Widget build(BuildContext context) => Stack(
     fit: StackFit.expand,
     children: [
-      _ClubHeaderScrollBody(
-        headerHeight:
-            MediaQuery.paddingOf(context).top + header.preferredSize.height,
-        body: body,
-      ),
+      if (scrollBehindHeader)
+        _ClubHeaderScrollBody(
+          headerHeight:
+              MediaQuery.paddingOf(context).top + header.preferredSize.height,
+          body: body,
+        )
+      else
+        Padding(
+          padding: EdgeInsets.only(
+            top:
+                MediaQuery.paddingOf(context).top + header.preferredSize.height,
+          ),
+          child: body,
+        ),
       Positioned(top: 0, left: 0, right: 0, child: header),
     ],
   );

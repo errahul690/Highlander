@@ -123,6 +123,9 @@ class FeedStartup {
   }
 
   static Future<void> prepareForDisplay(Future<void>? sessionReady) async {
+    // runApp now precedes environment loading so splash can paint immediately.
+    // Do not start public requests against an empty API base during that gap.
+    await sessionReady;
     final public = ready();
     final posts = () async {
       try {

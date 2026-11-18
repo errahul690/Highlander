@@ -6,6 +6,7 @@ import 'package:Highlanders/shared/widgets/club_header.dart';
 import 'package:flutter/material.dart';
 
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/core/session/session.dart';
 import 'package:Highlanders/features/community/widgets/invite_members_sheet.dart';
 import 'package:Highlanders/shared/widgets/user_avatar.dart';
@@ -48,7 +49,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         });
     } catch (error) {
       if (mounted)
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -107,7 +108,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
   void _showError(Object error) {
     if (mounted)
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(userFacingError(error))),
       );
   }
 

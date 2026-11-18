@@ -10,8 +10,8 @@ class FeedFocusRepository extends ChangeNotifier {
     : _client = client ?? http.Client();
   static FeedFocusRepository instance = FeedFocusRepository();
   final http.Client _client;
-  String title = 'Highlanders in Focus';
-  String subtitle = 'From our latest videos';
+  String title = 'NEUFC in Focus';
+  String subtitle = 'The latest moments, on & off the pitch.';
   int recentAfterPosts = 2;
   int focusAfterPosts = 2;
   int _version = 0;
@@ -35,8 +35,17 @@ class FeedFocusRepository extends ChangeNotifier {
       }
       final nextTitle = data['feed_focus_title'];
       final nextSubtitle = data['feed_focus_subtitle'];
-      if (nextTitle is String && nextTitle.trim().isNotEmpty) title = nextTitle;
-      if (nextSubtitle is String) subtitle = nextSubtitle;
+      if (nextTitle is String && nextTitle.trim().isNotEmpty) {
+        title = nextTitle.replaceAll(
+          RegExp(r'Highlanders?', caseSensitive: false),
+          'NEUFC',
+        );
+      }
+      if (nextSubtitle is String) {
+        subtitle = nextSubtitle == 'From our latest videos'
+            ? 'The latest moments, on & off the pitch.'
+            : nextSubtitle;
+      }
       recentAfterPosts = _count(
         data['recent_results_after_posts'],
         data['feed_sections_after_posts'],

@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/chat/data/chat_media_cache.dart';
 import 'package:Highlanders/features/chat/widgets/chat_media_image.dart';
 import 'package:Highlanders/features/chat/widgets/chat_file_attachment.dart';
@@ -383,7 +384,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (mounted && version == _loadVersion) {
         setState(() {
           _loading = false;
-          _loadError = '$error'.replaceFirst('Exception: ', '');
+          _loadError = userFacingError(error);
         });
       }
     }
@@ -408,7 +409,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         });
     } catch (error) {
       if (mounted)
-        setState(() => _loadError = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _loadError = userFacingError(error));
     }
   }
 
@@ -449,7 +450,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
       }
     } finally {
@@ -522,7 +523,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (error) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
     } finally {
       if (mounted) setState(() => _careBusy = false);
@@ -582,7 +583,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
       }
     } finally {
@@ -598,7 +599,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
       }
     } finally {
@@ -631,7 +632,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
       }
     }
@@ -648,7 +649,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(userFacingError(error))),
         );
       }
     }

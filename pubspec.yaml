@@ -42,6 +42,7 @@ dependencies:
   socket_io_client: ^3.1.6
   webview_flutter: ^4.14.1
   webview_flutter_android: ^4.14.1
+  webview_flutter_wkwebview: ^3.27.2
   url_launcher: ^6.3.2
   path_provider: ^2.1.5
   flutter_local_notifications: ^22.3.3
@@ -51,6 +52,12 @@ dependencies:
 
 dependency_overrides:
   path_provider_android: 2.2.15
+  video_player:
+    path: third_party/video_player
+  video_player_android:
+    path: third_party/video_player_android
+  video_player_avfoundation:
+    path: third_party/video_player_avfoundation
 
 dev_dependencies:
   video_player_platform_interface: ^6.9.0
@@ -103,6 +110,7 @@ flutter:
     - assets/images/header-background.png
     - assets/images/header-edge.png
     - assets/images/feed-background.png
+    - assets/images/welcome-background.jpg
     - assets/icons/circles.png
     - assets/icons/chats.png
     - assets/icons/groups.png
@@ -111,7 +119,15 @@ flutter:
     - assets/icons/nav-profile.png
     - assets/icons/nav-explore.svg
     - assets/icons/ground-location.png
-    - assets/splash/default.html
+    - assets/sponsors/
+    - assets/splash/stadium_0.png
+    - assets/splash/stadium_1.png
+    - assets/splash/stadium_2.png
+    - assets/splash/stadium_3.png
+    - assets/splash/stadium_4.png
+    - assets/splash/splash_original.mp4
+    - assets/swoofi/pet_portrait.png
+    - assets/swoofi/puppy_portrait.png
 
   fonts:
     - family: Gilroy

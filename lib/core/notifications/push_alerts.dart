@@ -4,10 +4,13 @@ import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:Highlanders/core/notifications/notification_router.dart';
+import 'package:Highlanders/core/notifications/push_registration_retry.dart';
 import 'package:Highlanders/features/auth/data/otp_api.dart';
 import 'package:Highlanders/core/session/session.dart';
 
@@ -30,6 +33,34 @@ class PushAlerts {
   static String _deviceToken = '';
   static String _registeredSession = '';
   static Future<void> _registration = Future<void>.value();
+  static final _retry = PushRegistrationRetry();
+  static String _retrySession = '';
+
+  static void _log(String stage, String code) {
+    // Never log device tokens, auth tokens, message bodies or SDK error text.
+    debugPrint(
+      '[push] platform=${Platform.operatingSystem} stage=$stage code=$code',
+    );
+  }
+
+  static String _errorCode(Object error) => error is FirebaseException
+      ? error.code
+      : error is PlatformException
+      ? error.code
+      : error.runtimeType.toString();
+
+  static void _scheduleRetry(String session, int generation) {
+    _retry.schedule(
+      isCurrent: () =>
+          _enabled &&
+          !_stopping &&
+          !ready &&
+          generation == _generation &&
+          Session.token == session &&
+          session.isNotEmpty,
+      retry: () => unawaited(start()),
+    );
+  }
 
   static void listenForBackgroundMessages() {
     if ((!Platform.isAndroid && !Platform.isIOS) ||
@@ -49,8 +80,16 @@ class PushAlerts {
     }
     _starting = true;
     _enabled = true;
+    if (_retrySession != Session.token) {
+      _retry.cancel();
+      _retrySession = Session.token;
+    } else {
+      _retry.cancel(reset: false);
+    }
     final generation = _generation;
     final session = Session.token;
+    var retryable = true;
+    var stage = 'firebase_init';
     try {
       await Firebase.initializeApp();
       if (!_enabled || generation != _generation || Session.token != session) {
@@ -58,7 +97,15 @@ class PushAlerts {
       }
       final messaging = FirebaseMessaging.instance;
       await messaging.setAutoInitEnabled(true);
-      await messaging.requestPermission();
+      stage = 'notification_permission';
+      final permission = await messaging.requestPermission();
+      _log(stage, permission.authorizationStatus.name);
+      if (Platform.isIOS &&
+          permission.authorizationStatus == AuthorizationStatus.denied) {
+        ready = false;
+        retryable = false;
+        return;
+      }
       await messaging.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
@@ -81,37 +128,64 @@ class PushAlerts {
         FirebaseMessaging.onMessage.listen(_foregroundMessage);
         // The server currently addresses registration tokens through multicast.
         // ignore: deprecated_member_use
-        messaging.onTokenRefresh.listen(_register);
+        messaging.onTokenRefresh.listen(
+          (token) => unawaited(_register(token)),
+          onError: (Object error) {
+            ready = false;
+            _log('token_refresh', _errorCode(error));
+            _scheduleRetry(Session.token, _generation);
+          },
+        );
         _listenersAttached = true;
         final initial = await messaging.getInitialMessage();
         if (initial != null) _open(initial);
       }
       if (Platform.isIOS) {
-        for (var attempt = 0; attempt < 10; attempt++) {
-          if (await messaging.getAPNSToken() != null) break;
-          await Future<void>.delayed(const Duration(milliseconds: 300));
+        stage = 'apns_registration';
+        final available = await waitForApnsToken(
+          readToken: messaging.getAPNSToken,
+          isCurrent: () =>
+              _enabled && generation == _generation && Session.token == session,
+        );
+        if (!available) {
+          _log(stage, 'apns_token_pending');
+          return;
         }
-        if (await messaging.getAPNSToken() == null) return;
+        _log(stage, 'apns_token_received');
       }
+      stage = 'fcm_registration';
       // Keep registration tokens compatible with the server's multicast API.
       // ignore: deprecated_member_use
       final token = await messaging.getToken();
       if (!_enabled || generation != _generation || Session.token != session) {
         return;
       }
-      if (token != null) await _register(token);
-      if (_enabled && generation == _generation && Session.token == session) {
-        ready = token != null && _registeredSession == session;
+      if (token != null && token.isNotEmpty) {
+        await _register(token);
+      } else {
+        _log(stage, 'fcm_token_missing');
       }
-    } catch (_) {
+      if (_enabled && generation == _generation && Session.token == session) {
+        ready =
+            token != null && token.isNotEmpty && _registeredSession == session;
+      }
+    } catch (error) {
       ready = false;
+      _log(stage, _errorCode(error));
     } finally {
       _starting = false;
+      if (ready) {
+        _retry.cancel();
+      } else if (retryable) {
+        _scheduleRetry(session, generation);
+      }
     }
   }
 
   static Future<void> stop({String? sessionToken}) async {
     _enabled = false;
+    _retry.cancel();
+    _retrySession = '';
     _generation++;
     ready = false;
     final auth = sessionToken ?? Session.token;
@@ -204,6 +278,8 @@ class PushAlerts {
       return;
     }
     _deviceToken = token;
+    _registeredSession = '';
+    ready = false;
     try {
       final response = await http
           .post(
@@ -220,7 +296,16 @@ class PushAlerts {
           generation == _generation &&
           session == Session.token) {
         _registeredSession = session;
+        ready = true;
+        _retry.cancel();
+        _log('backend_registration', 'registered');
+      } else {
+        _log('backend_registration', 'http_${response.statusCode}');
+        _scheduleRetry(session, generation);
       }
-    } catch (_) {}
+    } catch (error) {
+      _log('backend_registration', _errorCode(error));
+      _scheduleRetry(session, generation);
+    }
   }
 }

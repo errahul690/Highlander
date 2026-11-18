@@ -219,7 +219,10 @@ class _AppFeedPollState extends State<AppFeedPoll> with WidgetsBindingObserver {
                     setState(() => _heights[page.id] = size.height);
                   }
                 },
-                child: _pollContent(page),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _pollContent(page),
+                ),
               ),
             );
           },

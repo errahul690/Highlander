@@ -1,33 +1,43 @@
 import 'dart:async';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:video_player/video_player.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
-import 'package:Highlanders/features/feed/services/feed_startup.dart';
-import 'package:Highlanders/features/auth/data/otp_api.dart';
-import 'package:Highlanders/features/splash/data/bundled_splash.dart';
+import 'package:Highlanders/shared/widgets/startup_loader.dart';
+import 'package:Highlanders/core/startup/startup_visibility.dart';
 
-const _nativeSplash = MethodChannel('highlanders/splash');
+import '../data/splash_video.dart';
+import '../data/stadium_splash_config.dart';
+import '../data/stadium_splash_coordinator.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({
     super.key,
     this.nextScreen,
     this.resolveNext,
-    this.client,
     this.sessionReady,
+    this.retryBootstrap,
+    this.releaseNativeLaunch,
+    this.video,
+    this.config = const StadiumSplashConfig(),
+    // Retained for callers using the existing startup widget. The shipped
+    // stadium sequence owns media selection, independent of admin settings.
+    this.client,
     this.initialSplash,
     this.feedReady,
   }) : assert(nextScreen != null || resolveNext != null);
 
   final Widget? nextScreen;
   final Widget Function()? resolveNext;
-  final http.Client? client;
   final Future<void>? sessionReady;
+  final Future<void> Function()? retryBootstrap;
+  final VoidCallback? releaseNativeLaunch;
+  final SplashVideo? video;
+  final StadiumSplashConfig config;
+  final http.Client? client;
   final Map<String, dynamic>? initialSplash;
   final Future<void>? feedReady;
 
@@ -35,444 +45,301 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
-  Map<String, dynamic>? _splash;
-  bool _proceeded = false;
-  final _elapsed = Stopwatch();
-  Timer? _timer;
-  Timer? _nativeReadyTimeout;
-  Completer<Map<String, dynamic>?>? _nativePlayback;
-  bool _mediaReady = false;
-  bool _nativeChecked = false;
-  bool _timerArmed = false;
-
-  WebViewController? _webController;
-  VideoPlayerController? _videoController;
-  late final Future<void> _feedReady;
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  late final StadiumSplashCoordinator _coordinator;
+  late final Ticker _ticker;
+  final _destinationVisible = ValueNotifier(false);
+  final _providers = [
+    for (final path in StadiumSplashConfig.images) AssetImage(path),
+  ];
+  Duration _lastTick = Duration.zero;
+  bool _loading = false;
+  bool _firstReady = false;
+  bool _handoffScheduled = false;
+  bool _destinationScheduled = false;
+  bool _showDestination = false;
+  bool _welcomeReady = false;
+  bool _launchReleased = false;
+  bool _nativeHandoffStarted = false;
+  Widget? _destination;
 
   @override
   void initState() {
     super.initState();
-    _elapsed.start();
-    _startTimer(5000);
-    _feedReady =
-        widget.feedReady ??
-        (widget.client == null
-            ? FeedStartup.prepareForDisplay(widget.sessionReady)
-            : Future<void>.value());
-    unawaited(_feedReady.catchError((Object _) {}));
-    _nativeSplash.setMethodCallHandler((call) async {
-      if (call.method == 'skip') _proceed();
+    WidgetsBinding.instance.addObserver(this);
+    _coordinator = StadiumSplashCoordinator(
+      video: widget.video ?? AssetSplashVideo(),
+      bootstrap: widget.sessionReady ?? Future<void>.value(),
+      retryBootstrap: widget.retryBootstrap,
+      config: widget.config,
+      waitForNativeHandoff: true,
+    );
+    _coordinator.addListener(_changed);
+    _ticker = createTicker((elapsed) {
+      final delta = elapsed - _lastTick;
+      _lastTick = elapsed;
+      _coordinator.advance(delta);
     });
-
-    final initial = widget.initialSplash;
-    if (initial != null && initial['enabled'] != false) {
-      _installSplash(initial);
-      _armTimer(initial);
-    } else if (initial != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _proceed());
-    } else {
-      unawaited(_showBundledSplash());
-    }
+    _coordinator.start();
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _coordinator.setActive(
+      lifecycle == null || lifecycle == AppLifecycleState.resumed,
+    );
+    if (_coordinator.active) _ticker.start();
   }
 
-  bool _warmingAssets = false;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_warmingAssets && widget.client == null) {
-      _warmingAssets = true;
-      unawaited(
-        FeedStartup.warmBundledImages(context).catchError((Object _) {}),
-      );
-    }
+    if (_loading) return;
+    _loading = true;
+    unawaited(_prepareImages());
   }
 
-  Future<void> _showBundledSplash() async {
+  Future<bool> _cache(ImageProvider provider) async {
+    var succeeded = true;
+    await precacheImage(
+      provider,
+      context,
+      onError: (error, stack) {
+        succeeded = false;
+        _coordinator.imagesFailed(error);
+      },
+    );
+    return succeeded;
+  }
+
+  Future<void> _prepareImages() async {
     try {
-      final data = await loadBundledSplash();
-      if (!mounted || _proceeded || _splash != null) return;
-      _applySplash(data);
-    } catch (_) {
-      await _proceed();
-    }
-  }
-
-  void _installSplash(Map<String, dynamic> data) {
-    _splash = data;
-    _mediaReady = false;
-    _timerArmed = false;
-    final type = '${data['type'] ?? 'gif'}'.toLowerCase();
-    final url = '${data['url'] ?? ''}'.trim();
-    final htmlContent = '${data['html_content'] ?? ''}'.trim();
-    final localPath = '${data['_local_media_path'] ?? ''}';
-    final localHtmlPath = '${data['_local_html_path'] ?? ''}';
-
-    if (type == 'html' &&
-        (htmlContent.isNotEmpty || localHtmlPath.isNotEmpty)) {
-      _initHtml(htmlContent, localHtmlPath);
-    } else if (type == 'video' && url.isNotEmpty) {
-      _initVideo(url, localPath);
-    } else if (type == 'lottie' && url.isNotEmpty) {
-      _initLottie(url);
-    }
-  }
-
-  int get _playbackMilliseconds => 5000;
-
-  Future<void> _armTimer(Map<String, dynamic> data) async {
-    _nativeChecked = false;
-    _timer?.cancel();
-    // A broken WebView/image must not strand the app on splash forever.
-    _startTimer(5000);
-    Map<String, dynamic>? native;
-    if ('${data['type']}'.toLowerCase() == 'html') {
-      final playback = Completer<Map<String, dynamic>?>();
-      _nativePlayback = playback;
-      _nativeReadyTimeout = Timer(const Duration(seconds: 12), () {
-        if (!playback.isCompleted) playback.complete(null);
+      final first = await _cache(_providers.first);
+      if (!mounted || !first || _coordinator.introFinished) return;
+      setState(() => _firstReady = true);
+      _releaseLaunch();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _coordinator.markFirstStillPainted();
+        unawaited(_releaseNativeCover());
       });
-      unawaited(
-        _nativeSplash
-            .invokeMapMethod<String, dynamic>('waitUntilReady')
-            .then(
-              (value) {
-                if (!playback.isCompleted) playback.complete(value);
-              },
-              onError: (Object _) {
-                if (!playback.isCompleted) playback.complete(null);
-              },
-            ),
-      );
-      native = await playback.future;
-      _nativeReadyTimeout?.cancel();
-    }
-    if (!mounted || _proceeded) return;
-    _nativeChecked = true;
-    if (native?['active'] == true) {
-      _timerArmed = true;
-      final elapsed = (native?['elapsedMs'] as num?)?.toInt() ?? 0;
-      final minimum = (native?['minimumDurationMs'] as num?)?.toInt() ?? 0;
-      final duration = minimum > _playbackMilliseconds
-          ? minimum
-          : _playbackMilliseconds;
-      _startTimer(duration - elapsed);
-    } else if (_mediaReady) {
-      _onMediaReady();
-    }
-  }
-
-  void _onMediaReady() {
-    if (!mounted || _proceeded) return;
-    _mediaReady = true;
-    if (!_nativeChecked || _timerArmed) return;
-    _timerArmed = true;
-    _startTimer(_playbackMilliseconds);
-  }
-
-  void _applySplash(Map<String, dynamic> data, {bool restartTimer = true}) {
-    if (data['enabled'] == false) {
-      _proceed();
-      return;
-    }
-    _installSplash(data);
-    setState(() {});
-    if (restartTimer || _timer == null) _armTimer(data);
-  }
-
-  void _initHtml(String html, [String localFilePath = '']) {
-    try {
-      var content = html;
-      if (content.isEmpty &&
-          localFilePath.isNotEmpty &&
-          File(localFilePath).existsSync()) {
-        try {
-          content = File(localFilePath).readAsStringSync();
-        } catch (_) {}
+      final results = await Future.wait([
+        for (final provider in _providers.skip(1)) _cache(provider),
+      ]);
+      if (!mounted || results.contains(false) || _coordinator.introFinished) {
+        return;
       }
-
-      if (content.isEmpty) return;
-
-      final controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setBackgroundColor(Colors.transparent)
-        ..setNavigationDelegate(
-          NavigationDelegate(
-            onPageFinished: (_) {
-              _onMediaReady();
-            },
-            onWebResourceError: (err) {
-              debugPrint('WebView resource error: ${err.description}');
-            },
-          ),
-        )
-        ..loadHtmlString(content);
-
-      _webController = controller;
-      if (mounted) setState(() {});
-    } catch (e) {
-      debugPrint('Failed to initialize WebView: $e');
-      _onMediaReady();
+      _coordinator.markImagesReady();
+    } catch (error) {
+      if (mounted) _coordinator.imagesFailed(error);
     }
   }
 
-  void _initLottie(String lottieUrl) {
-    final fullUrl = lottieUrl.startsWith('/')
-        ? '${OtpApi.apiBase}$lottieUrl'
-        : lottieUrl;
-    try {
-      final controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setBackgroundColor(Colors.transparent)
-        ..addJavaScriptChannel(
-          'SplashPlayback',
-          onMessageReceived: (_) => _onMediaReady(),
-        )
-        ..loadHtmlString('''
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
-    <style>
-      body { margin:0; padding:0; display:flex; justify-content:center; align-items:center; height:100vh; background:transparent; overflow:hidden; }
-      lottie-player { width: 100%; height: 100%; }
-    </style>
-  </head>
-  <body>
-    <lottie-player id="animation" src="$fullUrl" background="transparent" speed="1" loop autoplay></lottie-player>
-    <script>
-      const player = document.getElementById('animation');
-      player.addEventListener('ready', () => SplashPlayback.postMessage('ready'), {once: true});
-    </script>
-  </body>
-</html>
-''');
-      _webController = controller;
-      if (mounted) setState(() {});
-    } catch (_) {
-      _onMediaReady();
+  void _changed() {
+    if (!mounted) return;
+    setState(() {});
+    if (_coordinator.introFinished) {
+      _releaseLaunch();
+      unawaited(_releaseNativeCover());
+    }
+    if (_coordinator.phase == StadiumSplashPhase.revealing &&
+        !_handoffScheduled) {
+      _handoffScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handoffScheduled = false;
+        if (mounted) _coordinator.visibleVideoPainted();
+      });
+    }
+    if (_coordinator.canShowDestination && !_destinationScheduled) {
+      _destinationScheduled = true;
+      // Mount the existing destination under the retained splash for one frame.
+      // AppShell receives pending links only after intro and bootstrap finish.
+      _destination ??= widget.resolveNext?.call() ?? widget.nextScreen!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (!_coordinator.claimDestination()) {
+          _destinationScheduled = false;
+          return;
+        }
+        setState(() => _showDestination = true);
+        _ticker.stop();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_finishHandoff());
+        });
+      });
     }
   }
 
-  void _initVideo(String videoUrl, String localPath) {
-    final fullUrl = videoUrl.startsWith('/')
-        ? '${OtpApi.apiBase}$videoUrl'
-        : videoUrl;
-    try {
-      _videoController?.dispose();
-      _videoController =
-          localPath.isNotEmpty && File(localPath).existsSync()
-                ? VideoPlayerController.file(File(localPath))
-                : VideoPlayerController.networkUrl(Uri.parse(fullUrl))
-            ..initialize().then((_) {
-              if (mounted) {
-                _videoController?.play();
-                _videoController?.setLooping(false);
-                _onMediaReady();
-                setState(() {});
-              }
-            });
-    } catch (_) {}
+  Future<void> _finishHandoff() async {
+    // Keep the popup at zero while the native texture is torn down and the
+    // newly mounted feed finishes its first layout and paint.
+    await _coordinator.releaseVideo();
+    if (!mounted) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    _welcomeReady = true;
+    if (widget.config.diagnostics) {
+      debugPrint('[stadium-splash] destination_ready_after_video_cleanup');
+    }
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _destinationVisible.value =
+        lifecycle == null || lifecycle == AppLifecycleState.resumed;
   }
 
-  void _startTimer(int milliseconds) {
-    _timer?.cancel();
-    milliseconds = milliseconds.clamp(
-      0,
-      (5000 - _elapsed.elapsedMilliseconds).clamp(0, 5000),
-    );
-    if (milliseconds <= 0) {
-      unawaited(_proceed());
+  void _releaseLaunch() {
+    if (_launchReleased) return;
+    _launchReleased = true;
+    widget.releaseNativeLaunch?.call();
+  }
+
+  Future<void> _releaseNativeCover() async {
+    if (_nativeHandoffStarted || !mounted) return;
+    _nativeHandoffStarted = true;
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        await const MethodChannel('highlanders/splash').invokeMethod<void>(
+          'releaseLaunchImage',
+          {'durationMs': widget.config.nativeHandoffDuration.inMilliseconds},
+        );
+      }
+    } on MissingPluginException {
+      // Other hosts can paint the Flutter still without a native image overlay.
+    } on PlatformException catch (error) {
+      debugPrint('[stadium-splash] native_handoff_failed ${error.code}');
+    }
+    if (mounted) _coordinator.markNativeHandoffReady();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_showDestination) {
+      _destinationVisible.value =
+          _welcomeReady && state == AppLifecycleState.resumed;
       return;
     }
-    _timer = Timer(Duration(milliseconds: milliseconds), () {
-      unawaited(_proceed());
-    });
-  }
-
-  Future<void> _proceed() async {
-    if (_proceeded || !mounted) return;
-    _proceeded = true;
-    _timer?.cancel();
-    _cancelNativeWait();
-    _videoController?.pause();
-    final ready = widget.sessionReady;
-    if (ready != null) {
-      try {
-        await ready;
-      } catch (_) {}
+    final active = state == AppLifecycleState.resumed;
+    _coordinator.setActive(active);
+    if (active && !_ticker.isActive) {
+      _lastTick = Duration.zero;
+      _ticker.start();
+    } else if (!active && _ticker.isActive) {
+      _ticker.stop();
     }
-    if (!mounted) return;
-    final next = widget.resolveNext?.call() ?? widget.nextScreen!;
-
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (_, _, _) => next,
-        transitionsBuilder: (_, animation, _, child) =>
-            FadeTransition(opacity: animation, child: child),
-        transitionDuration: const Duration(milliseconds: 350),
-      ),
-    );
-    Future<void>.delayed(const Duration(milliseconds: 360), () async {
-      try {
-        await _nativeSplash.invokeMethod<void>('hide');
-      } catch (_) {}
-    });
   }
 
-  Color _parseBgColor(String? hex) {
-    const page = Color(0xFFFFFFFF);
-    if (hex == null || hex.isEmpty) return page;
-    var clean = hex.replaceAll('#', '').trim();
-    if (clean.length == 6) clean = 'FF$clean';
-    final val = int.tryParse(clean, radix: 16);
-    if (val == null) return page;
-    final color = Color(val);
-    // Older settings should not flash maroon before the bundled logo appears.
-    if (color.toARGB32() == 0xFF8E1B13) return page;
-    return color;
+  Widget _image(int index) => Image(
+    image: _providers[index],
+    width: StadiumSplashConfig.sourceSize.width,
+    height: StadiumSplashConfig.sourceSize.height,
+    fit: BoxFit.cover,
+    gaplessPlayback: true,
+    excludeFromSemantics: true,
+    errorBuilder: (_, error, stack) =>
+        const ColoredBox(color: StadiumSplashConfig.background),
+  );
+
+  Widget _media() => ClipRect(
+    child: SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        child: SizedBox.fromSize(
+          size: StadiumSplashConfig.sourceSize,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // A real mounted texture, painted at full opacity behind stills.
+              if (_coordinator.videoPrepared) _coordinator.video.buildSurface(),
+              if (_firstReady && !_coordinator.showVideo) ...[
+                _image(_coordinator.stage == 0 ? 0 : _coordinator.stage - 1),
+                if (_coordinator.stage > 0)
+                  Opacity(
+                    opacity: _coordinator.stillOpacity,
+                    child: _image(_coordinator.stage),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (_destination != null &&
+            (_showDestination || _coordinator.canShowDestination))
+          Positioned.fill(
+            key: const ValueKey('startup-destination'),
+            child: StartupVisibility(
+              visible: _destinationVisible,
+              child: _destination!,
+            ),
+          ),
+        if (!_showDestination)
+          Positioned.fill(
+            key: const ValueKey('startup-splash'),
+            child: AnnotatedRegion<SystemUiOverlayStyle>(
+              value: const SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.light,
+                statusBarBrightness: Brightness.dark,
+                systemNavigationBarColor: Colors.black,
+                systemNavigationBarIconBrightness: Brightness.light,
+                systemStatusBarContrastEnforced: false,
+                systemNavigationBarContrastEnforced: false,
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: StadiumSplashConfig.background,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _media(),
+                          if (_coordinator.introFinished &&
+                              !_coordinator.bootstrapReady)
+                            Material(
+                              color: const Color(0x99160B09),
+                              child: Center(
+                                child: _coordinator.bootstrapError != null
+                                    ? IconButton(
+                                        key: const ValueKey(
+                                          'splash-bootstrap-retry',
+                                        ),
+                                        tooltip: 'Retry loading app',
+                                        color: Colors.white,
+                                        onPressed: widget.retryBootstrap == null
+                                            ? null
+                                            : _coordinator.retry,
+                                        icon: const Icon(Icons.refresh_rounded),
+                                      )
+                                    : const StartupLoader(),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _cancelNativeWait();
-    _videoController?.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _ticker.dispose();
+    _coordinator.removeListener(_changed);
+    _coordinator.dispose();
+    _destinationVisible.dispose();
+    _releaseLaunch();
     super.dispose();
-  }
-
-  void _cancelNativeWait() {
-    _nativeReadyTimeout?.cancel();
-    final playback = _nativePlayback;
-    if (playback != null && !playback.isCompleted) playback.complete(null);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bgColor = _parseBgColor(_splash?['bg_color'] as String?);
-    final allowSkip = _splash?['allow_skip'] == true;
-    final type = '${_splash?['type'] ?? 'gif'}'.toLowerCase();
-    final url = '${_splash?['url'] ?? ''}'.trim();
-    final fullUrl = url.startsWith('/') ? '${OtpApi.apiBase}$url' : url;
-    final localPath = '${_splash?['_local_media_path'] ?? ''}';
-
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Splash Media Content (Full-bleed for HTML/Lottie, centered for image/video)
-          Positioned.fill(child: _buildMediaContent(type, fullUrl, localPath)),
-
-          // Allow Tap Anywhere or Skip Button
-          if (allowSkip)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: MediaQuery.paddingOf(context).bottom + 28,
-              child: SafeArea(
-                child: Center(
-                  child: GestureDetector(
-                    onTap: _proceed,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 28,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xE616181D),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.4),
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x59000000),
-                            blurRadius: 16,
-                            offset: Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: const Text(
-                        'SKIP',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.8,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMediaContent(String type, String fullUrl, String localPath) {
-    if (_splash == null) return const SizedBox.expand();
-
-    // 1. Custom HTML or Lottie (via WebView)
-    if (type == 'html' || type == 'lottie') {
-      if (_webController == null) return const SizedBox.expand();
-      return SizedBox(
-        width: double.infinity,
-        height: double.infinity,
-        child: WebViewWidget(controller: _webController!),
-      );
-    }
-
-    // 2. Video Player
-    if (type == 'video') {
-      if (_videoController != null && _videoController!.value.isInitialized) {
-        return AspectRatio(
-          aspectRatio: _videoController!.value.aspectRatio,
-          child: VideoPlayer(_videoController!),
-        );
-      }
-      return const SizedBox.expand();
-    }
-
-    // 3. Animated GIF or Static Image
-    if (localPath.isNotEmpty && File(localPath).existsSync()) {
-      return Image.file(
-        File(localPath),
-        fit: BoxFit.contain,
-        frameBuilder: _imageFrame,
-        errorBuilder: (_, _, _) => _failedImage(),
-      );
-    }
-    if (fullUrl.isNotEmpty) {
-      return Image.network(
-        fullUrl,
-        fit: BoxFit.contain,
-        frameBuilder: _imageFrame,
-        errorBuilder: (_, _, _) => _failedImage(),
-      );
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onMediaReady());
-    return const SizedBox.expand();
-  }
-
-  Widget _imageFrame(
-    BuildContext context,
-    Widget child,
-    int? frame,
-    bool synchronous,
-  ) {
-    if (frame != null || synchronous) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _onMediaReady());
-    }
-    return child;
-  }
-
-  Widget _failedImage() {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onMediaReady());
-    return const SizedBox.expand();
   }
 }

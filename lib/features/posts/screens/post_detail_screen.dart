@@ -8,6 +8,7 @@ import 'package:Highlanders/shared/widgets/user_avatar.dart';
 
 import 'package:Highlanders/shared/data/club_repository.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
+import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/posts/screens/post_activity_screen.dart';
 import 'package:Highlanders/core/session/session.dart';
 import 'package:Highlanders/core/theme/theme.dart';
@@ -72,7 +73,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void _showError(Object error) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(userFacingError(error))),
       );
     }
   }
@@ -95,7 +96,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       }
     } catch (error) {
       if (mounted && version == _loadVersion) {
-        setState(() => _error = '$error'.replaceFirst('Exception: ', ''));
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted && version == _loadVersion) {
