@@ -275,8 +275,9 @@ class _FeedWelcomeState extends State<FeedWelcome>
               : card.center +
                     (point - card.center) * scale +
                     Offset(0, entranceOffset);
-          final photoEnd = Offset(18, 23);
-          final textEnd = Offset(48, 0);
+          final textEnd = Offset(54, -6);
+          // Center the avatar on the same 46px block as greeting + name.
+          final photoEnd = Offset(21, textEnd.dy + 46 / 2);
           final photoStart = ready
               ? enter(photo.center) - target.topLeft
               : photoEnd;
@@ -306,13 +307,13 @@ class _FeedWelcomeState extends State<FeedWelcome>
                 )
               : textEnd;
           final photoSize = ready
-              ? lerpDouble(photo.width, 36, progress)!
-              : 36.0;
+              ? lerpDouble(photo.width, 42, progress)!
+              : 42.0;
           final identityScale = lerpDouble(scale, 1, progress)!;
           final textWidth = ready
               ? lerpDouble(
                   source.width,
-                  (target.width - 48).clamp(1, double.infinity),
+                  (target.width - 54).clamp(1, double.infinity),
                   progress,
                 )!
               : 140.0;

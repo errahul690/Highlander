@@ -86,6 +86,7 @@ class ClubScaffold extends StatelessWidget {
     this.floatingActionButton,
     this.resizeToAvoidBottomInset,
     this.scrollController,
+    this.scrollBehindHeader = true,
   });
 
   final PreferredSizeWidget? appBar;
@@ -95,17 +96,18 @@ class ClubScaffold extends StatelessWidget {
   final Widget? floatingActionButton;
   final bool? resizeToAvoidBottomInset;
   final ScrollController? scrollController;
+  final bool scrollBehindHeader;
 
   @override
   Widget build(BuildContext context) {
     final scaffold = Scaffold(
       appBar: appBar,
-      extendBodyBehindAppBar: appBar != null,
+      extendBodyBehindAppBar: appBar != null && scrollBehindHeader,
       backgroundColor: backgroundColor,
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       bottomNavigationBar: bottomNavigationBar,
       floatingActionButton: floatingActionButton,
-      body: appBar == null
+      body: appBar == null || !scrollBehindHeader
           ? body
           : _ClubHeaderScrollBody(
               headerHeight:

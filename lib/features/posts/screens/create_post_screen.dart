@@ -61,9 +61,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = userFacingError(error),
-        );
+        setState(() => _error = userFacingError(error));
       }
     }
   }
@@ -83,9 +81,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = userFacingError(error),
-        );
+        setState(() => _error = userFacingError(error));
       }
     }
   }
@@ -117,9 +113,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       });
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = userFacingError(error),
-        );
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted) setState(() => _rewriting = false);
@@ -155,9 +149,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       Navigator.of(context).pop();
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = userFacingError(error),
-        );
+        setState(() => _error = userFacingError(error));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -228,6 +220,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         statusBarColor: Colors.transparent,
       ),
       child: ClubScaffold(
+        scrollBehindHeader: false,
         backgroundColor: Colors.white,
         appBar: ClubHeader(
           title: 'Create Post',
@@ -244,213 +237,232 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             child: Column(
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(22, 16, 22, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxHeight < 420;
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 16, 22, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: const Color(0xFFF3DED1),
-                                  width: 3,
-                                ),
-                              ),
-                              child: const UserAvatar(
-                                currentUser: true,
-                                radius: 19,
-                                backgroundColor: Color(0xFF8C238E),
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Text(
-                                name,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        Container(
-                          height: 172,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(
-                              color: const Color(0xFFD9DEE8),
-                              width: 1.2,
-                            ),
-                            borderRadius: BorderRadius.circular(19),
-                          ),
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  key: const ValueKey('post-body'),
-                                  controller: _body,
-                                  enabled: !busy,
-                                  maxLength: 500,
-                                  maxLines: null,
-                                  expands: true,
-                                  textAlignVertical: TextAlignVertical.top,
-                                  onChanged: (_) => setState(() {}),
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    height: 1.5,
-                                  ),
-                                  decoration: const InputDecoration(
-                                    hintText: 'What is on your mind?',
-                                    hintStyle: TextStyle(
-                                      color: authMuted,
-                                      fontSize: 16,
+                            if (!compact)
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFF3DED1),
+                                        width: 3,
+                                      ),
                                     ),
-                                    counterText: '',
-                                    filled: false,
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    disabledBorder: InputBorder.none,
-                                    contentPadding: EdgeInsets.all(16),
+                                    child: const UserAvatar(
+                                      currentUser: true,
+                                      radius: 19,
+                                      backgroundColor: Color(0xFF8C238E),
+                                      foregroundColor: Colors.white,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  16,
-                                  12,
+                            if (!compact) const SizedBox(height: 18),
+                            Flexible(
+                              child: Container(
+                                key: const ValueKey('post-editor-box'),
+                                height: 172,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(
+                                    color: const Color(0xFFD9DEE8),
+                                    width: 1.2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(19),
                                 ),
-                                child: Row(
+                                child: Column(
                                   children: [
-                                    const Expanded(
-                                      child: Text(
-                                        'Share a moment. Let the Highland roar.',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: authMuted,
-                                          fontSize: 12,
+                                    Expanded(
+                                      child: TextField(
+                                        key: const ValueKey('post-body'),
+                                        controller: _body,
+                                        enabled: !busy,
+                                        maxLength: 500,
+                                        maxLines: null,
+                                        expands: true,
+                                        textAlignVertical:
+                                            TextAlignVertical.top,
+                                        onChanged: (_) => setState(() {}),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          height: 1.5,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          hintText: 'What is on your mind?',
+                                          hintStyle: TextStyle(
+                                            color: authMuted,
+                                            fontSize: 16,
+                                          ),
+                                          counterText: '',
+                                          filled: false,
+                                          border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                          disabledBorder: InputBorder.none,
+                                          contentPadding: EdgeInsets.all(16),
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      [
-                                        _body.text.characters.length,
-                                        500,
-                                      ].join('/'),
-                                      style: const TextStyle(
-                                        color: authMuted,
-                                        fontSize: 12,
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        12,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Expanded(
+                                            child: Text(
+                                              'Share a moment. Let the Highland roar.',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: authMuted,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            [
+                                              _body.text.characters.length,
+                                              500,
+                                            ].join('/'),
+                                            style: const TextStyle(
+                                              color: authMuted,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _attachment(
-                              'Add Images',
-                              'Up to 4',
-                              Icons.image_outlined,
-                              busy || _images.length == 4 ? null : _pickImages,
                             ),
-                            const SizedBox(width: 12),
-                            _attachment(
-                              'Add Video',
-                              'Up to 1',
-                              Icons.smart_display_outlined,
-                              busy ? null : _pickVideo,
+                            const SizedBox(height: 12),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _attachment(
+                                  'Add Images',
+                                  'Up to 4',
+                                  Icons.image_outlined,
+                                  busy || _images.length == 4
+                                      ? null
+                                      : _pickImages,
+                                ),
+                                const SizedBox(width: 12),
+                                _attachment(
+                                  'Add Video',
+                                  'Up to 1',
+                                  Icons.smart_display_outlined,
+                                  busy ? null : _pickVideo,
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        if (_images.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: _images
-                                  .map(
-                                    (file) => Stack(
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          child: Image.file(
-                                            File(file.path),
-                                            width: 70,
-                                            height: 70,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                        Positioned(
-                                          top: 0,
-                                          right: 0,
-                                          child: InkWell(
-                                            onTap: busy
-                                                ? null
-                                                : () => setState(
-                                                    () => _images.remove(file),
-                                                  ),
-                                            child: const CircleAvatar(
-                                              radius: 12,
-                                              backgroundColor: authRed,
-                                              child: Icon(
-                                                Icons.close,
-                                                size: 16,
-                                                color: Colors.white,
+                            if (_images.isNotEmpty && !compact)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 16),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _images
+                                      .map(
+                                        (file) => Stack(
+                                          children: [
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              child: Image.file(
+                                                File(file.path),
+                                                width: 70,
+                                                height: 70,
+                                                fit: BoxFit.cover,
                                               ),
                                             ),
-                                          ),
+                                            Positioned(
+                                              top: 0,
+                                              right: 0,
+                                              child: InkWell(
+                                                onTap: busy
+                                                    ? null
+                                                    : () => setState(
+                                                        () => _images.remove(
+                                                          file,
+                                                        ),
+                                                      ),
+                                                child: const CircleAvatar(
+                                                  radius: 12,
+                                                  backgroundColor: authRed,
+                                                  child: Icon(
+                                                    Icons.close,
+                                                    size: 16,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                          ),
-                        if (_video != null) ...[
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                                  'Selected video',
-                                  style: TextStyle(fontSize: 14),
+                                      )
+                                      .toList(),
                                 ),
                               ),
-                              IconButton(
-                                tooltip: 'Remove video',
-                                onPressed: busy
-                                    ? null
-                                    : () => setState(() => _video = null),
-                                icon: const Icon(Icons.close, color: authRed),
+                            if (_video != null) ...[
+                              Row(
+                                children: [
+                                  const Expanded(
+                                    child: Text(
+                                      'Selected video',
+                                      style: TextStyle(fontSize: 14),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Remove video',
+                                    onPressed: busy
+                                        ? null
+                                        : () => setState(() => _video = null),
+                                    icon: const Icon(
+                                      Icons.close,
+                                      color: authRed,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              if (!compact)
+                                Flexible(
+                                  child: PostVideo(
+                                    key: ValueKey(_video!.path),
+                                    source: _video!.path,
+                                    local: true,
+                                  ),
+                                ),
                             ],
-                          ),
-                          PostVideo(
-                            key: ValueKey(_video!.path),
-                            source: _video!.path,
-                            local: true,
-                          ),
-                        ],
-                      ],
-                    ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
                 Padding(

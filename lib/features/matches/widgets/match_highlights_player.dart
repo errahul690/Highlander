@@ -3,17 +3,24 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'package:Highlanders/features/matches/widgets/match_highlights_source.dart';
-import 'package:Highlanders/features/posts/widgets/post_video.dart';
+import 'package:Highlanders/shared/widgets/media/app_video_player.dart';
 import 'package:Highlanders/shared/widgets/media/web_video_fullscreen.dart';
 
 class MatchHighlightsPlayer extends StatelessWidget {
-  const MatchHighlightsPlayer({super.key, required this.source});
+  const MatchHighlightsPlayer({
+    super.key,
+    required this.source,
+    this.fullscreen = false,
+  });
   final String source;
+  final bool fullscreen;
   @override
   Widget build(BuildContext context) {
     final id = youtubeVideoId(source);
     return id == null
-        ? PostVideo(source: source, autoPlay: true, aspectRatio: 16 / 9)
+        ? fullscreen
+              ? AppVideoPlayer.fullscreen(source: source)
+              : AppVideoPlayer(source: source)
         : _YoutubeHighlights(videoId: id);
   }
 }
@@ -54,8 +61,9 @@ class _YoutubeHighlightsState extends State<_YoutubeHighlights>
               ? NavigationDecision.navigate
               : NavigationDecision.prevent,
           onWebResourceError: (error) {
-            if (error.isForMainFrame == true && mounted)
+            if (error.isForMainFrame == true && mounted) {
               setState(() => _failed = true);
+            }
           },
         ),
       );

@@ -11,8 +11,6 @@ import 'package:Highlanders/shared/widgets/club_crest.dart';
 import 'package:Highlanders/features/matches/widgets/match_card_veil.dart';
 import 'package:Highlanders/shared/widgets/story_html.dart';
 import 'package:Highlanders/features/matches/widgets/match_highlights_player.dart';
-import 'package:Highlanders/features/matches/widgets/match_highlights_source.dart';
-import 'package:Highlanders/features/posts/widgets/post_video.dart';
 
 class MatchPreviewScreen extends StatefulWidget {
   const MatchPreviewScreen({super.key, required this.fixture});
@@ -820,7 +818,6 @@ class _PreviewClipState extends State<_PreviewClip> {
   @override
   Widget build(BuildContext context) {
     final clip = widget.clip;
-    final youtube = youtubeVideoId(clip.url) != null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
@@ -829,13 +826,7 @@ class _PreviewClipState extends State<_PreviewClip> {
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: _open
-                ? (youtube
-                      ? MatchHighlightsPlayer(source: clip.url)
-                      : PostVideo(
-                          source: clip.url,
-                          autoPlay: true,
-                          aspectRatio: 16 / 9,
-                        ))
+                ? MatchHighlightsPlayer(source: clip.url)
                 : AspectRatio(
                     aspectRatio: 16 / 9,
                     child: Material(

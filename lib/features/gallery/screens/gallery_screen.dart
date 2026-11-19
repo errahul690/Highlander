@@ -5,11 +5,14 @@ import 'package:Highlanders/core/theme/brand_colors.dart';
 import 'package:Highlanders/shared/widgets/club_page_body.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:Highlanders/shared/widgets/club_header.dart';
 import 'package:Highlanders/shared/widgets/app_bottom_navigation.dart';
 
 import 'package:Highlanders/features/gallery/data/gallery_repository.dart';
+import 'package:Highlanders/features/gallery/data/instagram_video_source.dart';
+import 'package:Highlanders/features/gallery/widgets/instagram_reel_player.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/features/gallery/widgets/gallery_image.dart';
 import 'package:Highlanders/features/gallery/widgets/gallery_featured_carousel.dart';
@@ -17,10 +20,11 @@ import 'package:Highlanders/features/gallery/widgets/gallery_video_stack.dart';
 import 'package:Highlanders/features/matches/widgets/match_highlights_player.dart';
 
 Future<void> showGalleryVideoPopup(BuildContext context, GalleryItem item) =>
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: .9),
-      builder: (_) => _VideoPlayerModal(item: item),
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => _VideoPlayerModal(item: item),
+      ),
     );
 
 class GalleryScreen extends StatefulWidget {
@@ -137,120 +141,127 @@ class _GalleryScreenState extends State<GalleryScreen> {
         ? <GalleryItem>[]
         : _items.where((item) => !item.isFeatured).toList();
     return ClubScaffold(
+      scrollBehindHeader: false,
       backgroundColor: const Color(0xFFFAF8FA),
       appBar: const ClubHeader(title: 'Gallery', showBack: true),
-      bottomNavigationBar: const AppBottomNavigation(selectedIndex: 2),
-      body: RefreshIndicator(
-        onRefresh: () => _loadItems(refresh: true),
-        color: clubRed,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Segmented Tab Selector: [ Images | Videos ]
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildSegmentedTabPill(),
-              ),
-
-              SizedBox(height: _selectedTab == 'videos' ? 8 : 18),
-
-              // Content List
-              if (_loading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 80),
-                  child: Center(
-                    child: CircularProgressIndicator(color: clubRed),
-                  ),
-                )
-              else if (_items.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 80),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _selectedTab == 'videos'
-                              ? Icons.videocam_outlined
-                              : Icons.photo_library_outlined,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No ${_selectedTab == 'videos' ? 'videos' : 'photos'} available yet',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else ...[
-                if (carouselItems.isNotEmpty && _selectedTab == 'videos')
-                  GalleryVideoStack(
-                    key: ValueKey(
-                      'videos-${carouselItems.map((item) => item.id).join(',')}',
-                    ),
-                    items: carouselItems,
-                    onOpen: _openVideo,
-                    imageBuilder: (item) =>
-                        _buildThumbnailImage(item.thumbnail),
-                    subtitle: _getAutoTagline,
-                  ),
-                if (featured.isNotEmpty && _selectedTab != 'videos')
-                  GalleryFeaturedCarousel(
-                    key: ValueKey(
-                      '$_selectedTab-${featured.map((item) => item.id).join(',')}',
-                    ),
-                    items: featured,
-                    onOpen: _openItem,
-                    imageBuilder: (item) =>
-                        _buildThumbnailImage(item.thumbnail),
-                    subtitle: _getAutoTagline,
-                  ),
-                if (albums.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 5,
-                          height: 19,
-                          decoration: BoxDecoration(
-                            color: brandAccent,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          _selectedTab == 'videos'
-                              ? (featured.isEmpty ? 'Videos' : 'More videos')
-                              : (featured.isEmpty ? 'Albums' : 'More albums'),
-                          style: const TextStyle(
-                            fontSize: 21,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildGalleryCardsLayout(albums),
-                ),
-              ],
-
-              const SizedBox(height: 24),
-            ],
+      bottomNavigationBar: const AppBottomNavigation(),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: _buildSegmentedTabPill(),
           ),
-        ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => _loadItems(refresh: true),
+              color: clubRed,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Content List
+                    if (_loading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 80),
+                        child: Center(
+                          child: CircularProgressIndicator(color: clubRed),
+                        ),
+                      )
+                    else if (_items.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 80),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _selectedTab == 'videos'
+                                    ? Icons.videocam_outlined
+                                    : Icons.photo_library_outlined,
+                                size: 48,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No ${_selectedTab == 'videos' ? 'videos' : 'photos'} available yet',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else ...[
+                      if (carouselItems.isNotEmpty && _selectedTab == 'videos')
+                        GalleryVideoStack(
+                          key: ValueKey(
+                            'videos-${carouselItems.map((item) => item.id).join(',')}',
+                          ),
+                          items: carouselItems,
+                          onOpen: _openVideo,
+                          imageBuilder: (item) =>
+                              _buildThumbnailImage(item.thumbnail),
+                          subtitle: _getAutoTagline,
+                        ),
+                      if (featured.isNotEmpty && _selectedTab != 'videos')
+                        GalleryFeaturedCarousel(
+                          key: ValueKey(
+                            '$_selectedTab-${featured.map((item) => item.id).join(',')}',
+                          ),
+                          items: featured,
+                          onOpen: _openItem,
+                          imageBuilder: (item) =>
+                              _buildThumbnailImage(item.thumbnail),
+                          subtitle: _getAutoTagline,
+                        ),
+                      if (albums.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 5,
+                                height: 19,
+                                decoration: BoxDecoration(
+                                  color: brandAccent,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                _selectedTab == 'videos'
+                                    ? (featured.isEmpty
+                                          ? 'Videos'
+                                          : 'More videos')
+                                    : (featured.isEmpty
+                                          ? 'Albums'
+                                          : 'More albums'),
+                                style: const TextStyle(
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildGalleryCardsLayout(albums),
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -657,158 +668,89 @@ class _AlbumPhotoScreenState extends State<_AlbumPhotoScreen> {
   );
 }
 
-// --------------------------------------------------------------------------
-// Video preview pauses in the center, then settles at the top of the screen.
-// --------------------------------------------------------------------------
 class _VideoPlayerModal extends StatefulWidget {
   const _VideoPlayerModal({required this.item});
-
   final GalleryItem item;
-
   @override
   State<_VideoPlayerModal> createState() => _VideoPlayerModalState();
 }
 
 class _VideoPlayerModalState extends State<_VideoPlayerModal> {
-  Timer? _moveTimer;
-  bool _atTop = false;
-
   @override
   void initState() {
     super.initState();
-    _moveTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _atTop = true);
-    });
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
-    _moveTimer?.cancel();
+    SystemChrome.setPreferredOrientations(const []);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    return TweenAnimationBuilder<Alignment>(
-      tween: AlignmentTween(
-        begin: Alignment.center,
-        end: _atTop ? Alignment.topCenter : Alignment.center,
-      ),
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOutCubic,
-      builder: (context, alignment, child) => Dialog(
-        key: const ValueKey('gallery-video-dialog'),
-        alignment: alignment,
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF18171C),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: .14)),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black54,
-                blurRadius: 36,
-                offset: Offset(0, 16),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(23),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [brandAccent, Color(0xFF4D0B23)],
+    final instagram = instagramVideoPermalink(item.videoUrl);
+    return Scaffold(
+      key: const ValueKey('gallery-video-fullscreen'),
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: item.videoUrl.isEmpty
+                ? const Center(
+                    child: Icon(
+                      Icons.play_disabled_rounded,
+                      color: Colors.white54,
                     ),
+                  )
+                : instagram != null
+                ? InstagramReelPlayer(permalink: instagram)
+                : MatchHighlightsPlayer(
+                    source: item.videoUrl,
+                    fullscreen: true,
                   ),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 10, 8),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.play_circle_outline_rounded,
-                        color: Colors.white,
-                        size: 24,
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: ColoredBox(
+                color: Colors.black54,
+                child: Row(
+                  children: [
+                    IconButton(
+                      key: const ValueKey('gallery-video-back'),
+                      tooltip: 'Close video',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    ),
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        key: const ValueKey('gallery-video-title'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Close video',
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: .12),
-                        ),
-                        icon: const Icon(Icons.close, color: Colors.white70),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
                 ),
-                Flexible(
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: item.videoUrl.isEmpty
-                        ? const ColoredBox(
-                            color: Colors.black,
-                            child: Center(
-                              child: Icon(
-                                Icons.play_disabled_rounded,
-                                color: Colors.white54,
-                                size: 36,
-                              ),
-                            ),
-                          )
-                        : MatchHighlightsPlayer(source: item.videoUrl),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Icon(
-                        Icons.videocam_outlined,
-                        size: 18,
-                        color: Colors.white54,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          item.tagline.isNotEmpty ? item.tagline : 'Video',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
