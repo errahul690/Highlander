@@ -18,10 +18,7 @@ Future<void> openLegalDocument(
   LegalDocument document,
 ) async {
   try {
-    final base = Uri.parse(OtpApi.frontendUrl);
-    if (!['http', 'https'].contains(base.scheme) || base.host.isEmpty) {
-      throw const FormatException('Website URL is not configured');
-    }
+    final base = Uri.parse(await OtpApi.instance.loadFrontendUrl());
     final opened = await launchUrl(
       base.resolve(document.path),
       mode: LaunchMode.externalApplication,

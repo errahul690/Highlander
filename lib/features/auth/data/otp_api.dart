@@ -12,7 +12,6 @@ class OtpApi {
   String emailVerificationToken = '';
   static OtpApi instance = OtpApi();
   static String _apiBase = '';
-  static String frontendUrl = '';
   static String get apiBase => _apiBase;
   static set apiBase(String value) {
     var base = value.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -94,7 +93,6 @@ class OtpApi {
   static Future<void> loadEnvironment() async {
     final raw = await rootBundle.loadString('.env');
     String? url;
-    String? frontend;
     String? fallback;
     for (final line in raw.split('\n')) {
       final trimmed = line.trim();
@@ -102,9 +100,7 @@ class OtpApi {
       final split = trimmed.indexOf('=');
       if (split <= 0) continue;
       final key = trimmed.substring(0, split).trim();
-      if (key != 'API_BASE_URL' &&
-          key != 'API_FALLBACK_URL' &&
-          key != 'FRONTEND_URL') {
+      if (key != 'API_BASE_URL' && key != 'API_FALLBACK_URL') {
         continue;
       }
       var value = trimmed.substring(split + 1).trim();
@@ -117,15 +113,35 @@ class OtpApi {
         url = value.trim();
       } else if (key == 'API_FALLBACK_URL') {
         fallback = value.trim();
-      } else {
-        frontend = value.trim();
       }
     }
     if (url == null || url.isEmpty) {
       throw const OtpApiException('Set API_BASE_URL in the .env file.');
     }
     await selectAvailableBase(parseApiBases([url, ?fallback].join(' || ')));
-    frontendUrl = frontend ?? '';
+  }
+
+  Future<String> loadFrontendUrl() async {
+    final response = await _client
+        .get(Uri.parse('$apiBase/api/public/app-settings'))
+        .timeout(const Duration(seconds: 5));
+    if (response.statusCode != 200) {
+      throw const OtpApiException('Could not load the website URL.');
+    }
+    final data = jsonDecode(response.body);
+    final value = data is Map && data['success'] == true
+        ? data['frontend_url']
+        : null;
+    final uri = value is String ? Uri.tryParse(value.trim()) : null;
+    if (uri == null ||
+        !['http', 'https'].contains(uri.scheme) ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      throw const OtpApiException('Website URL is not configured.');
+    }
+    return uri.toString();
   }
 
   static List<String> get candidateBases {
