@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:Highlanders/features/auth/data/otp_api.dart';
+import 'package:Highlanders/core/platform/app_orientation.dart';
 
 /// Native playback sized from the video's metadata, including portrait Reels.
 class AppVideoPlayer extends StatefulWidget {
@@ -159,7 +160,7 @@ class _AppVideoPlayerState extends State<AppVideoPlayer>
         ),
       );
     } finally {
-      await SystemChrome.setPreferredOrientations(const []);
+      await restoreAppOrientation();
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       if (mounted) {
         setState(() {
@@ -257,7 +258,7 @@ class _AppVideoPlayerState extends State<AppVideoPlayer>
       unawaited(_controller.dispose().catchError((Object _) {}));
     }
     if (_isFullscreen && widget.sharedController == null) {
-      unawaited(SystemChrome.setPreferredOrientations(const []));
+      unawaited(restoreAppOrientation());
       unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     }
     super.dispose();
@@ -425,19 +426,6 @@ class _AppVideoPlayerState extends State<AppVideoPlayer>
                             : 'Landscape mode',
                         onPressed: _rotate,
                         icon: const Icon(Icons.screen_rotation_rounded),
-                        color: Colors.white,
-                      ),
-                      IconButton(
-                        key: const ValueKey('video-fullscreen'),
-                        tooltip: _isFullscreen
-                            ? 'Exit fullscreen'
-                            : 'Fullscreen',
-                        onPressed: _fullscreen,
-                        icon: Icon(
-                          _isFullscreen
-                              ? Icons.fullscreen_exit
-                              : Icons.fullscreen,
-                        ),
                         color: Colors.white,
                       ),
                     ],

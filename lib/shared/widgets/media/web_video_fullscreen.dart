@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:Highlanders/core/platform/app_orientation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
@@ -60,7 +61,7 @@ class _WebVideoFullscreenState extends State<WebVideoFullscreen> {
 
   @override
   void dispose() {
-    SystemChrome.setPreferredOrientations(const []);
+    restoreAppOrientation();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }

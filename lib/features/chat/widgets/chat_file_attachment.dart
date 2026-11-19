@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:Highlanders/features/chat/data/chat_file_cache.dart';
+import 'package:Highlanders/features/chat/widgets/chat_media_image.dart';
+import 'package:Highlanders/features/chat/data/chat_media_metadata.dart';
 import 'package:Highlanders/core/media/media_auto_download.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 
@@ -14,8 +16,14 @@ class ChatFileAttachment extends StatefulWidget {
     required this.url,
     required this.name,
     required this.mime,
+    this.thumbnail = '',
+    this.preview = '',
+    this.mediaWidth,
+    this.mediaHeight,
   });
   final String url, name, mime;
+  final String thumbnail, preview;
+  final double? mediaWidth, mediaHeight;
   @override
   State<ChatFileAttachment> createState() => _ChatFileAttachmentState();
 }
@@ -119,74 +127,192 @@ class _ChatFileAttachmentState extends State<ChatFileAttachment> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 7),
-    child: Material(
-      color: Colors.white.withValues(alpha: .65),
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: _tap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 230),
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _video
-                    ? Icons.video_file_outlined
-                    : Icons.insert_drive_file_outlined,
-                size: 24,
-                color: authRed,
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) {
+    if (_video &&
+        (widget.thumbnail.isNotEmpty ||
+            widget.preview.isNotEmpty ||
+            chatMediaAspectRatio(widget.mediaWidth, widget.mediaHeight) !=
+                null)) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 7),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Material(
+            color: Colors.black,
+            child: InkWell(
+              onTap: _tap,
+              child: SizedBox(
+                width: 230,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Text(
-                      widget.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ChatMediaImage(
+                      url: widget.url,
+                      thumbnail: widget.thumbnail,
+                      preview: widget.preview,
+                      mediaWidth: widget.mediaWidth,
+                      mediaHeight: widget.mediaHeight,
+                      blurPreview: _file == null,
                     ),
-                    Text(
-                      _busy
-                          ? 'Downloading…'
-                          : _file != null
-                          ? 'Tap to open'
-                          : _failed
-                          ? 'Retry download'
-                          : 'Download',
-                      style: const TextStyle(fontSize: 11, color: authMuted),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xD92B2227),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_busy)
+                            const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          else
+                            Icon(
+                              _file != null
+                                  ? Icons.play_arrow_rounded
+                                  : _failed
+                                  ? Icons.refresh
+                                  : Icons.download_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _busy
+                                ? 'Downloading…'
+                                : _file != null
+                                ? 'Play video'
+                                : _failed
+                                ? 'Retry'
+                                : 'Download',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      left: 10,
+                      bottom: 9,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.videocam_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Video',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              if (_busy)
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: authRed,
-                  ),
-                )
-              else
+            ),
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Material(
+        color: Colors.white.withValues(alpha: .65),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: _tap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 230),
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Icon(
-                  _file != null
-                      ? (_video ? Icons.play_circle_outline : Icons.open_in_new)
-                      : Icons.download_rounded,
-                  size: 20,
+                  _video
+                      ? Icons.video_file_outlined
+                      : Icons.insert_drive_file_outlined,
+                  size: 24,
                   color: authRed,
                 ),
-            ],
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        _busy
+                            ? 'Downloading…'
+                            : _file != null
+                            ? 'Tap to open'
+                            : _failed
+                            ? 'Retry download'
+                            : 'Download',
+                        style: const TextStyle(fontSize: 11, color: authMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (_busy)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: authRed,
+                    ),
+                  )
+                else
+                  Icon(
+                    _file != null
+                        ? (_video
+                              ? Icons.play_circle_outline
+                              : Icons.open_in_new)
+                        : Icons.download_rounded,
+                    size: 20,
+                    color: authRed,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

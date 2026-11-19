@@ -21,11 +21,8 @@ class GroundsScreen extends StatefulWidget {
 
   final bool active;
 
-  static Route<void> route() => PageRouteBuilder<void>(
-    pageBuilder: (_, _, _) => const GroundsScreen(),
-    transitionDuration: Duration.zero,
-    reverseTransitionDuration: Duration.zero,
-  );
+  static Route<void> route() =>
+      MaterialPageRoute<void>(builder: (_) => const GroundsScreen());
 
   @override
   State<GroundsScreen> createState() => _GroundsScreenState();

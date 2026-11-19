@@ -6,6 +6,7 @@ import 'package:Highlanders/shared/widgets/club_page_body.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:Highlanders/core/platform/app_orientation.dart';
 
 import 'package:Highlanders/shared/widgets/club_header.dart';
 import 'package:Highlanders/shared/widgets/app_bottom_navigation.dart';
@@ -329,8 +330,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   // --------------------------------------------------------------------------
   String _getAutoTagline(GalleryItem item) {
     if (item.type == 'images') {
-      final count = item.images.length;
-      return '$count ${count == 1 ? 'photo' : 'photos'}';
+      return '';
     }
     if (item.tagline.isNotEmpty) return item.tagline;
     if (item.videoUrl.isNotEmpty) {
@@ -448,17 +448,17 @@ class _GalleryScreenState extends State<GalleryScreen> {
               height: 1.25,
             ),
           ),
-          const SizedBox(height: 3),
-
-          // Auto-generated Tagline (e.g. 18 photos / 1 video)
-          Text(
-            _getAutoTagline(item),
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF8E8E93),
+          if (_getAutoTagline(item).isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              _getAutoTagline(item),
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF8E8E93),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -484,12 +484,10 @@ class _AlbumGridScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final count = photos.length;
     return ClubScaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: ClubHeader(
         title: title,
-        subtitle: '$count ${count == 1 ? 'photo' : 'photos'}',
         showBack: true,
         showSearch: false,
         showSupport: false,
@@ -513,14 +511,6 @@ class _AlbumGridScreen extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF101014),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '$count ${count == 1 ? 'photo' : 'photos'}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF8E96A5),
                           ),
                         ),
                       ],
@@ -684,7 +674,7 @@ class _VideoPlayerModalState extends State<_VideoPlayerModal> {
 
   @override
   void dispose() {
-    SystemChrome.setPreferredOrientations(const []);
+    restoreAppOrientation();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }

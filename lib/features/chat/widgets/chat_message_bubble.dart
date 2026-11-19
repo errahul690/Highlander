@@ -12,10 +12,15 @@ class ChatMessageBubble extends StatelessWidget {
     this.author,
     this.time = '',
     this.status,
+    this.starred = false,
+    this.edited = false,
+    this.searchQuery = '',
   });
 
   final bool own;
+  final bool starred, edited;
   final String text, time;
+  final String searchQuery;
   final String? author;
   final Widget? leading, status;
 
@@ -24,12 +29,36 @@ class ChatMessageBubble extends StatelessWidget {
     final receipt = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        SizedBox(
+          width: 16,
+          height: 14,
+          child: Visibility(
+            visible: starred,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: const Icon(
+              Icons.star_rounded,
+              size: 12,
+              color: Color(0xFFAD852D),
+              semanticLabel: 'Starred',
+            ),
+          ),
+        ),
+        if (edited)
+          const Padding(
+            padding: EdgeInsets.only(right: 4),
+            child: Text(
+              'edited',
+              style: TextStyle(fontSize: 11, color: Color(0xFF83808A)),
+            ),
+          ),
         if (time.isNotEmpty)
           Text(
             time,
             style: const TextStyle(
               fontFamily: clubFontFamily,
-              fontSize: 10,
+              fontSize: 11,
               height: 1.2,
               color: Color(0xFF83808A),
             ),
@@ -62,7 +91,7 @@ class ChatMessageBubble extends StatelessWidget {
           style: const TextStyle(
             fontFamily: clubFontFamily,
             fontFamilyFallback: ['Segoe UI Emoji'],
-            fontSize: 15,
+            fontSize: 16,
             height: 1.35,
             fontWeight: FontWeight.w400,
             color: Color(0xFF242127),
@@ -79,7 +108,7 @@ class ChatMessageBubble extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       height: 1.2,
                       fontWeight: FontWeight.w600,
                       color: authRed,
@@ -94,7 +123,7 @@ class ChatMessageBubble extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 2,
                   children: [
-                    Text(text),
+                    _messageText(),
                     if (time.isNotEmpty || status != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 1),
@@ -116,6 +145,33 @@ class ChatMessageBubble extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _messageText() {
+    if (searchQuery.isEmpty) return Text(text);
+    final matches = RegExp(
+      RegExp.escape(searchQuery),
+      caseSensitive: false,
+    ).allMatches(text).toList();
+    if (matches.isEmpty) return Text(text);
+    final spans = <TextSpan>[];
+    var end = 0;
+    for (final match in matches) {
+      if (match.start > end)
+        spans.add(TextSpan(text: text.substring(end, match.start)));
+      spans.add(
+        TextSpan(
+          text: text.substring(match.start, match.end),
+          style: const TextStyle(
+            backgroundColor: Color(0xFFFFDF75),
+            color: Color(0xFF242127),
+          ),
+        ),
+      );
+      end = match.end;
+    }
+    if (end < text.length) spans.add(TextSpan(text: text.substring(end)));
+    return Text.rich(TextSpan(children: spans));
   }
 }
 

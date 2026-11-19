@@ -22,7 +22,9 @@ import 'package:Highlanders/features/chat/utils/chat_dates.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/features/chat/widgets/chat_wallpaper.dart';
 import 'package:Highlanders/features/chat/widgets/chat_reply_preview.dart';
+import 'package:Highlanders/features/chat/widgets/chat_keyboard_inset.dart';
 import 'package:Highlanders/features/chat/widgets/chat_message_bubble.dart';
+import 'package:Highlanders/features/chat/widgets/chat_post_preview.dart';
 import 'package:Highlanders/features/support/widgets/highlander_care_chat.dart';
 import 'package:Highlanders/features/chat/widgets/earlier_messages_button.dart';
 import 'package:Highlanders/shared/widgets/user_avatar.dart';
@@ -30,6 +32,11 @@ import 'package:Highlanders/features/community/widgets/invite_members_sheet.dart
 import 'package:Highlanders/features/community/widgets/group_invitation_actions.dart';
 import 'package:Highlanders/features/chat/screens/chat_settings_screen.dart';
 import 'package:Highlanders/features/community/screens/group_info_screen.dart';
+import 'package:Highlanders/features/posts/widgets/post_share_sheet.dart';
+
+part 'chat_screen_actions.dart';
+part 'chat_inline_edit.dart';
+part 'chat_in_place_search.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
@@ -51,11 +58,37 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
+  void _update(VoidCallback change) => setState(change);
   static const _appLinks = MethodChannel('highlanders/app_links');
   final _text = TextEditingController();
   final _scroll = ScrollController();
   final _textFocus = FocusNode();
   Map<String, dynamic>? _replyTo;
+  Map<String, dynamic>? _editingMessage;
+  TextEditingValue? _draftBeforeEdit;
+  Map<String, dynamic>? _attachmentBeforeEdit, _replyBeforeEdit;
+  bool _savingEdit = false;
+  DateTime? _editDeadline;
+  String? _editError;
+  final _searchText = TextEditingController();
+  final _searchFocus = FocusNode();
+  bool _searching = false, _searchBusy = false, _searchMore = false;
+  Timer? _searchDebounce;
+  int _searchVersion = 0, _searchIndex = -1;
+  List<Map<String, dynamic>> _searchHits = [];
+  DateTime? _searchDate;
+  String? _searchError;
+  final _selectedIds = <String>{};
+  final _translations = <String, String>{};
+  final _hiddenTranslations = <String>{};
+  final _translationPending = <String>{};
+  final _autoTranslated = <String>{};
+  bool _translationBaselineReady = false;
+  Map<String, dynamic> _chatOptions = {};
+  int _optionsVersion = 0;
+  Duration _serverTimeOffset = Duration.zero;
+  bool _actionBusy = false;
+  Timer? _expiryTimer;
   final _messageAnchors = <String, GlobalKey>{};
   String? _highlightedMessage;
   Timer? _highlightTimer;
@@ -153,6 +186,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    unawaited(_loadChatOptions());
+    _expiryTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _removeExpired();
+      if (mounted && (_selectedIds.isNotEmpty || _editingMessage != null))
+        _update(() {});
+    });
     _roomInfo = {...?widget.room};
     _permission = '${widget.room?['chatPermission'] ?? 'all'}';
     if (widget.kind == 'groups') _refreshGroupInfo();
@@ -209,6 +248,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             : message['conversationId'] == widget.room!['_id'];
         if (relevant) _load();
       });
+      _socket!.on('chatMessagesChanged', (dynamic event) {
+        if (event is Map && event['conversationId'] == _conversationKey) {
+          if (event['action'] == 'star' || event['action'] == 'edit') {
+            _applyMessageChange(Map<String, dynamic>.from(event));
+          } else {
+            unawaited(_reloadChatActions());
+          }
+        }
+      });
       _socket!.on('blockStatusChanged', (data) {
         if (mounted &&
             _direct &&
@@ -241,7 +289,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeMetrics() {
+    if (_editingMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _revealEditedMessage(),
+      );
+    }
+  }
+
+  @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchVersion++;
+    _searchText.dispose();
+    _searchFocus.dispose();
+    _expiryTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _socket?.dispose();
     _quoteNavigation++;
@@ -303,6 +365,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _historyPath(before: _messages.first),
       );
       if (!mounted || epoch != _historyEpoch) return;
+      _autoTranslated.addAll(rows.map((row) => '${row['_id']}'));
       setState(() {
         _hasOlder = rows.length >= _pageSize;
         _mergeHistory(
@@ -322,7 +385,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool replace = false}) async {
     final version = ++_loadVersion;
     try {
       final page = await CommunityApi.instance.list(_historyPath());
@@ -330,10 +393,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final rows = page.skip(hasOlder ? page.length - _pageSize : 0).toList();
       // Catch up after reconnecting without leaving a gap before loaded history.
       final existingIds = _messages.map((message) => message['_id']).toSet();
+      final oldestLoaded = _messages.isEmpty ? null : _messages.first['_id'];
       var nextPage = page;
       while (existingIds.isNotEmpty &&
           nextPage.length >= _pageSize &&
-          !nextPage.any((message) => existingIds.contains(message['_id']))) {
+          (replace
+              ? !rows.any((message) => message['_id'] == oldestLoaded)
+              : !nextPage.any(
+                  (message) => existingIds.contains(message['_id']),
+                ))) {
         final oldest = rows.first;
         if (messageDate(oldest) == null || oldest['_id'] == null) break;
         nextPage = await CommunityApi.instance.list(
@@ -361,11 +429,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           (rows.isNotEmpty &&
               (_messages.isEmpty || rows.last['_id'] != _messages.last['_id']));
       setState(() {
-        if (_messages.isEmpty) _hasOlder = hasOlder;
+        if (replace) {
+          _messages = [];
+          _hasOlder = nextPage.length >= _pageSize;
+        } else if (_messages.isEmpty) {
+          _hasOlder = hasOlder;
+        }
         _mergeHistory(rows);
         _loading = false;
         _loadError = null;
       });
+      _autoTranslateMessages();
       if (_direct) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _markRead());
       }
@@ -408,8 +482,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _careOnline = status['online'] == true;
         });
     } catch (error) {
-      if (mounted)
-        setState(() => _loadError = userFacingError(error));
+      if (mounted) setState(() => _loadError = userFacingError(error));
     }
   }
 
@@ -449,9 +522,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(error))),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(userFacingError(error))));
       }
     } finally {
       if (mounted) setState(() => _careBusy = false);
@@ -522,15 +594,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
     } catch (error) {
       if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(error))),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(userFacingError(error))));
     } finally {
       if (mounted) setState(() => _careBusy = false);
     }
   }
 
   Future<void> _send() async {
+    if (_editingMessage != null) {
+      await _saveInlineEdit();
+      return;
+    }
     final text = _text.text.trim();
     final attachment = _attachmentDraft;
     final reply = _replyTo;
@@ -571,6 +646,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             'attachmentType': attachment['type'],
             if (attachment['thumbnail'] != null)
               'attachmentThumbnail': attachment['thumbnail'],
+            for (final field in [
+              'attachmentWidth',
+              'attachmentHeight',
+              'attachmentPreview',
+            ])
+              if (attachment[field] != null) field: attachment[field],
           },
         },
       );
@@ -582,9 +663,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(error))),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(userFacingError(error))));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -598,9 +678,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (mounted) setState(() => _attachmentDraft = uploaded);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(error))),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(userFacingError(error))));
       }
     } finally {
       if (mounted) setState(() => _uploadingAttachment = false);
@@ -608,6 +687,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _pickCamera() async {
+    if (_editingMessage != null) return;
     if (_uploadingAttachment || _sending) return;
     try {
       final file = await ImagePicker().pickImage(
@@ -631,14 +711,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(error))),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(userFacingError(error))));
       }
     }
   }
 
   Future<void> _pickAttachment() async {
+    if (_editingMessage != null) return;
     if (_uploadingAttachment || _sending) return;
     try {
       final picked = await _appLinks.invokeMapMethod<String, dynamic>(
@@ -648,9 +728,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       await _uploadPicked(picked);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(userFacingError(error))),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(userFacingError(error))));
       }
     }
   }
@@ -788,6 +867,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget? _attachment(Map<String, dynamic> message) {
+    final sharedPostId = '${message['sharedPostId'] ?? ''}';
+    if (sharedPostId.isNotEmpty) {
+      return ChatPostPreview(
+        key: ValueKey('shared-message-${message['_id']}'),
+        postId: sharedPostId,
+        preview: Map<String, dynamic>.from(message['sharedPost'] as Map? ?? {}),
+      );
+    }
     final raw = '${message['attachmentUrl'] ?? message['image'] ?? ''}';
     if (raw.isEmpty) return null;
     final url = raw.startsWith('/') ? '${OtpApi.apiBase}$raw' : raw;
@@ -803,6 +890,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           child: ChatMediaImage(
             url: url,
             thumbnail: '${message['attachmentThumbnail'] ?? ''}',
+            mediaWidth: (message['attachmentWidth'] as num?)?.toDouble(),
+            mediaHeight: (message['attachmentHeight'] as num?)?.toDouble(),
+            preview: '${message['attachmentPreview'] ?? ''}',
             openOnTap: true,
           ),
         ),
@@ -877,57 +967,34 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       );
     }
-    return ChatFileAttachment(url: url, name: name, mime: type);
+    return ChatFileAttachment(
+      url: url,
+      name: name,
+      mime: type,
+      thumbnail: '${message['attachmentThumbnail'] ?? ''}',
+      mediaWidth: (message['attachmentWidth'] as num?)?.toDouble(),
+      mediaHeight: (message['attachmentHeight'] as num?)?.toDouble(),
+      preview: '${message['attachmentPreview'] ?? ''}',
+    );
   }
 
   void _beginReply(Map<String, dynamic> message) {
+    if (_editingMessage != null) return;
     if (!_canSend || message['_id'] == null) return;
     setState(() => _replyTo = message);
-    _textFocus.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && identical(_replyTo, message) && _editingMessage == null) {
+        _textFocus.requestFocus();
+      }
+    });
   }
 
-  Future<void> _messageOptions(Map<String, dynamic> message) =>
-      showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (sheetContext) => SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_canSend)
-                  ListTile(
-                    leading: const Icon(Icons.reply_rounded, color: authRed),
-                    title: const Text('Reply'),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      _beginReply(message);
-                    },
-                  ),
-                if ('${message['content'] ?? ''}'.isNotEmpty)
-                  ListTile(
-                    leading: const Icon(Icons.copy_outlined),
-                    title: const Text('Copy text'),
-                    onTap: () {
-                      Clipboard.setData(
-                        ClipboardData(text: '${message['content']}'),
-                      );
-                      Navigator.pop(sheetContext);
-                    },
-                  ),
-              ],
-            ),
-          ),
-        ),
-      );
+  void _messageOptions(Map<String, dynamic> message) => _toggleMessage(message);
 
-  Future<void> _jumpToOriginal(Map<String, dynamic> quote) async {
+  Future<void> _jumpToOriginal(
+    Map<String, dynamic> quote, {
+    bool highlight = true,
+  }) async {
     final id = '${quote['messageId'] ?? quote['_id'] ?? ''}';
     if (id.isEmpty) return;
     final navigation = ++_quoteNavigation;
@@ -982,12 +1049,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
         if (!mounted || navigation != _quoteNavigation) return;
         _highlightTimer?.cancel();
-        setState(() => _highlightedMessage = id);
-        _highlightTimer = Timer(const Duration(milliseconds: 1400), () {
-          if (mounted && _highlightedMessage == id) {
-            setState(() => _highlightedMessage = null);
-          }
-        });
+        setState(() => _highlightedMessage = highlight ? id : null);
+        if (highlight)
+          _highlightTimer = Timer(const Duration(milliseconds: 1400), () {
+            if (mounted && _highlightedMessage == id) {
+              setState(() => _highlightedMessage = null);
+            }
+          });
         return;
       }
       final targetIndex = _messages.indexWhere(
@@ -1022,37 +1090,127 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         key: ValueKey('message-highlight-$id'),
         duration: const Duration(milliseconds: 180),
         decoration: BoxDecoration(
-          color: _highlightedMessage == id
+          color: _selectedIds.contains(id) || _highlightedMessage == id
               ? const Color(0x33900F32)
+              : _searching && _currentSearchId == id
+              ? const Color(0x44F4C84B)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: ChatReplyGesture(
           messageId: id,
-          onReply: _canSend && message['_id'] != null
+          onTap: _selectedIds.isEmpty ? null : () => _toggleMessage(message),
+          onReply:
+              !_searching &&
+                  _editingMessage == null &&
+                  _selectedIds.isEmpty &&
+                  _canSend &&
+                  message['_id'] != null &&
+                  message['deletedAt'] == null
               ? () => _beginReply(message)
               : null,
-          onLongPress: () => _messageOptions(message),
-          child: child,
+          onLongPress: () {
+            if (_editingMessage != null) return;
+            if (_searching) _closeChatSearch();
+            _messageOptions(message);
+          },
+          child: AbsorbPointer(
+            absorbing: _selectedIds.isNotEmpty || _editingMessage != null,
+            child: Opacity(
+              opacity:
+                  _editingMessage != null && '${_editingMessage!['_id']}' != id
+                  ? .35
+                  : 1,
+              child: child,
+            ),
+          ),
         ),
       ),
     );
   }
 
   Widget? _attachmentsWithReply(Map<String, dynamic> message) {
+    if (message['deletedAt'] != null) return null;
     final attachment = _attachment(message);
-    if (message['replyTo'] is! Map) return attachment;
+    final id = '${message['_id'] ?? message['id']}';
+    final translated = _translations[id];
+    final indicators =
+        message['pinnedAt'] != null || message['forwarded'] == true;
+    if (message['replyTo'] is! Map && translated == null && !indicators)
+      return attachment;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ChatReplyPreview(
-          message: Map<String, dynamic>.from(message['replyTo'] as Map),
-          onTap: () => _jumpToOriginal(
-            Map<String, dynamic>.from(message['replyTo'] as Map),
+        if (indicators)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (message['forwarded'] == true)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Text(
+                      '↪ Forwarded',
+                      style: TextStyle(color: authMuted, fontSize: 11),
+                    ),
+                  ),
+                if (message['pinnedAt'] != null)
+                  const Icon(
+                    Icons.push_pin_rounded,
+                    size: 13,
+                    color: authMuted,
+                  ),
+              ],
+            ),
           ),
-        ),
+        if (message['replyTo'] is Map)
+          ChatReplyPreview(
+            message: Map<String, dynamic>.from(message['replyTo'] as Map),
+            onTap: () => _jumpToOriginal(
+              Map<String, dynamic>.from(message['replyTo'] as Map),
+            ),
+          ),
         if (attachment != null) attachment,
+        if (translated != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F3F7),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Translation',
+                      style: TextStyle(color: authMuted, fontSize: 11),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      key: ValueKey('hide-translation-$id'),
+                      onPressed: () => _hideTranslation(id),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 32),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        'Show original',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(translated, style: const TextStyle(fontSize: 14)),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -1064,7 +1222,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ChatMessageBubble(
         key: ValueKey('chat-message-${message['_id'] ?? message['id']}'),
         own: own,
-        text: '${message['content'] ?? ''}',
+        starred: message['starred'] == true && message['deletedAt'] == null,
+        edited: message['editedAt'] != null && message['deletedAt'] == null,
+        searchQuery: _searching ? _searchText.text.trim() : '',
+        text: message['deletedAt'] != null
+            ? 'This message was deleted'
+            : '${message['content'] ?? ''}',
         author: !_direct && !own
             ? '${message['senderName'] ?? 'Highlander'}'
             : null,
@@ -1095,66 +1258,74 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     required String image,
     required List<Widget> actions,
     String? subtitle,
-  }) => ClubHeader(
-    title: widget.title,
-    trailingPadding: 4,
-    showSearch: false,
-    showSupport: false,
-    showNotifications: false,
-    titleWidget: InkWell(
-      key: widget.kind == 'groups' ? const ValueKey('group-info-open') : null,
-      onTap: widget.kind == 'groups' ? _openGroupInfo : null,
-      child: Row(
-        children: [
-          UserAvatar(
-            email: widget.recipientEmail ?? '',
-            name: widget.title,
-            image: image,
-            radius: 16,
-            backgroundColor: const Color(0xFFFFF0EE),
-            foregroundColor: const Color(0xFF8C1E24),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+  }) => _editingMessage != null
+      ? _editAppBar()
+      : _searching
+      ? _searchAppBar()
+      : _selectedIds.isNotEmpty
+      ? _selectionBar()
+      : ClubHeader(
+          title: widget.title,
+          trailingPadding: 4,
+          showSearch: false,
+          showSupport: false,
+          showNotifications: false,
+          titleWidget: InkWell(
+            key: widget.kind == 'groups'
+                ? const ValueKey('group-info-open')
+                : null,
+            onTap: widget.kind == 'groups' ? _openGroupInfo : null,
+            child: Row(
               children: [
-                Text(
-                  widget.kind == 'groups'
-                      ? '${_roomInfo['name'] ?? widget.title}'
-                      : widget.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
+                UserAvatar(
+                  email: widget.recipientEmail ?? '',
+                  name: widget.title,
+                  image: image,
+                  radius: 16,
+                  backgroundColor: const Color(0xFFFFF0EE),
+                  foregroundColor: const Color(0xFF8C1E24),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.kind == 'groups'
+                            ? '${_roomInfo['name'] ?? widget.title}'
+                            : widget.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: .78),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: .78),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      height: 1.1,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
-        ],
-      ),
-    ),
-    trailing: actions,
-  );
+          trailing: actions,
+        );
 
   Widget _chatMenu({
     required String tooltip,
@@ -1183,14 +1354,50 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: _selectedIds.isEmpty && !_searching && _editingMessage == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _editingMessage != null) {
+          if (!_savingEdit) _cancelInlineEdit();
+        } else if (!didPop && _searching) {
+          _closeChatSearch();
+        } else if (!didPop && _selectedIds.isNotEmpty && !_actionBusy) {
+          setState(() => _selectedIds.clear());
+        }
+      },
+      child: _buildChat(context),
+    );
+  }
+
+  Widget _buildChat(BuildContext context) {
     if (widget.isCare) {
       return HighlanderCareChat(
+        appBarOverride: _editingMessage != null
+            ? _editAppBar()
+            : _searching
+            ? _searchAppBar()
+            : _selectedIds.isNotEmpty
+            ? _selectionBar()
+            : null,
+        editing: _editingMessage != null,
+        canSaveEdit: _canConfirmInlineEdit,
+        composerNotice: _editingMessage != null ? _inlineEditNotice() : null,
+        footerOverride: _searching ? _searchFooter() : null,
+        searchQuery: _searching ? _searchText.text.trim() : '',
+        menuItems: _commonChatItems,
+        onMenuAction: _chatMenuAction,
+        theme: '${_chatOptions['theme'] ?? 'default'}',
+        notice:
+            _chatOptions['pinned'] is Map ||
+                (_chatOptions['disappearSeconds'] as num? ?? 0) > 0
+            ? _conversationNotice()
+            : null,
         messages: _messages,
         controller: _text,
         scrollController: _scroll,
         loading: _loading,
-        busy: _sending || _careBusy,
-        uploading: _uploadingAttachment,
+        busy: _editingMessage != null ? _savingEdit : _sending || _careBusy,
+        uploading: _editingMessage == null && _uploadingAttachment,
         blocked: _careBlocked,
         blockedBy: _blockedBy,
         online: _careOnline,
@@ -1203,6 +1410,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         onClear: () => _careAction(clear: true),
         onBlock: () => _careAction(clear: false),
         onRefresh: _refreshCare,
+        onKeyboardSettled: _revealEditedMessage,
         earlierMessages: _hasOlder
             ? EarlierMessagesButton(
                 loading: _loadingOlder,
@@ -1212,13 +1420,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             : null,
         attachmentBuilder: _attachmentsWithReply,
         messageWrapper: _replyGesture,
-        replyBanner: _replyTo == null
-            ? null
-            : ChatReplyPreview(
-                key: const ValueKey('active-reply-preview'),
-                message: _replyTo!,
-                onCancel: () => setState(() => _replyTo = null),
-              ),
+        replyBanner: ChatComposerReply(
+          message: _replyTo,
+          onCancel: () => setState(() => _replyTo = null),
+        ),
         focusNode: _textFocus,
         attachmentName: _attachmentDraft?['name']?.toString(),
         onRemoveAttachment: () => setState(() => _attachmentDraft = null),
@@ -1226,6 +1431,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     final isGroup = widget.kind == 'groups';
+    final hasNotice =
+        _chatOptions['pinned'] is Map ||
+        (_chatOptions['disappearSeconds'] as num? ?? 0) > 0;
     final photo = widget.image.isNotEmpty
         ? widget.image
         : '${widget.room?['iconImage'] ?? widget.room?['profile_photo'] ?? widget.room?['profileImage'] ?? ''}';
@@ -1240,6 +1448,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       //     : null,
       actions: [
         if (isGroup) ...[
+          _chatMenu(
+            tooltip: 'Chat options',
+            items: _commonChatItems,
+            onSelected: _chatMenuAction,
+          ),
           IconButton(
             tooltip: 'Group info',
             constraints: const BoxConstraints.tightFor(width: 40, height: 40),
@@ -1283,8 +1496,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ] else if (_direct)
           _chatMenu(
             tooltip: 'Chat options',
-            onSelected: (value) => _careAction(clear: value == 'clear'),
+            onSelected: (value) {
+              if (value == 'block' || value == 'clear') {
+                _careAction(clear: value == 'clear');
+              } else {
+                _chatMenuAction(value);
+              }
+            },
             items: [
+              ..._commonChatItems,
               _menuItem(
                 'block',
                 _careBlocked ? 'Unblock' : 'Block',
@@ -1306,8 +1526,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             onSelected: (value) {
               if (value == 'exit') _exitCircle();
               if (value == 'settings') _settings();
+              if (value != 'exit' && value != 'settings')
+                _chatMenuAction(value);
             },
             items: [
+              ..._commonChatItems,
               _menuItem(
                 'exit',
                 'Leave huddle',
@@ -1327,309 +1550,369 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
 
     return ChatWallpaper(
+      dimmed: _editingMessage != null,
+      theme: '${_chatOptions['theme'] ?? 'default'}',
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
         extendBodyBehindAppBar: true,
         appBar: appBar,
-        body: Column(
-          children: [
-            if (_loadError != null)
-              Padding(
-                padding: EdgeInsets.only(
-                  top:
-                      MediaQuery.paddingOf(context).top +
-                      appBar.preferredSize.height,
+        body: ChatKeyboardInset(
+          onSettled: _revealEditedMessage,
+          child: Column(
+            children: [
+              if (hasNotice)
+                Padding(
+                  padding: EdgeInsets.only(
+                    top:
+                        MediaQuery.paddingOf(context).top +
+                        appBar.preferredSize.height,
+                  ),
+                  child: _conversationNotice(),
                 ),
-                child: MaterialBanner(
-                  content: Text(_loadError!),
-                  actions: [
-                    TextButton(onPressed: _load, child: const Text('Retry')),
-                  ],
+              if (_loadError != null)
+                Padding(
+                  padding: EdgeInsets.only(
+                    top: hasNotice
+                        ? 0
+                        : MediaQuery.paddingOf(context).top +
+                              appBar.preferredSize.height,
+                  ),
+                  child: MaterialBanner(
+                    content: Text(_loadError!),
+                    actions: [
+                      TextButton(onPressed: _load, child: const Text('Retry')),
+                    ],
+                  ),
                 ),
-              ),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _messages.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No messages yet.',
-                        style: TextStyle(color: authMuted),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      edgeOffset:
-                          MediaQuery.paddingOf(context).top +
-                          appBar.preferredSize.height,
-                      child: ListView.builder(
-                        reverse: true,
-                        controller: _scroll,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: EdgeInsets.fromLTRB(
-                          12,
-                          _loadError == null
-                              ? MediaQuery.paddingOf(context).top +
-                                    appBar.preferredSize.height +
-                                    8
-                              : 8,
-                          12,
-                          2,
-                        ),
-                        itemCount: _messages.length + (_hasOlder ? 1 : 0),
-                        itemBuilder: (context, reverseIndex) {
-                          if (reverseIndex == _messages.length) {
-                            return EarlierMessagesButton(
-                              loading: _loadingOlder,
-                              error: _olderError,
-                              onPressed: _loadOlder,
-                            );
-                          }
-                          final index = _messages.length - 1 - reverseIndex;
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (messageDate(_messages[index])
-                                  case final date?)
-                                if (index == 0 ||
-                                    !sameChatDay(
-                                      date,
-                                      messageDate(_messages[index - 1]),
-                                    ))
-                                  ChatDateChip(label: chatDateLabel(date)),
-                              _messageBubble(_messages[index]),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-            ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-                child: !_canSend
-                    ? Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _messages.isEmpty
+                    ? const Center(
                         child: Text(
-                          _blockedBy
-                              ? '${widget.title} has blocked you.'
-                              : _careBlocked
-                              ? 'You blocked ${widget.title}. Use Unblock to message again.'
-                              : _permission == 'off'
-                              ? 'Chat is turned off.'
-                              : 'Only the admin / creator can send messages.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: authMuted),
+                          'No messages yet.',
+                          style: TextStyle(color: authMuted),
                         ),
                       )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_replyTo != null)
-                            ChatReplyPreview(
-                              key: const ValueKey('active-reply-preview'),
-                              message: _replyTo!,
-                              onCancel: () => setState(() => _replyTo = null),
+                    : RefreshIndicator(
+                        onRefresh: _load,
+                        edgeOffset: hasNotice || _loadError != null
+                            ? 0
+                            : MediaQuery.paddingOf(context).top +
+                                  appBar.preferredSize.height,
+                        child: ListView.builder(
+                          reverse: true,
+                          controller: _scroll,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: EdgeInsets.fromLTRB(
+                            12,
+                            _loadError == null && !hasNotice
+                                ? MediaQuery.paddingOf(context).top +
+                                      appBar.preferredSize.height +
+                                      8
+                                : 8,
+                            12,
+                            2,
+                          ),
+                          itemCount: _messages.length + (_hasOlder ? 1 : 0),
+                          itemBuilder: (context, reverseIndex) {
+                            if (reverseIndex == _messages.length) {
+                              return EarlierMessagesButton(
+                                loading: _loadingOlder,
+                                error: _olderError,
+                                onPressed: _loadOlder,
+                              );
+                            }
+                            final index = _messages.length - 1 - reverseIndex;
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (messageDate(_messages[index])
+                                    case final date?)
+                                  if (index == 0 ||
+                                      !sameChatDay(
+                                        date,
+                                        messageDate(_messages[index - 1]),
+                                      ))
+                                    ChatDateChip(label: chatDateLabel(date)),
+                                _messageBubble(_messages[index]),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+              ),
+              if (_searching)
+                _searchFooter()
+              else
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+                    child: !_canSend && _editingMessage == null
+                        ? Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
                             ),
-                          if (_attachmentDraft != null)
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.fromLTRB(10, 7, 4, 7),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.attach_file,
-                                    size: 19,
-                                    color: authRed,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      '${_attachmentDraft!['name']}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    key: const ValueKey(
-                                      'remove-chat-attachment',
-                                    ),
-                                    tooltip: 'Remove attachment',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () =>
-                                        setState(() => _attachmentDraft = null),
-                                    icon: const Icon(Icons.close, size: 18),
-                                  ),
-                                ],
-                              ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
                             ),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                            child: Text(
+                              _blockedBy
+                                  ? '${widget.title} has blocked you.'
+                                  : _careBlocked
+                                  ? 'You blocked ${widget.title}. Use Unblock to message again.'
+                                  : _permission == 'off'
+                                  ? 'Chat is turned off.'
+                                  : 'Only the admin / creator can send messages.',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: authMuted),
+                            ),
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Expanded(
-                                child: Container(
+                              if (_editingMessage != null) _inlineEditNotice(),
+                              ChatComposerReply(
+                                message: _replyTo,
+                                onCancel: () => setState(() => _replyTo = null),
+                              ),
+                              if (_attachmentDraft != null)
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    10,
+                                    7,
+                                    4,
+                                    7,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
-                                    borderRadius: BorderRadius.circular(26),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
-                                  padding: const EdgeInsets.only(right: 4),
                                   child: Row(
                                     children: [
-                                      IconButton(
-                                        key: const ValueKey('chat-emoji'),
-                                        tooltip: 'Add emoji',
-                                        onPressed: _sending
-                                            ? null
-                                            : _chooseEmoji,
-                                        constraints:
-                                            const BoxConstraints.tightFor(
-                                              width: 40,
-                                              height: 44,
-                                            ),
-                                        icon: const Icon(
-                                          Icons
-                                              .sentiment_satisfied_alt_outlined,
-                                          color: authRed,
-                                        ),
+                                      const Icon(
+                                        Icons.attach_file,
+                                        size: 19,
+                                        color: authRed,
                                       ),
+                                      const SizedBox(width: 6),
                                       Expanded(
-                                        child: TextField(
-                                          controller: _text,
+                                        child: Text(
+                                          '${_attachmentDraft!['name']}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
-                                            fontSize: 15,
-                                            height: 1.3,
-                                            color: Color(0xFF242127),
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
                                           ),
-                                          focusNode: _textFocus,
-                                          maxLength: 10000,
-                                          minLines: 1,
-                                          maxLines: 4,
-                                          decoration: const InputDecoration(
-                                            hintText: 'Message',
-                                            counterText: '',
-                                            filled: true,
-                                            fillColor: Colors.white,
-                                            isDense: true,
-                                            contentPadding:
-                                                EdgeInsets.symmetric(
-                                                  horizontal: 4,
-                                                  vertical: 12,
-                                                ),
-                                            border: InputBorder.none,
-                                            enabledBorder: InputBorder.none,
-                                            focusedBorder: InputBorder.none,
-                                          ),
-                                          onSubmitted: (_) => _send(),
                                         ),
                                       ),
                                       IconButton(
-                                        key: const ValueKey('chat-attachment'),
-                                        tooltip: 'Attach file',
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed:
-                                            _sending || _uploadingAttachment
-                                            ? null
-                                            : _pickAttachment,
-                                        constraints:
-                                            const BoxConstraints.tightFor(
-                                              width: 36,
-                                              height: 44,
-                                            ),
-                                        icon: _uploadingAttachment
-                                            ? const SizedBox(
-                                                width: 20,
-                                                height: 20,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                              )
-                                            : const Icon(
-                                                Icons.attach_file_rounded,
-                                                color: authRed,
-                                              ),
-                                      ),
-                                      IconButton(
-                                        key: const ValueKey('chat-camera'),
-                                        tooltip: 'Open camera',
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed:
-                                            _sending || _uploadingAttachment
-                                            ? null
-                                            : _pickCamera,
-                                        constraints:
-                                            const BoxConstraints.tightFor(
-                                              width: 36,
-                                              height: 44,
-                                            ),
-                                        padding: const EdgeInsets.only(
-                                          right: 4,
+                                        key: const ValueKey(
+                                          'remove-chat-attachment',
                                         ),
-                                        icon: const Icon(
-                                          Icons.photo_camera_outlined,
-                                          color: authRed,
+                                        tooltip: 'Remove attachment',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () => setState(
+                                          () => _attachmentDraft = null,
                                         ),
+                                        icon: const Icon(Icons.close, size: 18),
                                       ),
                                     ],
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Padding(
-                                padding: EdgeInsets.zero,
-                                child: IconButton.filled(
-                                  tooltip: 'Send message',
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: authRed,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(48, 48),
-                                    maximumSize: const Size(48, 48),
-                                    padding: EdgeInsets.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  onPressed: _sending || _uploadingAttachment
-                                      ? null
-                                      : _send,
-                                  icon: _sending
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(26),
+                                      ),
+                                      padding: const EdgeInsets.only(right: 4),
+                                      child: Row(
+                                        children: [
+                                          IconButton(
+                                            key: const ValueKey('chat-emoji'),
+                                            tooltip: 'Add emoji',
+                                            onPressed: _sending || _savingEdit
+                                                ? null
+                                                : _chooseEmoji,
+                                            constraints:
+                                                const BoxConstraints.tightFor(
+                                                  width: 40,
+                                                  height: 44,
+                                                ),
+                                            icon: const Icon(
+                                              Icons
+                                                  .sentiment_satisfied_alt_outlined,
+                                              color: authRed,
+                                            ),
                                           ),
-                                        )
-                                      : const Icon(
-                                          Icons.send,
-                                          color: Colors.white,
-                                        ),
-                                ),
+                                          Expanded(
+                                            child: TextField(
+                                              controller: _text,
+                                              enabled: !_savingEdit,
+                                              key: const ValueKey(
+                                                'chat-message-input',
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                height: 1.3,
+                                                color: Color(0xFF242127),
+                                              ),
+                                              focusNode: _textFocus,
+                                              maxLength: 10000,
+                                              minLines: 1,
+                                              maxLines: 4,
+                                              decoration: const InputDecoration(
+                                                hintText: 'Message',
+                                                counterText: '',
+                                                filled: false,
+                                                fillColor: Colors.white,
+                                                isDense: true,
+                                                contentPadding:
+                                                    EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 12,
+                                                    ),
+                                                border: InputBorder.none,
+                                                enabledBorder: InputBorder.none,
+                                                focusedBorder: InputBorder.none,
+                                              ),
+                                              onSubmitted: (_) => _send(),
+                                            ),
+                                          ),
+                                          if (_editingMessage == null)
+                                            IconButton(
+                                              key: const ValueKey(
+                                                'chat-attachment',
+                                              ),
+                                              tooltip: 'Attach file',
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              onPressed:
+                                                  _sending ||
+                                                      _uploadingAttachment
+                                                  ? null
+                                                  : _pickAttachment,
+                                              constraints:
+                                                  const BoxConstraints.tightFor(
+                                                    width: 36,
+                                                    height: 44,
+                                                  ),
+                                              icon: _uploadingAttachment
+                                                  ? const SizedBox(
+                                                      width: 20,
+                                                      height: 20,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
+                                                    )
+                                                  : const Icon(
+                                                      Icons.attach_file_rounded,
+                                                      color: authRed,
+                                                    ),
+                                            ),
+                                          if (_editingMessage == null)
+                                            IconButton(
+                                              key: const ValueKey(
+                                                'chat-camera',
+                                              ),
+                                              tooltip: 'Open camera',
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              onPressed:
+                                                  _sending ||
+                                                      _uploadingAttachment
+                                                  ? null
+                                                  : _pickCamera,
+                                              constraints:
+                                                  const BoxConstraints.tightFor(
+                                                    width: 36,
+                                                    height: 44,
+                                                  ),
+                                              padding: const EdgeInsets.only(
+                                                right: 4,
+                                              ),
+                                              icon: const Icon(
+                                                Icons.photo_camera_outlined,
+                                                color: authRed,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Padding(
+                                    padding: EdgeInsets.zero,
+                                    child: ValueListenableBuilder<TextEditingValue>(
+                                      valueListenable: _text,
+                                      builder: (context, value, child) =>
+                                          IconButton.filled(
+                                            tooltip: _editingMessage != null
+                                                ? 'Save edit'
+                                                : 'Send message',
+                                            style: IconButton.styleFrom(
+                                              backgroundColor: authRed,
+                                              foregroundColor: Colors.white,
+                                              disabledBackgroundColor: authRed,
+                                              disabledForegroundColor:
+                                                  Colors.white70,
+                                              minimumSize: const Size(48, 48),
+                                              maximumSize: const Size(48, 48),
+                                              padding: EdgeInsets.zero,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                            onPressed: _editingMessage != null
+                                                ? (_canSaveInlineEdit
+                                                      ? _saveInlineEdit
+                                                      : null)
+                                                : (_sending ||
+                                                          _uploadingAttachment
+                                                      ? null
+                                                      : _send),
+                                            icon:
+                                                (_editingMessage != null
+                                                    ? _savingEdit
+                                                    : _sending)
+                                                ? const SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          color: Colors.white,
+                                                        ),
+                                                  )
+                                                : Icon(
+                                                    _editingMessage != null
+                                                        ? Icons.check_rounded
+                                                        : Icons.send,
+                                                    color: Colors.white,
+                                                  ),
+                                          ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
-              ),
-            ),
-          ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

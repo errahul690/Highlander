@@ -247,13 +247,15 @@ class _GalleryFeaturedCarouselState extends State<GalleryFeaturedCarousel> {
                     height: 1.2,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  widget.subtitle(item),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
+                if (widget.subtitle(item).isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.subtitle(item),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ],
               ],
             ),
           ),

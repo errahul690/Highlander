@@ -3,12 +3,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:Highlanders/features/chat/data/chat_background_repository.dart';
+import 'package:Highlanders/core/theme/brand_colors.dart';
 
 /// Light paper wallpaper with a few faint, widely spaced line icons.
 class ChatWallpaper extends StatefulWidget {
-  const ChatWallpaper({super.key, required this.child});
+  const ChatWallpaper({
+    super.key,
+    required this.child,
+    this.theme = 'default',
+    this.dimmed = false,
+  });
 
   final Widget child;
+  final String theme;
+  final bool dimmed;
 
   @override
   State<ChatWallpaper> createState() => _ChatWallpaperState();
@@ -42,7 +50,17 @@ class _ChatWallpaperState extends State<ChatWallpaper> {
       fit: StackFit.expand,
       children: [
         const CustomPaint(painter: ChatPaperPainter()),
-        if (_background.imageBytes != null)
+        if (widget.theme != 'default')
+          ColoredBox(
+            color: switch (widget.theme) {
+              'rose' => const Color(0xFFF9EDF1),
+              'sage' => const Color(0xFFEDF5EF),
+              'sky' => const Color(0xFFEDF3FB),
+              'sand' => const Color(0xFFF8F0DF),
+              _ => Colors.transparent,
+            },
+          ),
+        if (widget.theme == 'default' && _background.imageBytes != null)
           Image.memory(
             _background.imageBytes!,
             key: ValueKey('admin-chat-background-${_background.imageUrl}'),
@@ -51,6 +69,8 @@ class _ChatWallpaperState extends State<ChatWallpaper> {
             gaplessPlayback: true,
             excludeFromSemantics: true,
           ),
+        if (widget.dimmed)
+          ColoredBox(color: brandAccent.withValues(alpha: .18)),
         widget.child,
       ],
     );

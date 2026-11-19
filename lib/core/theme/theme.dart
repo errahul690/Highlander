@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:Highlanders/core/theme/brand_colors.dart';
+import 'package:Highlanders/core/theme/app_motion.dart';
 
 const clubRed = brandAccent;
 const clubBlood = brandAccentDark;
@@ -58,11 +59,12 @@ ThemeData clubTheme({String fontFamily = clubFontFamily}) {
   return base.copyWith(
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
-        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.android: AppPageTransitionsBuilder(),
         TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
         TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-        TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.windows: AppPageTransitionsBuilder(),
+        TargetPlatform.linux: AppPageTransitionsBuilder(),
+        TargetPlatform.fuchsia: AppPageTransitionsBuilder(),
       },
     ),
     textTheme: base.textTheme
@@ -150,10 +152,20 @@ ThemeData clubTheme({String fontFamily = clubFontFamily}) {
     chipTheme: base.chipTheme.copyWith(
       selectedColor: brandAccent,
       checkmarkColor: Colors.white,
-      labelStyle: WidgetStateTextStyle.resolveWith((states) => TextStyle(
+      labelStyle: TextStyle(
         fontFamily: fontFamily,
-        color: states.contains(WidgetState.selected) ? Colors.white : clubInk,
-      )),
+        color: WidgetStateColor.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? authMuted
+              : states.contains(WidgetState.selected)
+              ? Colors.white
+              : clubInk,
+        ),
+      ),
+      secondaryLabelStyle: TextStyle(
+        fontFamily: fontFamily,
+        color: Colors.white,
+      ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(

@@ -5,6 +5,34 @@ import 'package:Highlanders/core/session/session.dart';
 import 'package:Highlanders/features/chat/widgets/chat_media_image.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 
+class ChatComposerReply extends StatelessWidget {
+  const ChatComposerReply({super.key, this.message, required this.onCancel});
+  final Map<String, dynamic>? message;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) => AnimatedSize(
+    duration: MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180),
+    reverseDuration: MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 140),
+    curve: Curves.easeOutCubic,
+    alignment: Alignment.bottomCenter,
+    child: SizedBox(
+      width: double.infinity,
+      child: message == null
+          ? const SizedBox(height: 0)
+          : ChatReplyPreview(
+              key: const ValueKey('active-reply-preview'),
+              message: message!,
+              onCancel: onCancel,
+            ),
+    ),
+  );
+}
+
 class ChatReplyPreview extends StatelessWidget {
   const ChatReplyPreview({
     super.key,
@@ -20,6 +48,8 @@ class ChatReplyPreview extends StatelessWidget {
     final own = message['senderEmail'] == Session.email;
     final author = own ? 'You' : '${message['senderName'] ?? 'Highlander'}';
     final content = '${message['content'] ?? ''}'.trim();
+    final shared =
+        message['sharedPostId'] != null || message['sharedPost'] is Map;
     final attachment = '${message['attachmentUrl'] ?? message['image'] ?? ''}'
         .trim();
     final type = '${message['attachmentType'] ?? ''}';
@@ -29,6 +59,8 @@ class ChatReplyPreview extends StatelessWidget {
     final hasMedia = isPhoto || isVideo || attachment.isNotEmpty;
     final summary = content.isNotEmpty
         ? content
+        : shared
+        ? 'Shared a post'
         : isPhoto
         ? 'Photo'
         : isVideo
@@ -152,6 +184,13 @@ class ChatReplyPreview extends StatelessWidget {
                                 url: attachment,
                                 thumbnail:
                                     '${message['attachmentThumbnail'] ?? ''}',
+                                mediaWidth: (message['attachmentWidth'] as num?)
+                                    ?.toDouble(),
+                                mediaHeight:
+                                    (message['attachmentHeight'] as num?)
+                                        ?.toDouble(),
+                                preview:
+                                    '${message['attachmentPreview'] ?? ''}',
                                 key: const ValueKey('reply-photo-thumbnail'),
                                 width: 54,
                                 height: 54,
@@ -189,11 +228,13 @@ class ChatReplyGesture extends StatefulWidget {
     required this.child,
     required this.onReply,
     required this.onLongPress,
+    this.onTap,
   });
   final String messageId;
   final Widget child;
   final VoidCallback? onReply;
   final VoidCallback onLongPress;
+  final VoidCallback? onTap;
 
   @override
   State<ChatReplyGesture> createState() => _ChatReplyGestureState();
@@ -236,6 +277,7 @@ class _ChatReplyGestureState extends State<ChatReplyGesture>
     key: ValueKey('reply-swipe-${widget.messageId}'),
     behavior: HitTestBehavior.opaque,
     onLongPress: widget.onLongPress,
+    onTap: widget.onTap,
     onHorizontalDragStart: widget.onReply == null
         ? null
         : (_) {

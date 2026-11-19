@@ -380,7 +380,10 @@ class ChatMediaDisplay {
 }
 
 /// Small upload preview, generated once on the sender's device.
-Future<Uint8List> createChatThumbnail(Uint8List bytes) async {
+Future<Uint8List> createChatThumbnail(
+  Uint8List bytes, {
+  int maxDimension = 320,
+}) async {
   final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
   try {
     final descriptor = await ui.ImageDescriptor.encoded(buffer);
@@ -388,10 +391,13 @@ Future<Uint8List> createChatThumbnail(Uint8List bytes) async {
       final largest = descriptor.width > descriptor.height
           ? descriptor.width
           : descriptor.height;
-      final ratio = largest > 320 ? 320 / largest : 1.0;
+      final ratio = largest > maxDimension ? maxDimension / largest : 1.0;
       final codec = await descriptor.instantiateCodec(
-        targetWidth: (descriptor.width * ratio).round().clamp(1, 320),
-        targetHeight: (descriptor.height * ratio).round().clamp(1, 320),
+        targetWidth: (descriptor.width * ratio).round().clamp(1, maxDimension),
+        targetHeight: (descriptor.height * ratio).round().clamp(
+          1,
+          maxDimension,
+        ),
       );
       try {
         final frame = await codec.getNextFrame();

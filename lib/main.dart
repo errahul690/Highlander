@@ -4,6 +4,7 @@ import 'package:Highlanders/features/settings/widgets/store_update_gate.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:Highlanders/core/platform/app_orientation.dart';
 
 import 'package:Highlanders/features/auth/data/otp_api.dart';
 import 'package:Highlanders/core/notifications/push_alerts.dart';
@@ -38,6 +39,7 @@ const _links = MethodChannel('highlanders/app_links');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await restoreAppOrientation();
   PushAlerts.listenForBackgroundMessages();
   Session.onInvalidated = () {
     unawaited(MessageAlerts.stop());

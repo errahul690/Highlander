@@ -12,6 +12,7 @@ import 'package:Highlanders/features/auth/data/otp_api.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
 import 'package:Highlanders/core/network/network_read.dart';
 import 'package:Highlanders/features/posts/widgets/post_reaction.dart';
+import 'package:Highlanders/features/posts/widgets/post_share_sheet.dart';
 import 'package:Highlanders/features/posts/services/post_link_router.dart';
 import 'package:Highlanders/core/theme/theme.dart';
 import 'package:Highlanders/core/session/session.dart';
@@ -596,11 +597,8 @@ class _FeedPostCardState extends State<FeedPostCard> {
 
   void _error(Object error) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(userFacingError(error)),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(userFacingError(error))));
     }
   }
 
@@ -700,19 +698,8 @@ class _FeedPostCardState extends State<FeedPostCard> {
 
   Future<void> _share() async {
     try {
-      final link = sharedPostUrl('${_post['_id']}');
-      await const MethodChannel(
-        'highlanders/app_links',
-      ).invokeMethod('sharePost', {'text': '${_post['content'] ?? ''}\n$link'});
-      if (Session.token.isEmpty) return;
-      // Count a share-sheet launch; external app delivery cannot be confirmed.
-      final result = await PostsApi.instance.request(
-        '/api/user/posts/${_post['_id']}/share',
-        method: 'POST',
-      );
-      if (mounted) {
-        setState(() => _post = result['post'] as Map<String, dynamic>);
-      }
+      final changed = await showPostShareSheet(context, _post);
+      if (mounted && changed) await _reload();
     } catch (error) {
       _error(error);
     }

@@ -17,6 +17,7 @@ import 'package:Highlanders/features/grounds/data/grounds_repository.dart';
 import 'package:Highlanders/features/swoofi/screens/swoofi_screen.dart';
 
 import 'package:Highlanders/shared/widgets/app_bottom_navigation.dart';
+import 'package:Highlanders/shared/widgets/app_tab_stack.dart';
 import 'package:Highlanders/features/feed/widgets/feed_background.dart';
 import 'package:Highlanders/features/feed/widgets/feed_welcome.dart';
 import 'package:Highlanders/features/grounds/widgets/grounds_host.dart';
@@ -74,7 +75,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     return true;
   }
 
-  void _selectTab(int index) => setState(() => _index = index);
+  void _selectTab(int index) {
+    if (_index == index) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _index = index);
+  }
 
   late final void Function(String payload) _openNotification = (payload) {
     if (!mounted) return;
@@ -172,7 +177,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       Navigator.of(context)
           .push(MaterialPageRoute(builder: (_) => const CreatePostScreen()));
     } else {
-      setState(() => _index = 2);
+      _selectTab(2);
     }
   }
 
@@ -194,7 +199,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 builder: (greetingSlot) => Scaffold(
                   extendBody: true,
                   backgroundColor: Colors.transparent,
-                  body: IndexedStack(
+                  body: AppTabStack(
                     index: _index,
                     children: [
                       FriendsScreen(
@@ -210,7 +215,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                       const ExploreScreen(),
                       ProfileScreen(
                         isActive: _index == 4,
-                        onBack: () => setState(() => _index = 2),
+                        onBack: () => _selectTab(2),
                       ),
                     ],
                   ),
@@ -220,7 +225,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                       if (index == 2) {
                         _centerTap();
                       } else {
-                        setState(() => _index = index);
+                        _selectTab(index);
                       }
                     },
                   ),

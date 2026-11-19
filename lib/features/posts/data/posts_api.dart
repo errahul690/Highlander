@@ -5,6 +5,8 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:Highlanders/features/chat/data/chat_media_cache.dart';
+import 'package:Highlanders/features/chat/data/chat_media_metadata.dart';
+import 'package:Highlanders/core/media/video_thumbnail.dart';
 import 'package:Highlanders/features/chat/data/chat_file_cache.dart';
 
 import 'dart:io';
@@ -63,18 +65,36 @@ class PostsApi {
         return result;
       }
 
-      final preview = type.startsWith('image/')
-          ? createChatThumbnail(bytes).catchError((Object _) => Uint8List(0))
-          : Future.value(Uint8List(0));
+      final previewBytes = () async {
+        if (type.startsWith('image/')) return bytes;
+        if (type.startsWith('video/')) {
+          final frame = await VideoThumbnail.load(path, local: true);
+          if (frame != null) return File(frame).readAsBytes();
+        }
+        return Uint8List(0);
+      }().catchError((Object _) => Uint8List(0));
+      final preview = previewBytes
+          .then(
+            (image) async =>
+                image.isEmpty ? Uint8List(0) : await createChatThumbnail(image),
+          )
+          .catchError((Object _) => Uint8List(0));
+      final metadata = previewBytes
+          .then(
+            (image) async => image.isEmpty
+                ? <String, dynamic>{}
+                : await createChatMediaMetadata(image),
+          )
+          .catchError((Object _) => <String, dynamic>{});
       final result = await uploadBytes(bytes, name, type);
       final url = '${result['file_url'] ?? result['url']}';
       String? thumbnail;
-      if (type.startsWith('image/')) {
-        if (Session.token == uploadToken) {
+      if (type.startsWith('image/') || type.startsWith('video/')) {
+        if (type.startsWith('image/') && Session.token == uploadToken) {
           unawaited(ChatMediaCache.instance.seed(url, bytes));
         }
         final small = await preview;
-        if (small.isNotEmpty && small.length < bytes.length * .8) {
+        if (small.isNotEmpty) {
           try {
             final uploaded = await uploadBytes(
               small,
@@ -104,6 +124,7 @@ class PostsApi {
         'name': result['originalname'] ?? name,
         'type': result['mimetype'] ?? type,
         'thumbnail': ?thumbnail,
+        ...await metadata,
       };
     } finally {
       if (await file.exists()) await file.delete();

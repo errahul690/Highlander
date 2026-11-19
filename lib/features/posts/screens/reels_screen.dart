@@ -7,11 +7,12 @@ import 'package:video_player/video_player.dart';
 import 'package:Highlanders/features/auth/data/otp_api.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
 import 'package:Highlanders/core/network/network_read.dart';
-import 'package:Highlanders/features/posts/services/post_link_router.dart';
 import 'package:Highlanders/core/network/realtime_client.dart';
 import 'package:Highlanders/core/session/session.dart';
 import 'package:Highlanders/shared/widgets/media/video_poster.dart';
-import 'package:Highlanders/shared/widgets/club_header.dart';
+import 'package:Highlanders/features/posts/widgets/post_reaction.dart';
+import 'package:Highlanders/features/posts/screens/post_activity_screen.dart';
+import 'package:Highlanders/features/posts/widgets/post_share_sheet.dart';
 import 'package:Highlanders/features/posts/screens/post_detail_screen.dart';
 import 'package:Highlanders/features/posts/screens/repost_screen.dart';
 
@@ -31,6 +32,7 @@ class ReelsScreen extends StatefulWidget {
 class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   final _posts = <Map<String, dynamic>>[];
   final _busy = <String>{};
+  final _reactionKeys = <String, GlobalKey>{};
   late final PageController _pager;
   int _index = 0;
   String? _cursor, _error;
@@ -55,6 +57,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
               ..._posts[index],
               if (updated['likes'] != null) 'likes': updated['likes'],
               if (updated['liked'] != null) 'liked': updated['liked'],
+              'reactionType': updated['reactionType'],
               if (updated['comments'] != null) 'comments': updated['comments'],
               if (updated['reposts'] != null) 'reposts': updated['reposts'],
               if (updated['shares'] != null) 'shares': updated['shares'],
@@ -172,13 +175,26 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
 
   void _message(Object error) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(userFacingError(error))),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(userFacingError(error))));
     }
   }
 
-  Future<void> _like(Map<String, dynamic> post) async {
+  Future<void> _pickReaction(Map<String, dynamic> post) async {
+    if (_busy.contains(_id(post))) return;
+    final button = _reactionKeys[_id(post)]?.currentContext?.findRenderObject();
+    if (button is! RenderBox || !button.hasSize) return;
+    final reaction = await showPostReactionPicker(
+      context,
+      anchor: button.localToGlobal(Offset.zero) & button.size,
+    );
+    if (mounted && reaction != null) await _like(post, reaction: reaction);
+  }
+
+  Future<void> _like(
+    Map<String, dynamic> post, {
+    PostReaction? reaction,
+  }) async {
     if (Session.token.isEmpty) {
       _message('Please log in to like videos.');
       return;
@@ -191,23 +207,34 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
 
     final currentPost = _posts[index];
     final wasLiked = currentPost['liked'] == true;
+    final previousReaction = currentPost['reactionType'];
     final currentLikes = (currentPost['likes'] as num?)?.toInt() ?? 0;
-    final nextLiked = !wasLiked;
-    final nextLikes = nextLiked
+    final nextLiked = reaction != null || !wasLiked;
+    final nextReaction = nextLiked
+        ? (reaction ?? PostReaction.like).name
+        : null;
+    final nextLikes = nextLiked == wasLiked
+        ? currentLikes
+        : nextLiked
         ? currentLikes + 1
         : (currentLikes > 0 ? currentLikes - 1 : 0);
 
     // Immediate optimistic update
     setState(() {
       _busy.add(id);
-      _posts[index] = {...currentPost, 'liked': nextLiked, 'likes': nextLikes};
+      _posts[index] = {
+        ...currentPost,
+        'liked': nextLiked,
+        'likes': nextLikes,
+        'reactionType': nextReaction,
+      };
     });
 
     try {
       final data = await PostsApi.instance.request(
         '/api/user/posts/$id/like',
         method: 'PUT',
-        body: {'liked': nextLiked},
+        body: {'liked': nextLiked, 'reactionType': nextReaction},
       );
       if (mounted) {
         setState(() {
@@ -226,6 +253,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
               ..._posts[idx],
               'liked': wasLiked,
               'likes': currentLikes,
+              'reactionType': previousReaction,
             };
           }
         });
@@ -300,16 +328,8 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     if (id.isEmpty) return;
     setState(() => _covered = true);
     try {
-      final link = sharedPostUrl(id);
-      await const MethodChannel(
-        'highlanders/app_links',
-      ).invokeMethod('sharePost', {'text': '${post['content'] ?? ''}\n$link'});
-      if (Session.token.isNotEmpty) {
-        await PostsApi.instance.request(
-          '/api/user/posts/$id/share',
-          method: 'POST',
-        );
-      }
+      await showPostShareSheet(context, post);
+      await _refreshPost(id);
     } catch (error) {
       _message(error);
     } finally {
@@ -322,8 +342,6 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     value: SystemUiOverlayStyle.light,
     child: Scaffold(
       backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
-      appBar: const ClubHeader(title: 'Reels', showSearch: false),
       body: SafeArea(
         top: false,
         child: Stack(
@@ -421,24 +439,64 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              tooltip: 'Like video',
-                              onPressed: _busy.contains(_id(post))
-                                  ? null
-                                  : () => _like(post),
-                              color: post['liked'] == true
-                                  ? Colors.redAccent
-                                  : Colors.white,
-                              icon: Icon(
-                                post['liked'] == true
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                size: 30,
+                            Tooltip(
+                              key: _reactionKeys.putIfAbsent(
+                                _id(post),
+                                GlobalKey.new,
+                              ),
+                              message: 'Like video',
+                              child: TextButton(
+                                onLongPress: _busy.contains(_id(post))
+                                    ? null
+                                    : () => _pickReaction(post),
+                                onPressed: _busy.contains(_id(post))
+                                    ? null
+                                    : () => _like(post),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(48, 48),
+                                  padding: EdgeInsets.zero,
+                                  shape: const CircleBorder(),
+                                ),
+                                child: post['liked'] == true
+                                    ? PostReactionIcon(
+                                        reaction:
+                                            PostReaction.fromValue(
+                                              post['reactionType'],
+                                            ) ??
+                                            PostReaction.like,
+                                        size: 30,
+                                      )
+                                    : const Icon(
+                                        Icons.favorite_border,
+                                        size: 30,
+                                      ),
                               ),
                             ),
-                            Text(
-                              '${post['likes'] ?? 0}',
-                              style: const TextStyle(color: Colors.white),
+                            InkWell(
+                              onTap: () async {
+                                setState(() => _covered = true);
+                                try {
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          PostActivityScreen(post: post),
+                                    ),
+                                  );
+                                } finally {
+                                  if (mounted) setState(() => _covered = false);
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                child: Text(
+                                  '${post['likes'] ?? 0}',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 16),
                             IconButton(
@@ -485,28 +543,29 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
               top: 0,
               left: 8,
               right: 8,
-              child: Row(
-                children: [
-                  const Text(
-                    'Reels',
-                    style: TextStyle(
+              child: SafeArea(
+                bottom: false,
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Close reels',
+                      onPressed: () => Navigator.of(context).maybePop(),
                       color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
+                      icon: const Icon(Icons.arrow_back),
                     ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: _muted ? 'Unmute video' : 'Mute video',
-                    onPressed: () => setState(() => _muted = !_muted),
-                    color: Colors.white,
-                    icon: Icon(
-                      _muted
-                          ? Icons.volume_off_outlined
-                          : Icons.volume_up_outlined,
+                    const Spacer(),
+                    IconButton(
+                      tooltip: _muted ? 'Unmute video' : 'Mute video',
+                      onPressed: () => setState(() => _muted = !_muted),
+                      color: Colors.white,
+                      icon: Icon(
+                        _muted
+                            ? Icons.volume_off_outlined
+                            : Icons.volume_up_outlined,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             if (_loading)

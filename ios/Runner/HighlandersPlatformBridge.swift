@@ -129,7 +129,37 @@ final class HighlandersPlatformBridge: NSObject, UIDocumentPickerDelegate, UIDoc
       UIApplication.shared.open(url, options: [:]) { opened in
         result(opened ? nil : FlutterError(code: "open_failed", message: "Could not open this link", details: nil))
       }
+    case "getShareTargets":
+      let apps = [("whatsapp", "WhatsApp"), ("tg", "Telegram")]
+      result(apps.compactMap { scheme, label -> [String: String]? in
+        guard let url = URL(string: "\(scheme)://"), UIApplication.shared.canOpenURL(url) else { return nil }
+        return ["id": scheme, "label": label]
+      })
     case "sharePost":
+      if let target = arguments["target"] as? String, !target.isEmpty {
+        let text = arguments["text"] as? String ?? ""
+        var components = URLComponents()
+        if target == "whatsapp" {
+          components.scheme = "whatsapp"
+          components.host = "send"
+          components.queryItems = [URLQueryItem(name: "text", value: text)]
+        } else if target == "tg" {
+          components.scheme = "tg"
+          components.host = "msg_url"
+          components.queryItems = [URLQueryItem(name: "url", value: text)]
+        } else {
+          result(FlutterError(code: "share_failed", message: "This share app is unavailable", details: nil))
+          return
+        }
+        guard let url = components.url, UIApplication.shared.canOpenURL(url) else {
+          result(FlutterError(code: "share_failed", message: "This share app is unavailable", details: nil))
+          return
+        }
+        UIApplication.shared.open(url, options: [:]) { opened in
+          result(opened ? nil : FlutterError(code: "share_failed", message: "Could not open this app", details: nil))
+        }
+        return
+      }
       guard let presenter = presenter else {
         result(FlutterError(code: "share_failed", message: "Could not open share options", details: nil))
         return

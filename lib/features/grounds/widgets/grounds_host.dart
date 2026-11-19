@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'package:Highlanders/features/grounds/screens/grounds_screen.dart';
+import 'package:Highlanders/core/theme/app_motion.dart';
 
 /// Keeps the actual map surface laid out and painted behind the main app.
 /// Offstage/IndexedStack would keep Dart state but skip painting the WebView.
@@ -25,6 +26,7 @@ class GroundsHost extends StatefulWidget {
 class _GroundsHostState extends State<GroundsHost> {
   bool _warm = false;
   bool _visible = false;
+  bool _foregroundOffstage = false;
   bool _disposed = false;
   LocalHistoryEntry? _history;
 
@@ -45,7 +47,12 @@ class _GroundsHostState extends State<GroundsHost> {
     _history = LocalHistoryEntry(
       onRemove: () {
         _history = null;
-        if (mounted && !_disposed) setState(() => _visible = false);
+        if (mounted && !_disposed) {
+          setState(() {
+            _visible = false;
+            _foregroundOffstage = false;
+          });
+        }
       },
     );
     ModalRoute.of(context)!.addLocalHistoryEntry(_history!);
@@ -53,6 +60,7 @@ class _GroundsHostState extends State<GroundsHost> {
       _warm = true;
       _visible = true;
     });
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   @override
@@ -80,7 +88,28 @@ class _GroundsHostState extends State<GroundsHost> {
           ),
         ),
       // Only the foreground app is offstage; the map continues to paint.
-      Offstage(offstage: _visible, child: widget.child),
+      Offstage(
+        offstage: _foregroundOffstage,
+        child: IgnorePointer(
+          ignoring: _visible,
+          child: ExcludeSemantics(
+            excluding: _visible,
+            child: AnimatedOpacity(
+              opacity: _visible ? 0 : 1,
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : appMotionDuration,
+              curve: appMotionCurve,
+              onEnd: () {
+                if (mounted && _foregroundOffstage != _visible) {
+                  setState(() => _foregroundOffstage = _visible);
+                }
+              },
+              child: RepaintBoundary(child: widget.child),
+            ),
+          ),
+        ),
+      ),
     ],
   );
 }

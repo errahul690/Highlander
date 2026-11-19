@@ -1,8 +1,10 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
 import 'package:Highlanders/features/chat/data/chat_media_cache.dart';
+import 'package:Highlanders/features/chat/data/chat_media_metadata.dart';
 import 'package:Highlanders/core/media/media_auto_download.dart';
 
 import 'dart:async';
@@ -16,14 +18,20 @@ class ChatMediaImage extends StatefulWidget {
     super.key,
     required this.url,
     this.thumbnail = '',
+    this.preview = '',
+    this.mediaWidth,
+    this.mediaHeight,
     this.width = 230,
     this.height,
     this.openOnTap = false,
+    this.blurPreview = false,
   });
-  final String url, thumbnail;
+  final String url, thumbnail, preview;
+  final double? mediaWidth, mediaHeight;
   final double width;
   final double? height;
   final bool openOnTap;
+  final bool blurPreview;
   @override
   State<ChatMediaImage> createState() => _ChatMediaImageState();
 }
@@ -35,6 +43,9 @@ class _ChatMediaImageState extends State<ChatMediaImage> {
   bool _original = false;
   bool _downloaded = false, _downloading = false, _downloadFailed = false;
   double _aspectRatio = 4 / 3;
+  bool _geometryKnown = false;
+  double? get _messageAspect =>
+      chatMediaAspectRatio(widget.mediaWidth, widget.mediaHeight);
   int _version = 0;
 
   @override
@@ -72,7 +83,10 @@ class _ChatMediaImageState extends State<ChatMediaImage> {
   void didUpdateWidget(ChatMediaImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.url != widget.url ||
-        oldWidget.thumbnail != widget.thumbnail) {
+        oldWidget.thumbnail != widget.thumbnail ||
+        oldWidget.preview != widget.preview ||
+        oldWidget.mediaWidth != widget.mediaWidth ||
+        oldWidget.mediaHeight != widget.mediaHeight) {
       _resolve();
     }
   }
@@ -82,9 +96,11 @@ class _ChatMediaImageState extends State<ChatMediaImage> {
     final display = cache.peekDisplay(widget.url);
     _downloaded = display?.downloaded ?? false;
     final original = _downloaded ? cache.peek(widget.url) : null;
-    _bytes = original ?? display?.bytes;
+    _bytes =
+        original ?? display?.bytes ?? chatMediaPreviewBytes(widget.preview);
     _original = original != null;
-    _aspectRatio = display?.aspectRatio ?? 4 / 3;
+    _aspectRatio = _messageAspect ?? display?.aspectRatio ?? 4 / 3;
+    _geometryKnown = _messageAspect != null || display != null;
     _downloading = false;
     _autoTried = false;
     _downloadFailed = false;
@@ -108,7 +124,10 @@ class _ChatMediaImageState extends State<ChatMediaImage> {
       _bytes = original ?? display.bytes;
       _original = original != null;
       _downloaded = display.downloaded;
-      _aspectRatio = display.aspectRatio;
+      if (!_geometryKnown) {
+        _aspectRatio = _messageAspect ?? display.aspectRatio;
+      }
+      _geometryKnown = true;
     });
     if (display.downloaded && widget.openOnTap && !_original) {
       final bytes = await ChatMediaCache.instance.cached(widget.url);
@@ -144,7 +163,11 @@ class _ChatMediaImageState extends State<ChatMediaImage> {
           _bytes = bytes;
           _original = true;
           _downloaded = true;
-          _aspectRatio = display?.aspectRatio ?? _aspectRatio;
+          if (!_geometryKnown) {
+            _aspectRatio =
+                _messageAspect ?? display?.aspectRatio ?? _aspectRatio;
+          }
+          _geometryKnown = true;
         }
       });
       return;
@@ -165,89 +188,108 @@ class _ChatMediaImageState extends State<ChatMediaImage> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.openOnTap ? _tap : null,
-      child: SizedBox(
-        width: widget.width,
-        height: widget.height ?? widget.width / _aspectRatio,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            const ColoredBox(color: Color(0xFFF1E9EC)),
-            if (_bytes != null)
-              Image.memory(
-                _bytes!,
-                fit: widget.height == null ? BoxFit.contain : BoxFit.cover,
-                // Decode the original at the screen pixel density, not thumbnail size.
-                cacheWidth: _original
-                    ? (widget.width * MediaQuery.devicePixelRatioOf(context))
-                          .ceil()
-                          .clamp(1, 1536)
-                    : null,
-                filterQuality: FilterQuality.medium,
-                gaplessPlayback: true,
-                errorBuilder: (_, _, _) => const Center(
-                  child: Icon(Icons.broken_image_outlined, color: authMuted),
-                ),
-              )
-            else
-              const Center(
-                child: Icon(Icons.image_outlined, color: authMuted, size: 32),
+      child: widget.height != null
+          ? _frame(context, widget.width)
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth.isFinite
+                    ? widget.width.clamp(0.0, constraints.maxWidth)
+                    : widget.width;
+                return _frame(context, width);
+              },
+            ),
+    );
+  }
+
+  Widget _frame(BuildContext context, double width) => SizedBox(
+    width: width,
+    height: widget.height ?? width / _aspectRatio,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: Color(0xFFF1E9EC)),
+        if (_bytes != null)
+          ImageFiltered(
+            enabled: !_downloaded && (widget.openOnTap || widget.blurPreview),
+            imageFilter: ui.ImageFilter.blur(
+              sigmaX: 3,
+              sigmaY: 3,
+              tileMode: ui.TileMode.clamp,
+            ),
+            child: Image.memory(
+              _bytes!,
+              fit: widget.height == null ? BoxFit.contain : BoxFit.cover,
+              // Decode the original at the screen pixel density, not thumbnail size.
+              cacheWidth: _original
+                  ? (widget.width * MediaQuery.devicePixelRatioOf(context))
+                        .ceil()
+                        .clamp(1, 1536)
+                  : null,
+              filterQuality: FilterQuality.medium,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) => const Center(
+                child: Icon(Icons.broken_image_outlined, color: authMuted),
               ),
-            if (widget.openOnTap && !_downloaded)
-              Center(
-                child: Material(
-                  color: const Color(0xD92B2227),
-                  borderRadius: BorderRadius.circular(24),
-                  child: InkWell(
-                    key: const ValueKey('chat-photo-download'),
-                    onTap: _downloading ? null : _tap,
-                    borderRadius: BorderRadius.circular(24),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_downloading)
-                            const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          else
-                            Icon(
-                              _downloadFailed
-                                  ? Icons.refresh
-                                  : Icons.download_rounded,
-                              size: 20,
-                              color: Colors.white,
-                            ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _downloading
-                                ? 'Downloading…'
-                                : _downloadFailed
-                                ? 'Retry'
-                                : 'Download',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
+            ),
+          )
+        else
+          const Center(
+            child: Icon(Icons.image_outlined, color: authMuted, size: 32),
+          ),
+        if (widget.openOnTap && !_downloaded)
+          Center(
+            child: Material(
+              color: const Color(0xD92B2227),
+              borderRadius: BorderRadius.circular(24),
+              child: InkWell(
+                key: const ValueKey('chat-photo-download'),
+                onTap: _downloading ? null : _tap,
+                borderRadius: BorderRadius.circular(24),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_downloading)
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
-                        ],
+                        )
+                      else
+                        Icon(
+                          _downloadFailed
+                              ? Icons.refresh
+                              : Icons.download_rounded,
+                          size: 20,
+                          color: Colors.white,
+                        ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _downloading
+                            ? 'Downloading…'
+                            : _downloadFailed
+                            ? 'Retry'
+                            : 'Download',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
+            ),
+          ),
+      ],
+    ),
+  );
 }

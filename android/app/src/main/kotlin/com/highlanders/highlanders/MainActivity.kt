@@ -462,14 +462,18 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                     return@setMethodCallHandler
                 }
+                if (call.method == "getShareTargets") {
+                    try {
+                        result.success(PostShareTargets(this).list())
+                    } catch (error: Exception) {
+                        result.error("share_failed", "Could not load share apps", null)
+                    }
+                    return@setMethodCallHandler
+                }
                 if (call.method == "sharePost") {
                     try {
                         val text = call.argument<String>("text") ?: ""
-                        val share = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, text)
-                        }
-                        startActivity(Intent.createChooser(share, "Share post"))
+                        PostShareTargets(this).share(text, call.argument<String>("target"))
                         result.success(null)
                     } catch (error: Exception) {
                         result.error("share_failed", "Could not open share options", null)

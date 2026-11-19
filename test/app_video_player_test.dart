@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -263,7 +264,8 @@ void main() {
       await open(tester);
       await tester.tap(find.byKey(const ValueKey('video-forward-10')));
       await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('video-fullscreen')));
+      expect(find.byKey(const ValueKey('video-fullscreen')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('video-landscape')));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('video-fullscreen-page')),
@@ -283,7 +285,7 @@ void main() {
             )
             .last
             .arguments,
-        ['DeviceOrientation.landscapeLeft', 'DeviceOrientation.landscapeRight'],
+        ['DeviceOrientation.portraitUp'],
       );
       await tester.tap(find.byKey(const ValueKey('video-landscape')));
       await tester.pumpAndSettle();
@@ -294,7 +296,7 @@ void main() {
             )
             .last
             .arguments,
-        ['DeviceOrientation.portraitUp'],
+        ['DeviceOrientation.landscapeLeft', 'DeviceOrientation.landscapeRight'],
       );
       await tester.tap(find.byKey(const ValueKey('video-fullscreen-back')));
       await tester.pumpAndSettle();
@@ -309,10 +311,16 @@ void main() {
             )
             .last
             .arguments,
-        isEmpty,
+        defaultTargetPlatform == TargetPlatform.iOS
+            ? ['DeviceOrientation.portraitUp']
+            : isEmpty,
       );
       await close(tester);
     },
+    variant: TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
   );
 
   testWidgets(
@@ -360,10 +368,16 @@ void main() {
             )
             .last
             .arguments,
-        isEmpty,
+        defaultTargetPlatform == TargetPlatform.iOS
+            ? ['DeviceOrientation.portraitUp']
+            : isEmpty,
       );
       await close(tester);
     },
+    variant: TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
   );
 
   testWidgets('gallery opens in full view with the video title and no popup', (

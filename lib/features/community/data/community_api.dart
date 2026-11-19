@@ -15,6 +15,16 @@ class CommunityApi {
     return result['data'];
   }
 
+  Future<dynamic> translateMessage(Map<String, dynamic> body) async {
+    final result = await PostsApi.instance.request(
+      '/api/community/message-actions',
+      method: 'POST',
+      body: body,
+      timeout: const Duration(seconds: 30),
+    );
+    return result['data'];
+  }
+
   Future<List<Map<String, dynamic>>> list(String path) async =>
       (await request(path) as List)
           .map((row) => Map<String, dynamic>.from(row as Map))
