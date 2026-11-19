@@ -33,17 +33,80 @@ class OtpApi {
     _apiBase = base;
   }
 
+  static List<String> parseApiBases(String value) {
+    final result = <String>[];
+    for (final part in value.split(RegExp(r'\s*\|\|\s*|,'))) {
+      var base = part.trim().replaceFirst(RegExp(r'/+$'), '');
+      if (base.isEmpty) continue;
+      if (base.endsWith('/api')) base = base.substring(0, base.length - 4);
+      final uri = Uri.tryParse(base);
+      if (uri == null ||
+          !['http', 'https'].contains(uri.scheme) ||
+          uri.host.isEmpty ||
+          uri.userInfo.isNotEmpty ||
+          uri.hasQuery ||
+          uri.hasFragment) {
+        throw const OtpApiException(
+          'Each API_BASE_URL must be a full HTTP or HTTPS server URL.',
+        );
+      }
+      if (!result.contains(base)) result.add(base);
+    }
+    if (result.isEmpty) {
+      throw const OtpApiException('Set API_BASE_URL in the .env file.');
+    }
+    return result;
+  }
+
+  /// Select a server before issuing writes; never replay OTPs or posts.
+  static Future<void> selectAvailableBase(
+    List<String> bases, {
+    http.Client? client,
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    apiBase = bases.first;
+    if (bases.length == 1) return;
+    final probe = client ?? http.Client();
+    try {
+      for (final base in bases) {
+        try {
+          final response = await probe
+              .get(Uri.parse('$base/api/common/health'))
+              .timeout(timeout);
+          if (response.statusCode != 200) continue;
+          final data = jsonDecode(response.body);
+          if (data is Map &&
+              data['success'] == true &&
+              data['service'] == 'common') {
+            apiBase = base;
+            return;
+          }
+        } catch (_) {
+          /* Try the next explicitly configured server. */
+        }
+      }
+      // Preserve the primary URL for normal offline handling and later retries.
+    } finally {
+      if (client == null) probe.close();
+    }
+  }
+
   static Future<void> loadEnvironment() async {
     final raw = await rootBundle.loadString('.env');
     String? url;
     String? frontend;
+    String? fallback;
     for (final line in raw.split('\n')) {
       final trimmed = line.trim();
       if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
       final split = trimmed.indexOf('=');
       if (split <= 0) continue;
       final key = trimmed.substring(0, split).trim();
-      if (key != 'API_BASE_URL' && key != 'FRONTEND_URL') continue;
+      if (key != 'API_BASE_URL' &&
+          key != 'API_FALLBACK_URL' &&
+          key != 'FRONTEND_URL') {
+        continue;
+      }
       var value = trimmed.substring(split + 1).trim();
       if (value.length >= 2 &&
           ((value.startsWith('"') && value.endsWith('"')) ||
@@ -52,6 +115,8 @@ class OtpApi {
       }
       if (key == 'API_BASE_URL') {
         url = value.trim();
+      } else if (key == 'API_FALLBACK_URL') {
+        fallback = value.trim();
       } else {
         frontend = value.trim();
       }
@@ -59,8 +124,7 @@ class OtpApi {
     if (url == null || url.isEmpty) {
       throw const OtpApiException('Set API_BASE_URL in the .env file.');
     }
-    if (url.endsWith('/')) url = url.substring(0, url.length - 1);
-    apiBase = url;
+    await selectAvailableBase(parseApiBases([url, ?fallback].join(' || ')));
     frontendUrl = frontend ?? '';
   }
 

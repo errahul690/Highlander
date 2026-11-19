@@ -71,7 +71,12 @@ The Xcode project targets iOS 15.0 or newer, with bundle identifier
 From this directory on the Mac:
 
 ```sh
+cp .env.example .env
+# Set API_BASE_URL to the HTTPS API reachable from the iPhone before building.
 flutter pub get
+cd ios
+pod install
+cd ..
 flutter build ios --simulator
 open ios/Runner.xcworkspace
 ```
@@ -94,9 +99,42 @@ animation uses the existing Flutter splash screen after the native launch screen
 The production HTTPS API is configured in `.env`; point it to a server reachable
 from the iPhone when developing locally.
 
-Notifications currently depend on the app's socket connection. iOS can suspend
-that connection in the background; reliable delivery while suspended or terminated
-requires an APNs push integration with the backend, which is not included here.
+Firebase Messaging and APNs registration are integrated. Confirm that
+`ios/Runner/GoogleService-Info.plist` matches the signed bundle identifier, that
+Push Notifications and Background Modes > Remote notifications are enabled, and
+that the Firebase project has the team's APNs credentials. Verify push delivery
+and notification taps on a signed physical iPhone, including background and
+terminated states.
+
+### iOS developer handoff (19 November 2026)
+
+- Use a Flutter toolchain with Dart 3.13 or newer (the current local toolchain is
+  Flutter 3.47.6 / Dart 3.13.5). The deployment target remains iOS 15.0.
+- Pull the complete repository, including `third_party/video_player`,
+  `third_party/video_player_android` and `third_party/video_player_avfoundation`.
+  These local dependency overrides include the native first-frame readiness
+  channel used by the stadium splash. Keep the overrides and run `pod install`
+  after `flutter pub get`.
+- `.env` is ignored and must be created on the Mac. Use the production HTTPS API
+  for release builds; the example's LAN address is for local development.
+  Optional backup servers can be configured with `API_FALLBACK_URL` or an ordered
+  `API_BASE_URL=https://primary.example/api || https://backup.example/api` list.
+  Startup selects a server using `GET /api/common/health`, expecting HTTP 200
+  with `success: true` and `service: common`. Each probe has a three-second
+  timeout. OTP and other writes are sent only to the selected server.
+- Retain the native stadium launch asset/storyboard, the AppDelegate implicit
+  engine registration and Firebase Messaging delegate setup. On a physical
+  iPhone, verify cold launch, still-to-video transition, background/resume and
+  navigation after the splash completes.
+- Shared Dart updates include gallery/highlights fullscreen video controls,
+  Instagram reel handling, Create Post keyboard/layout behavior and API fallback
+  selection. Verify playback, seeking, mute, fullscreen exit, gallery filters,
+  Create Post with the keyboard, and first-open OTP verification on iPhone.
+- Run `flutter analyze`, `flutter build ios --release --no-codesign`, then a
+  signed device build. Configure the team's signing before
+  `flutter build ipa --release`, using a new build number for TestFlight.
+  iOS compilation and physical iPhone playback have not been verified on this
+  Windows development machine.
 
 Test folders, generated build outputs, Pods and local Xcode configuration are
 ignored. Do not commit signing certificates or provisioning profiles.
