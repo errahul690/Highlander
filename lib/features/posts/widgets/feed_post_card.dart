@@ -945,9 +945,14 @@ class _FeedPostCardState extends State<FeedPostCard> {
                   onSelected: (value) async {
                     if (value == 'copy') {
                       final messenger = ScaffoldMessenger.of(context);
-                      await Clipboard.setData(
-                        ClipboardData(text: sharedPostUrl('${_post['_id']}')),
-                      );
+                      final configured = '${_post['share_url'] ?? ''}'.trim();
+                      final link = configured.isNotEmpty
+                          ? configured
+                          : sharedPostUrl(
+                              '${_post['_id']}',
+                              await OtpApi.instance.loadFrontendUrl(),
+                            );
+                      await Clipboard.setData(ClipboardData(text: link));
                       if (!mounted) return;
                       messenger.showSnackBar(
                         const SnackBar(

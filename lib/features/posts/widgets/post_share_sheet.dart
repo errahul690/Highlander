@@ -9,6 +9,7 @@ import 'package:Highlanders/core/theme/app_motion.dart';
 import 'package:Highlanders/core/theme/theme.dart' show clubFontFamily;
 import 'package:Highlanders/features/chat/data/chat_updates.dart';
 import 'package:Highlanders/features/community/data/community_api.dart';
+import 'package:Highlanders/features/auth/data/otp_api.dart';
 import 'package:Highlanders/features/posts/data/posts_api.dart';
 import 'package:Highlanders/features/posts/services/post_link_router.dart';
 import 'package:Highlanders/shared/widgets/user_avatar.dart';
@@ -94,9 +95,10 @@ class _PostShareSheetState extends State<_PostShareSheet> {
   String? _error, _recentError;
   bool get _forwarding => widget.messageIds.isNotEmpty;
   String get _postId => '${widget.post['_id'] ?? widget.post['id'] ?? ''}';
-  String get _link {
+  Future<String> _shareLink() async {
     final configured = '${widget.post['share_url'] ?? ''}'.trim();
-    return configured.isEmpty ? sharedPostUrl(_postId) : configured;
+    if (configured.isNotEmpty) return configured;
+    return sharedPostUrl(_postId, await OtpApi.instance.loadFrontendUrl());
   }
 
   String _key(Map<String, dynamic> row) => '${row['kind']}:${row['target']}';
@@ -360,7 +362,7 @@ class _PostShareSheetState extends State<_PostShareSheet> {
 
   Future<void> _copyLink() async {
     try {
-      await Clipboard.setData(ClipboardData(text: _link));
+      await Clipboard.setData(ClipboardData(text: await _shareLink()));
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Link copied')));
@@ -378,7 +380,7 @@ class _PostShareSheetState extends State<_PostShareSheet> {
     });
     try {
       await _links.invokeMethod('sharePost', {
-        'text': _link,
+        'text': await _shareLink(),
         if (app != null) 'target': app['id'],
       });
       _changed = true;

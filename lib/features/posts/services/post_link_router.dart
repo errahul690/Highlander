@@ -1,4 +1,7 @@
-String sharedPostUrl(String postId) => 'https://highlanders.app/post/$postId';
+String sharedPostUrl(String postId, String base) {
+  final root = base.trim().replaceAll(RegExp(r'/+$'), '');
+  return '$root/post/$postId';
+}
 
 /// Holds shared posts until the signed-in app shell is ready.
 class PostLinkRouter {
