@@ -298,6 +298,8 @@ class Fixture {
     this.liveUrl = '',
     this.matchStatus = 'Upcoming',
     this.journeyStage = '',
+    this.showPreview = false,
+    this.showReport = false,
     this.id = '',
   });
 
@@ -337,6 +339,7 @@ class Fixture {
   final List<MatchLink> videos, links;
   final String feedThumbnail, liveThumbnail, previewThumbnail, reportThumbnail;
   final double? liveOverlay;
+  final bool showPreview, showReport;
   final String previewTitle,
       previewDescription,
       previewContent,

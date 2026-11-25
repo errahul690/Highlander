@@ -23,7 +23,7 @@ FeedMatchSelection? selectFeedMatch(List<Fixture> fixtures, DateTime now) {
     ].contains(fixture.matchStatus.trim().toLowerCase())) {
       continue;
     }
-    // Yesterday's confirmed result follows live/preview and precedes next match.
+    // Home stories are published by admin, independently of kickoff or stage.
     final status = fixture.matchStatus.trim().toLowerCase();
     final stage = fixture.journeyStage.trim().toLowerCase();
     final section = fixture.section.trim().toLowerCase();
@@ -37,19 +37,20 @@ FeedMatchSelection? selectFeedMatch(List<Fixture> fixtures, DateTime now) {
           'full-time',
           'ft',
         ].contains(status);
-    if (completed) {
-      final date = DateTime.tryParse('${fixture.date}T00:00:00Z');
-      if (date != null &&
-          date.toIso8601String().substring(0, 10) == fixture.date &&
-          today.difference(date).inDays == 1) {
-        choices.add((2, fixture, FeedMatchPhase.report));
-      }
+    if (fixture.showReport) {
+      choices.add((2, fixture, FeedMatchPhase.report));
       continue;
     }
-    if (stage == 'live' || section == 'live' || status == 'live') {
+    if (!completed &&
+        (stage == 'live' || section == 'live' || status == 'live')) {
       choices.add((0, fixture, FeedMatchPhase.live));
       continue;
     }
+    if (fixture.showPreview) {
+      choices.add((1, fixture, FeedMatchPhase.preview));
+      continue;
+    }
+    if (completed) continue;
     if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(fixture.date)) continue;
     final date = DateTime.tryParse('${fixture.date}T00:00:00Z');
     if (date == null ||
@@ -63,26 +64,17 @@ FeedMatchSelection? selectFeedMatch(List<Fixture> fixtures, DateTime now) {
         ? DateTime.tryParse('${fixture.date}T${fixture.time}:00+05:30')
         : null;
     if (kickoff == null) {
-      if (day == -1) {
-        choices.add((2, fixture, FeedMatchPhase.report));
-      } else if (day == 0 || day == 1) {
-        choices.add((1, fixture, FeedMatchPhase.preview));
-      } else if (day > 0) {
+      if (day >= 0) {
         choices.add((3, fixture, FeedMatchPhase.upcoming));
       }
       continue;
     }
     final remaining = kickoff.difference(now);
-    if (remaining > const Duration(hours: 24)) {
+    if (remaining > Duration.zero) {
       choices.add((3, fixture, FeedMatchPhase.upcoming));
-    } else if (remaining > Duration.zero) {
-      choices.add((1, fixture, FeedMatchPhase.preview));
     } else if (remaining > const Duration(hours: -6)) {
       // A source-confirmed final result, rather than the clock, ends the live stage.
       choices.add((0, fixture, FeedMatchPhase.live));
-    } else if (day == -1) {
-      // Show yesterday's match even if the source still labels it Upcoming.
-      choices.add((2, fixture, FeedMatchPhase.report));
     }
   }
   choices.sort((a, b) {
@@ -121,8 +113,7 @@ FeedMatchPhase fixturePhase(Fixture fixture, DateTime now) {
       : null;
   if (kickoff == null) return FeedMatchPhase.upcoming;
   final remaining = kickoff.difference(now);
-  if (remaining > const Duration(hours: 24)) return FeedMatchPhase.upcoming;
-  if (remaining > Duration.zero) return FeedMatchPhase.preview;
+  if (remaining > Duration.zero) return FeedMatchPhase.upcoming;
   if (remaining > const Duration(hours: -6)) return FeedMatchPhase.live;
   return FeedMatchPhase.upcoming;
 }

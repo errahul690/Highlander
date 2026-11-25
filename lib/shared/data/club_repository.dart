@@ -227,6 +227,8 @@ class ClubRepository {
                   reportUrl: '${row['report_url'] ?? ''}',
                   liveUrl: '${row['live_url'] ?? ''}',
                   journeyStage: '${row['journey_stage'] ?? ''}',
+                  showPreview: row['show_preview'] == true,
+                  showReport: row['show_report'] == true,
                   images: row['images'] is List
                       ? (row['images'] as List)
                             .whereType<String>()
